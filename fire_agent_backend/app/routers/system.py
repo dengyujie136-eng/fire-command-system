@@ -15,9 +15,16 @@ router = APIRouter(prefix="/system", tags=["system"])
 async def system_status() -> SystemStatusResponse:
     settings = get_settings()
     database_ready = False
+    postgis_ready = False
+    database_backend = "unknown"
     async with AsyncSessionLocal() as session:
         await session.execute(text("SELECT 1"))
         database_ready = True
+        bind = session.get_bind()
+        database_backend = bind.dialect.name
+        if database_backend == "postgresql":
+            result = await session.execute(text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis')"))
+            postgis_ready = bool(result.scalar())
     return SystemStatusResponse(
         ok=True,
         service=settings.app_name,
@@ -25,6 +32,8 @@ async def system_status() -> SystemStatusResponse:
         timestamp=datetime.now(timezone.utc),
         websocket_endpoint="/ws/system",
         database_ready=database_ready,
+        database_backend=database_backend,
+        postgis_ready=postgis_ready,
     )
 
 

@@ -1,3 +1,4 @@
+# Legacy ForeFire-only launcher. Use compose.yaml at the project root for team development.
 services:
   forefire-api:
     build:

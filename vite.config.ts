@@ -6,21 +6,14 @@ export default defineConfig({
   plugins: [vue(), cesium()],
   server: {
     proxy: {
-      '/api/agent': {
-        target: 'http://localhost:8100',
-        changeOrigin: true
-      },
-      '/agent': {
-        target: 'http://localhost:8100',
-        changeOrigin: true
-      },
       '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
+        target: 'http://localhost:8200',
+        changeOrigin: true,
       },
-      '/hotspot': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
+      '/ws': {
+        target: 'ws://localhost:8200',
+        ws: true,
+        changeOrigin: true,
       }
     }
   }

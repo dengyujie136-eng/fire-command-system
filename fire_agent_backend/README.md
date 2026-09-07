@@ -1,41 +1,34 @@
 # fire_agent_backend
 
-Formal backend foundation for the Xinghuo fire emergency agent system.
+星火智援系统的唯一业务编排后端，默认端口为 8200。它负责事件、场景时钟、观测与证据融合、火势推演编排、决策、推荐、重算、报告以及 WebSocket 通知。
 
-This backend is built to support real event flow, replaceable simulation adapters, multi-agent decision workflows, task dispatch, replanning, and report generation. Stage 1 only provides the production-shaped foundation: app structure, configuration, database initialization, health checks, errors, and a base WebSocket channel.
+ForeFire 是由本服务调用的专用计算服务，不是浏览器 API。`forest_fire_B` 是冻结的历史实现，不是运行依赖。
 
-## Run
+## 独立运行
 
 ```powershell
-cd "C:\Users\Daisy\Desktop\GIS综合实习\星火智援\fire_agent_backend"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env
+Copy-Item .env.example .env
 python run.py
 ```
 
-Default service URL:
+正式团队基线使用 PostgreSQL/PostGIS：
 
 ```text
-http://localhost:8200
+DATABASE_URL=postgresql+asyncpg://xinghuo:xinghuo_dev@localhost:5432/xinghuo
 ```
 
-## Stage 1 Endpoints
+将 `DATABASE_URL` 留空会回退到 `data/fire_agent_backend.db`，仅建议用于轻量烟雾测试。
 
-```text
-GET /health
-GET /api/system/status
-GET /api/system/connections
-WS  /ws/system
-```
+## 检查
 
-## Database
+- `GET /health`
+- `GET /api/system/status`
+- `GET /docs`
+- `GET /openapi.json`
+- `WS /ws/system`
+- `WS /ws/events/{event_id}`
 
-By default the backend creates:
-
-```text
-fire_agent_backend/data/fire_agent_backend.db
-```
-
-Set `DATABASE_URL` to switch to PostgreSQL or another SQLAlchemy-compatible database.
+PostgreSQL 启动时会自动启用 PostGIS，并为主要点、火线和路线建立空间列与 GiST 索引。

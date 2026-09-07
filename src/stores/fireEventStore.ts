@@ -1,6 +1,5 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import api from '../api'
 import { clockAPI, decisionAPI, eventAPI, observationAPI, recalculationAPI, recommendationAPI, reportAPI, scenarioAPI, spreadAPI } from '../api/modules'
 
 export const DEFAULT_MAP_CENTER: [number, number] = [101.269444, 28.530278]
@@ -704,8 +703,8 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     }
 
     try {
-      await api.post('/api/fire/archive', payload)
-      archiveMessage.value = '火灾事件已归档到后端数据库。'
+      if (eventId.value) await eventAPI.close(eventId.value)
+      archiveMessage.value = '火灾事件已关闭，相关过程数据保留在统一后端数据库中。'
     } catch (error) {
       const archives = safeParse<ArchivePayload[]>(localStorage.getItem(LOCAL_ARCHIVE_KEY), [])
       archives.unshift(payload)

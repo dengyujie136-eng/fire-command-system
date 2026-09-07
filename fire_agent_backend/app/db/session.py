@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import get_settings
 from app.db.base import Base
+from app.db.spatial import install_postgis_schema
 
 settings = get_settings()
 settings.resolved_data_dir.mkdir(parents=True, exist_ok=True)
@@ -34,6 +35,7 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(install_postgis_schema)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

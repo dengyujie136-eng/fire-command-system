@@ -30,3 +30,5 @@ class SystemStatusResponse(BaseModel):
     timestamp: datetime
     websocket_endpoint: str
     database_ready: bool
+    database_backend: str
+    postgis_ready: bool

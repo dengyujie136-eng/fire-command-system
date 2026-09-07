@@ -1,0 +1,80 @@
+name: xinghuo-fire-command
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-xinghuo}
+      POSTGRES_USER: ${POSTGRES_USER:-xinghuo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xinghuo_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-xinghuo} -d ${POSTGRES_DB:-xinghuo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  forefire-api:
+    build:
+      context: ./backend/forefire_api
+    ports:
+      - "5000:8080"
+    environment:
+      ENVIRONMENT_DIR: /app/environment
+      FOREFIRE_OUTPUT_DIR: /app/output
+      FOREFIRE_DATA_DIR: /app/data
+      FOREFIRE_CMD: "forefire -i {case_file}"
+    volumes:
+      - ./environment:/app/environment:ro
+      - forefire-output:/app/output
+      - forefire-data:/app/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  fire-agent-api:
+    build:
+      context: ./fire_agent_backend
+    ports:
+      - "8200:8200"
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xinghuo}:${POSTGRES_PASSWORD:-xinghuo_dev}@postgis:5432/${POSTGRES_DB:-xinghuo}
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      FOREFIRE_API_URL: http://forefire-api:8080
+      LLM_PROVIDER: ${LLM_PROVIDER:-zhipu}
+      LLM_MODEL: ${LLM_MODEL:-glm-4.6}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+    depends_on:
+      postgis:
+        condition: service_healthy
+      forefire-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8200/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN:-}
+    ports:
+      - "5173:80"
+    depends_on:
+      fire-agent-api:
+        condition: service_healthy
+
+volumes:
+  postgis-data:
+  forefire-output:
+  forefire-data:
