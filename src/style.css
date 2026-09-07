@@ -1,3 +1,5 @@
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css');
+
 * {
   margin: 0;
   padding: 0;
@@ -22,6 +24,14 @@ body {
 #app {
   display: flex;
   flex-direction: column;
+}
+
+:root {
+  /* 顶部胶囊统一字号：数字最大、中文状态居中、单位/英文/符号较小。 */
+  --capsule-number-size: clamp(18px, 1.35vw, 26px);
+  --capsule-text-size: clamp(12px, 0.85vw, 15px);
+  --capsule-unit-size: clamp(10px, 0.68vw, 12px);
+  --capsule-sub-size: clamp(9px, 0.6vw, 11px);
 }
 
 /* Scrollbar */
@@ -70,6 +80,213 @@ body {
   border-radius: 2px;
 }
 
+/* 顶部状态栏统一防溢出：禁止胶囊换行撑高页面，固定在可压缩高度内。 */
+.top-bar,
+.top-status-bar {
+  height: clamp(44px, 7vh, 64px) !important;
+  flex-basis: clamp(44px, 7vh, 64px) !important;
+  min-height: 0;
+  max-height: clamp(44px, 7vh, 64px);
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
+
+/* 胶囊高度受顶栏约束，避免多行内容把状态栏撑开或挤出视口。 */
+.top-bar > .capsule,
+.top-status-bar > .capsule-item {
+  min-width: 0 !important;
+  /* 适度增加胶囊最大长度，优先完整显示状态描述，仍用 vw 约束避免横向溢出。 */
+  max-width: min(34vw, 320px);
+  height: clamp(30px, 5.2vh, 44px);
+  max-height: calc(100% - 8px);
+  box-sizing: border-box;
+  overflow: hidden !important;
+  white-space: nowrap;
+  align-self: center;
+  flex-shrink: 1;
+}
+
+/* 多行胶囊改为在固定高度内居中压缩，防止小屏下出现上下错位。 */
+.top-bar > .capsule-resource,
+.top-bar > .capsule-left,
+.top-bar > .capsule.center,
+.top-bar > .capsule.right {
+  justify-content: center;
+  gap: clamp(1px, 0.35vh, 4px) !important;
+  line-height: 1.05;
+}
+
+/* 胶囊内部文字统一省略，避免长告警、时间、统计说明横向撑破。 */
+.top-bar .cap-data,
+.top-bar .cap-row,
+.top-bar .cap-val,
+.top-bar .cap-val-sm,
+.top-bar .cap-value,
+.top-bar .cap-value-sm,
+.top-bar .cap-big,
+.top-bar .cap-temp-num,
+.top-bar .cap-res-val,
+.top-bar .cap-online-text,
+.top-bar .cap-area-text,
+.top-bar .cap-unit,
+.top-bar .cap-temp-unit,
+.top-bar .cap-res-unit,
+.top-bar .cap-sub,
+.top-bar .cap-label,
+.top-bar .cap-res-label,
+.top-bar .cap-res-sub,
+.top-bar .cap-humidity,
+.top-bar .cap-alert-text,
+.top-bar .cap-alert-more,
+.top-bar .cap-suggest-text,
+.top-bar .cap-suggest-more,
+.top-bar .cap-risk-text,
+.top-bar .cap-risk-arrow,
+.top-bar .cap-weather,
+.top-bar .cap-wind,
+.top-bar .cap-num,
+.top-status-bar .capsule-value,
+.top-status-bar .capsule-unit,
+.top-status-bar .capsule-icon,
+.top-status-bar .capsule-text {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 数字统一放大，形成所有页面一致的数据视觉重心。 */
+.top-bar .cap-val,
+.top-bar .cap-value,
+.top-bar .cap-big,
+.top-bar .cap-temp-num,
+.top-bar .cap-res-val,
+.top-status-bar .capsule-value {
+  font-size: var(--capsule-number-size) !important;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 汉字说明、状态文字统一中等字号，避免同类文本忽大忽小。 */
+.top-bar .cap-val-sm,
+.top-bar .cap-value-sm,
+.top-bar .cap-online-text,
+.top-bar .cap-area-text,
+.top-bar .cap-alert-text,
+.top-bar .cap-suggest-text,
+.top-bar .cap-risk-text,
+.top-bar .cap-weather,
+.top-status-bar .capsule-text {
+  font-size: var(--capsule-text-size) !important;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+/* 单位、英文、符号、辅助标签统一小字号，和数字明确区分。 */
+.top-bar .cap-unit,
+.top-bar .cap-temp-unit,
+.top-bar .cap-res-unit,
+.top-bar .cap-label,
+.top-bar .cap-res-label,
+.top-bar .cap-sub,
+.top-bar .cap-res-sub,
+.top-bar .cap-humidity,
+.top-bar .cap-wind,
+.top-bar .cap-num,
+.top-bar .cap-alert-more,
+.top-bar .cap-suggest-more,
+.top-bar .cap-risk-arrow,
+.top-status-bar .capsule-unit,
+.top-status-bar .capsule-icon {
+  font-size: var(--capsule-unit-size) !important;
+  line-height: 1.1;
+}
+
+.top-bar .cap-sub,
+.top-bar .cap-res-sub,
+.top-bar .cap-humidity {
+  font-size: var(--capsule-sub-size) !important;
+}
+
+.top-bar .cap-temp {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: max-content;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+/* 顶栏右侧更新时间在窄屏优先收缩，避免把胶囊挤到下一行。 */
+.top-bar .top-right,
+.top-bar .update-tag {
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@media (max-width: 1366px), (max-height: 700px) {
+  :root {
+    --capsule-number-size: clamp(16px, 1.25vw, 22px);
+    --capsule-text-size: clamp(11px, 0.8vw, 13px);
+    --capsule-unit-size: clamp(9px, 0.62vw, 11px);
+    --capsule-sub-size: clamp(8px, 0.56vw, 10px);
+  }
+
+  .top-bar,
+  .top-status-bar {
+    height: clamp(42px, 6.5vh, 52px) !important;
+    flex-basis: clamp(42px, 6.5vh, 52px) !important;
+    max-height: clamp(42px, 6.5vh, 52px);
+  }
+
+  .top-bar > .capsule,
+  .top-status-bar > .capsule-item {
+    height: clamp(28px, 5vh, 38px);
+    max-width: min(31vw, 280px);
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .top-bar .cap-sub,
+  .top-bar .cap-humidity,
+  .top-bar .cap-trend,
+  .top-status-bar .capsule-unit {
+    display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .top-bar > .capsule,
+  .top-status-bar > .capsule-item {
+    max-width: min(32vw, 240px);
+  }
+}
+
+@media (max-width: 800px) {
+  .top-bar,
+  .top-status-bar {
+    height: 42px !important;
+    flex-basis: 42px !important;
+    max-height: 42px;
+    align-content: center !important;
+  }
+
+  .top-bar > .capsule,
+  .top-status-bar > .capsule-item {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    max-width: none;
+    height: 30px;
+    max-height: 30px;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+}
+
 .stat-card {
   background: rgba(30, 58, 95, 0.5);
   border: 1px solid rgba(59, 130, 246, 0.15);
@@ -91,3 +308,462 @@ body {
   color: #94a3b8;
   margin-top: 4px;
 }
+
+/* 图标修复层：用稳定的符号覆盖编码损坏后的占位文本，先恢复页面识别性。 */
+.cap-icon,
+.capsule-icon,
+.wg-icon,
+.rg-icon,
+.metric-icon,
+.fl-icon,
+.ico-item,
+.ml-btn,
+.float-btn,
+.dir-indicator,
+.arrow,
+.collapse-btn {
+  font-family: "Segoe UI Symbol", "Arial", sans-serif;
+}
+
+.capsule-temp .cap-icon,
+.weather-card .wg-cell:nth-child(1) .wg-icon,
+.fireline-list .fl-icon,
+.fli-temp::before {
+  font-size: 0 !important;
+}
+
+.capsule-temp .cap-icon::before,
+.weather-card .wg-cell:nth-child(1) .wg-icon::before,
+.fireline-list .fl-icon::before,
+.fli-temp::before {
+  content: "🔥";
+  font-size: 16px;
+}
+
+.capsule-area .cap-icon,
+.metric-item:nth-child(2) .metric-icon {
+  font-size: 0 !important;
+}
+
+.capsule-area .cap-icon::before,
+.metric-item:nth-child(2) .metric-icon::before {
+  content: "▧";
+  font-size: 15px;
+}
+
+.capsule-risk .cap-icon,
+.capsule-alert-time .cap-icon,
+.capsule-alert .alert-dot,
+.risk-dot,
+.cap-risk-dot {
+  font-size: 0 !important;
+}
+
+.capsule-risk .cap-icon::before,
+.cap-risk-dot::before,
+.risk-dot::before {
+  content: "●";
+  font-size: 13px;
+}
+
+.capsule-alert-time .cap-icon::before {
+  content: "⏱";
+  font-size: 15px;
+}
+
+.capsule-env .cap-icon,
+.weather-card .wg-cell:nth-child(2) .wg-icon {
+  font-size: 0 !important;
+}
+
+.capsule-env .cap-icon::before {
+  content: "☀";
+  font-size: 15px;
+}
+
+.weather-card .wg-cell:nth-child(2) .wg-icon::before {
+  content: "↗";
+  font-size: 15px;
+}
+
+.weather-card .wg-cell:nth-child(3) .wg-icon::before {
+  content: "PM";
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.resource-grid .rg-cell:nth-child(1) .rg-icon::before,
+.metric-item:nth-child(3) .metric-icon::before {
+  content: "👥";
+}
+
+.resource-grid .rg-cell:nth-child(2) .rg-icon::before {
+  content: "🚁";
+}
+
+.resource-grid .rg-cell:nth-child(3) .rg-icon::before {
+  content: "◈";
+}
+
+.resource-grid .rg-cell:nth-child(4) .rg-icon::before {
+  content: "▣";
+}
+
+.resource-grid .rg-icon,
+.metric-icon {
+  font-size: 0 !important;
+}
+
+.resource-grid .rg-icon::before,
+.metric-icon::before {
+  font-size: 15px;
+}
+
+.collapsed-icons .ico-item {
+  color: transparent !important;
+  position: relative;
+}
+
+.collapsed-icons .ico-item::before {
+  color: #e2e8f0;
+  font-size: 16px;
+}
+
+.collapsed-icons .ico-item:nth-child(1)::before {
+  content: "☁";
+}
+
+.collapsed-icons .ico-item:nth-child(2)::before {
+  content: "🔥";
+}
+
+.collapsed-icons .ico-item:nth-child(3)::before {
+  content: "▣";
+}
+
+.map-layer-controls .ml-btn {
+  color: transparent !important;
+  position: relative;
+}
+
+.map-layer-controls .ml-btn::before {
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.map-layer-controls .ml-btn:nth-child(1)::before {
+  content: "🔥 火点";
+}
+
+.map-layer-controls .ml-btn:nth-child(2)::before {
+  content: "▧ 热力";
+}
+
+.map-layer-controls .ml-btn:nth-child(3)::before {
+  content: "▣ 资源";
+}
+
+.collapse-btn,
+.arrow {
+  color: transparent !important;
+  position: relative;
+}
+
+.collapse-btn::before,
+.arrow::before {
+  content: "‹";
+  color: #e2e8f0;
+  font-size: 18px;
+}
+
+.side-panel.right .collapse-btn::before,
+.side-panel.right .arrow::before {
+  content: "›";
+}
+
+.float-btn:nth-child(2) {
+  font-size: 0 !important;
+}
+
+.float-btn:nth-child(2)::before {
+  content: "−";
+  font-size: 18px;
+}
+
+.float-btn:nth-child(3) {
+  font-size: 0 !important;
+}
+
+.float-btn:nth-child(3)::before {
+  content: "⌂";
+  font-size: 16px;
+}
+
+.dir-indicator {
+  font-size: 0 !important;
+}
+
+.dir-indicator::before {
+  content: "↑";
+  font-size: 18px;
+}
+
+.fire-predict-container .top-status-bar .capsule-item:nth-child(2) .capsule-icon {
+  font-size: 0 !important;
+}
+
+.fire-predict-container .top-status-bar .capsule-item:nth-child(2) .capsule-icon::before {
+  content: "↗";
+  font-size: 15px;
+}
+
+.fire-predict-container .top-status-bar .capsule-item:nth-child(4) .capsule-icon {
+  font-size: 0 !important;
+}
+
+.fire-predict-container .top-status-bar .capsule-item:nth-child(4) .capsule-icon::before {
+  content: "◷";
+  font-size: 15px;
+}
+
+button.close-drawer,
+button.close-btn {
+  font-size: 0 !important;
+}
+
+button.close-drawer::before,
+button.close-btn::before {
+  content: "×";
+  font-size: 18px;
+}
+
+.ut-refresh,
+.refresh-btn {
+  font-size: 0 !important;
+}
+
+.ut-refresh::before,
+.refresh-btn::before {
+  content: "↻";
+  font-size: 14px;
+}
+
+.toast-icon,
+.bb-icon {
+  font-size: 0 !important;
+}
+
+.toast-icon::before {
+  content: "✓";
+  font-size: 15px;
+}
+
+.bb-icon::before {
+  content: "▦";
+  font-size: 14px;
+}
+
+.map-ctrl-btn,
+.zoom-btn {
+  font-size: 0 !important;
+}
+
+.map-ctrl-btn[title*="缩小"]::before,
+.zoom-btn:nth-child(2)::before {
+  content: "−";
+  font-size: 18px;
+}
+
+.map-ctrl-btn[title*="重置"]::before,
+.map-ctrl-btn[title*="视角"]::before,
+.zoom-btn:nth-child(3)::before {
+  content: "⌂";
+  font-size: 16px;
+}
+
+.map-ctrl-btn[title*="放大"]::before,
+.zoom-btn:nth-child(1)::before {
+  content: "+";
+  font-size: 18px;
+}
+
+.point-pick-btn,
+.fi-locate,
+.contact-btn,
+.cmd-btn,
+.vid-btn,
+.elev-expand,
+.swap-btn,
+.reset-btn,
+.cap-alert-more,
+.cap-suggest-more {
+  font-size: 0 !important;
+}
+
+.point-pick-btn::before,
+.fi-locate::before {
+  content: "⌖";
+  font-size: 15px;
+}
+
+.contact-btn::before {
+  content: "☎";
+  font-size: 15px;
+}
+
+.cmd-btn[title*="悬停"]::before {
+  content: "Ⅱ";
+  font-size: 14px;
+}
+
+.vid-btn[title*="录制"]::before {
+  content: "●";
+  font-size: 14px;
+}
+
+.vid-btn[title*="全屏"]::before {
+  content: "⛶";
+  font-size: 14px;
+}
+
+.vid-btn[title*="闭"]::before {
+  content: "×";
+  font-size: 16px;
+}
+
+.elev-expand::before {
+  content: "⛶";
+  font-size: 14px;
+}
+
+.swap-btn::before {
+  content: "⇅";
+  font-size: 15px;
+}
+
+.reset-btn::before {
+  content: "↺";
+  font-size: 15px;
+}
+
+.cap-alert-more::before,
+.cap-suggest-more::before {
+  content: "›";
+  font-size: 14px;
+}
+
+.tl-btn,
+.bc-btn {
+  font-family: "Segoe UI Symbol", "Arial", sans-serif;
+}
+
+/* Realtime map layer buttons: show the actual Vue labels, not legacy pseudo labels. */
+.map-layer-controls .ml-btn {
+  color: #94a3b8 !important;
+  min-width: 128px;
+  white-space: nowrap;
+}
+
+.map-layer-controls .ml-btn::before {
+  content: none !important;
+  display: none !important;
+}
+
+.map-layer-controls .ml-btn:hover {
+  color: #e2e8f0 !important;
+}
+
+.map-layer-controls .ml-btn.active {
+  color: #60a5fa !important;
+}
+
+/* Online iconfont layer: replace emoji/garbled placeholders with Font Awesome web icons. */
+.cap-icon::before,
+.capsule-icon::before,
+.wg-icon::before,
+.rg-icon::before,
+.metric-icon::before,
+.fl-icon::before,
+.ico-item::before,
+.toast-icon::before,
+.bb-icon::before,
+.map-ctrl-btn::before,
+.zoom-btn::before,
+.point-pick-btn::before,
+.fi-locate::before,
+.contact-btn::before,
+.cmd-btn::before,
+.vid-btn::before,
+.elev-expand::before,
+.swap-btn::before,
+.reset-btn::before,
+.cap-alert-more::before,
+.cap-suggest-more::before,
+.collapse-btn::before,
+.arrow::before,
+.dir-indicator::before,
+.float-btn::before {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+  color: currentColor;
+}
+
+.capsule-temp .cap-icon::before,
+.weather-card .wg-cell:nth-child(1) .wg-icon::before,
+.fireline-list .fl-icon::before,
+.fli-temp::before { content: "\f6c4" !important; }
+.capsule-area .cap-icon::before,
+.metric-item:nth-child(2) .metric-icon::before { content: "\f5ee" !important; }
+.capsule-risk .cap-icon::before,
+.cap-risk-dot::before,
+.risk-dot::before { content: "\f071" !important; }
+.capsule-alert-time .cap-icon::before { content: "\f017" !important; }
+.capsule-env .cap-icon::before { content: "\f2dc" !important; }
+.weather-card .wg-cell:nth-child(2) .wg-icon::before,
+.fire-predict-container .top-status-bar .capsule-item:nth-child(2) .capsule-icon::before,
+.dir-indicator::before { content: "\f124" !important; }
+.weather-card .wg-cell:nth-child(3) .wg-icon::before {
+  content: "PM" !important;
+  font-family: "Microsoft YaHei", sans-serif !important;
+}
+.resource-grid .rg-cell:nth-child(1) .rg-icon::before,
+.metric-item:nth-child(3) .metric-icon::before { content: "\f0c0" !important; }
+.resource-grid .rg-cell:nth-child(2) .rg-icon::before { content: "\f1d8" !important; }
+.resource-grid .rg-cell:nth-child(3) .rg-icon::before { content: "\f0e7" !important; }
+.resource-grid .rg-cell:nth-child(4) .rg-icon::before { content: "\f5a0" !important; }
+.collapsed-icons .ico-item:nth-child(1)::before { content: "\f03a" !important; }
+.collapsed-icons .ico-item:nth-child(2)::before { content: "\f6c4" !important; }
+.collapsed-icons .ico-item:nth-child(3)::before { content: "\f5fd" !important; }
+.fire-predict-container .top-status-bar .capsule-item:nth-child(4) .capsule-icon::before { content: "\f1da" !important; }
+button.close-drawer::before,
+button.close-btn::before { content: "\f00d" !important; font-family: "Font Awesome 6 Free" !important; font-weight: 900 !important; }
+.ut-refresh::before,
+.refresh-btn::before,
+.reset-btn::before { content: "\f021" !important; }
+.toast-icon::before { content: "\f00c" !important; }
+.bb-icon::before { content: "\f5fd" !important; }
+.zoom-btn:nth-child(1)::before,
+.map-ctrl-btn[title*="放大"]::before { content: "\2b" !important; }
+.zoom-btn:nth-child(2)::before,
+.map-ctrl-btn[title*="缩小"]::before { content: "\f068" !important; }
+.zoom-btn:nth-child(3)::before,
+.map-ctrl-btn[title*="重置"]::before,
+.map-ctrl-btn[title*="视角"]::before { content: "\f2f9" !important; }
+.point-pick-btn::before,
+.fi-locate::before { content: "\f3c5" !important; }
+.contact-btn::before { content: "\f095" !important; }
+.cmd-btn[title*="返航"]::before { content: "\f064" !important; }
+.cmd-btn[title*="悬停"]::before { content: "\f04c" !important; }
+.cmd-btn[title*="拍照"]::before { content: "\f030" !important; }
+.cmd-btn[title*="降落"]::before { content: "\f063" !important; }
+.vid-btn[title*="录制"]::before { content: "\f111" !important; }
+.vid-btn[title*="全屏"]::before,
+.elev-expand::before { content: "\f065" !important; }
+.vid-btn[title*="关闭"]::before { content: "\f00d" !important; }
+.swap-btn::before { content: "\f0ec" !important; }
+.cap-alert-more::before,
+.cap-suggest-more::before { content: "\f141" !important; }
+.collapse-btn::before,
+.arrow::before { content: "\f105" !important; }
+.side-panel.right .collapse-btn::before,
+.side-panel.right .arrow::before { content: "\f104" !important; }

@@ -1,0 +1,667 @@
+[
+  {
+    "updatedAt": "2026-06-01T09:41:52.533Z",
+    "createdAt": "2026-05-31T09:23:58.489Z",
+    "id": "aCEy4kc1oQgz8ehx",
+    "name": "My workflow",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -64,
+          -112
+        ],
+        "id": "40454d62-9c04-49ed-bf7c-9ab717297f2e",
+        "name": "When clicking ‘Execute workflow’"
+      },
+      {
+        "parameters": {
+          "model": "qwen2.5:1.5b",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+        "typeVersion": 1,
+        "position": [
+          304,
+          176
+        ],
+        "id": "d9aaa883-cb65-4c2e-9e6f-7bbb8b4d1141",
+        "name": "Ollama Chat Model",
+        "credentials": {
+          "ollamaApi": {
+            "id": "fMwNI8xJGn0omie1",
+            "name": "Ollama account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "qwen2.5:1.5b",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+        "typeVersion": 1,
+        "position": [
+          832,
+          96
+        ],
+        "id": "f9e7a397-68e2-496b-9e56-1776d5f1e981",
+        "name": "Ollama Chat Model1",
+        "credentials": {
+          "ollamaApi": {
+            "id": "fMwNI8xJGn0omie1",
+            "name": "Ollama account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=你是森林火灾环境评估专家。根据输入的火场数据，输出严格 JSON 格式的态势包。\n\nJSON Schema:\n{\n  \"situation_id\": \"唯一标识\",\n  \"fire_point\": {\"lat\": 数字, \"lon\": 数字, \"confidence\": 0-1},\n  \"weather_summary\": {\"wind_speed\": 数字, \"wind_direction\": 数字, \"danger_level\": \"low/moderate/high/extreme\"},\n  \"terrain_impact\": {\"slope_risk\": \"low/moderate/high\", \"aspect_effect\": \"string\"},\n  \"fuel_status\": {\"moisture\": 数字, \"combustibility\": \"low/moderate/high\"},\n  \"surrounding_risks\": [\"风险目标数组\"],\n  \"required_actions\": [\"初步行动建议\"]\n}\n\n只输出 JSON，不要加任何额外文字、解释或问候语。",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          336,
+          -16
+        ],
+        "id": "790cf1f7-aacf-4458-88e9-4d4e7d049b75",
+        "name": "EnvAgent"
+      },
+      {
+        "parameters": {
+          "jsCode": "// ============================================\n// 模拟 FlameMap 输出的火场环境数据\n// ============================================\nconst flameMapData = {\n  firePoint: { lat: 45.123, lon: -78.456, confidence: 0.88 },\n  weather: { windSpeed: 12.5, windDirection: 135, temp: 28.5, humidity: 35 },\n  terrain: { slope: 15.8, aspect: 90 },\n  vegetation: { fuelMoisture: 12, fuelLoad: 0.65 },\n  riskIndex: 0.72\n};\n\n// ============================================\n// 模拟可用应急资源\n// ============================================\nconst resourcesData = {\n  resources: [\n    { id: \"R001\", type: \"waterTanker\", location: { lat: 45.110, lon: -78.470 }, status: \"available\", eta: 25 },\n    { id: \"R002\", type: \"groundTeam\", location: { lat: 45.090, lon: -78.480 }, status: \"available\", eta: 40 },\n    { id: \"R003\", type: \"drone\", location: { lat: 45.130, lon: -78.440 }, status: \"available\", eta: 15 },\n    { id: \"R004\", type: \"bulldozer\", location: { lat: 45.140, lon: -78.500 }, status: \"available\", eta: 60 }\n  ]\n};\n\n// ============================================\n// 合并为统一数据包（供下游使用）\n// ============================================\nconst merged = {\n  execution_id: Date.now().toString(),\n  timestamp: new Date().toISOString(),\n  scene: flameMapData,\n  resources: resourcesData.resources,\n  data_completeness: 1.0\n};\n\nreturn [{ json: merged }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          144,
+          -112
+        ],
+        "id": "249664d1-891f-4836-bb9e-26aadaa5bc2c",
+        "name": "DataGenerator"
+      },
+      {
+        "parameters": {
+          "jsCode": "// 获取模拟数据中的火点和气象信息\nconst scene = $input.first().json.scene;\nconst windSpeed = scene.weather.windSpeed;\nconst slope = scene.terrain.slope;\nconst fuelMoisture = scene.vegetation.fuelMoisture;\n\n// ============================================\n// 模拟 Rothermel 模型简化计算\n// ============================================\nconst baseSpreadRate = 5.0;  // m/min\nconst windFactor = Math.min(2.0, windSpeed / 15.0);\nconst slopeFactor = Math.min(1.5, slope / 30.0);\nconst moistureFactor = Math.max(0.5, 1.0 - fuelMoisture / 40.0);\nconst spreadRate = baseSpreadRate * (1 + windFactor) * (1 + slopeFactor) * moistureFactor;\n\n// 模拟火线蔓延方向（8 个主要方向）\nconst directions = [0, 45, 90, 135, 180, 225, 270, 315];\nconst spreadVectors = directions.map(dir => ({\n  direction: dir,\n  speed: spreadRate * (1 + Math.random() * 0.3),\n  // 粗略计算下一点坐标（演示用）\n  to_lat: scene.firePoint.lat + (dir === 0 ? 0.01 : dir === 180 ? -0.01 : 0),\n  to_lon: scene.firePoint.lon + (dir === 90 ? 0.01 : dir === 270 ? -0.01 : 0)\n}));\n\n// 模拟风险网格（受威胁目标）\nconst threatenedTargets = [];\nif (Math.random() > 0.5) threatenedTargets.push(\"village_A\");\nif (Math.random() > 0.7) threatenedTargets.push(\"power_line_01\");\n\nreturn [{\n  json: {\n    spread_vectors: spreadVectors,\n    risk_grid: {\n      cells: [],\n      threatened_targets: threatenedTargets\n    },\n    spread_rate_max: spreadRate,\n    confidence: 0.85\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          400,
+          -224
+        ],
+        "id": "087bbbc9-b447-4a0c-9954-ee8cc5e67fd1",
+        "name": "FireSpread"
+      },
+      {
+        "parameters": {
+          "jsCode": "// ============================================\n// 多因子耦合风险场构建（适配 Merge 或双输入）\n// ============================================\n\n// 获取所有输入项（两个并行分支的输出）\nconst items = $input.all();\n\nif (items.length < 2) {\n  throw new Error(`预期收到2个并行分支的输出，实际只收到 ${items.length} 个。请检查两个分支是否都正确连接到本节点。`);\n}\n\nlet envResult = null;\nlet spreadResult = null;\n\n// 遍历输入项，根据特征字段区分\nfor (const item of items) {\n  const data = item.json;\n  // 环境评估结果的特征：包含 situation_id\n  if (data.situation_id) {\n    envResult = data;\n  }\n  // 火势推演结果的特征：包含 spread_vectors\n  else if (data.spread_vectors) {\n    spreadResult = data;\n  }\n}\n\nif (!envResult) {\n  throw new Error('未找到环境评估智能体的输出（缺少 situation_id 字段）');\n}\nif (!spreadResult) {\n  throw new Error('未找到火势推演智能体的输出（缺少 spread_vectors 字段）');\n}\n\n// 获取原始场景数据（从 DataGenerator 节点获取）\nconst dataGenNode = $('DataGenerator');\nif (!dataGenNode) {\n  throw new Error('未找到 DataGenerator 节点');\n}\nconst scene = dataGenNode.first().json.scene;\nconst resources = dataGenNode.first().json.resources;\n\n// ============================================\n// 多因子耦合计算\n// ============================================\nconst windSpeed = scene.weather.windSpeed;\nconst slope = scene.terrain.slope;\nconst fuelMoisture = scene.vegetation.fuelMoisture;\n\n// 各因子归一化\nconst windFactor = Math.min(1.0, windSpeed / 20.0);\nconst slopeFactor = Math.min(1.0, slope / 35.0);\nconst moistureFactor = Math.max(0, 1.0 - fuelMoisture / 30.0);\nconst spreadRate = spreadResult.spread_rate_max || 5.0;\nconst intensityFactor = Math.min(1.0, spreadRate / 20.0);\nconst passageRisk = (slopeFactor * 0.6 + moistureFactor * 0.4);\n\n// 权重（α, β, γ, δ, ε）\nconst weights = {\n  wind: 0.30,\n  slope: 0.25,\n  moisture: 0.20,\n  passage: 0.10,\n  intensity: 0.15\n};\n\nconst totalRisk = \n  weights.wind * windFactor +\n  weights.slope * slopeFactor +\n  weights.moisture * moistureFactor +\n  weights.passage * passageRisk +\n  weights.intensity * intensityFactor;\n\nlet riskLevel;\nif (totalRisk >= 0.7) riskLevel = 'extreme';\nelse if (totalRisk >= 0.5) riskLevel = 'high';\nelse if (totalRisk >= 0.3) riskLevel = 'moderate';\nelse riskLevel = 'low';\n\nconst riskPackage = {\n  package_type: 'risk_package',\n  version: '1.0',\n  timestamp: new Date().toISOString(),\n  risk_score: totalRisk,\n  risk_level: riskLevel,\n  risk_breakdown: {\n    wind_factor: windFactor,\n    slope_factor: slopeFactor,\n    moisture_factor: moistureFactor,\n    passage_risk: passageRisk,\n    intensity_factor: intensityFactor,\n    weights: weights\n  },\n  predicted_affected_zones: (spreadResult.risk_grid && spreadResult.risk_grid.threatened_targets) || [],\n  recommended_priority: riskLevel === 'extreme' ? 'immediate_response' :\n                        (riskLevel === 'high' ? 'high_priority' : 'routine')\n};\n\nconst aggregatedPackage = {\n  package_type: 'aggregated_situation_risk',\n  version: '1.0',\n  situation: envResult,\n  risk: riskPackage,\n  spread_prediction: spreadResult,\n  resources: resources\n};\n\nreturn [{ json: aggregatedPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          784,
+          -304
+        ],
+        "id": "0f584681-55fc-447d-89f4-115a8947fc95",
+        "name": "RiskFusion"
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.candidate_plans[0].plan_id }}",
+                      "rightValue": "plan_A",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "f5f79185-72c1-4603-8767-3436ed11c209"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "①"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "362b4bf9-bd17-4762-b73a-041f5d2f1ee8",
+                      "leftValue": "={{ $json.candidate_plans[1].plan_id }}",
+                      "rightValue": "plan_B",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "②"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "4ca1c0d0-c0de-4233-844a-98ec3901d4f6",
+                      "leftValue": "={{ $json.candidate_plans[2].plan_id }}",
+                      "rightValue": "plan_C",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "③"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [
+          1424,
+          -128
+        ],
+        "id": "c888467a-9224-4b07-95eb-df89889718a1",
+        "name": "Switch"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "你是森林火灾应急决策专家。根据态势-风险聚合包，生成3个不同策略的候选方案。\n\n输出严格遵循以下 JSON Schema:\n{\n  \"candidate_plans\": [\n    {\n      \"plan_id\": \"plan_A\",\n      \"plan_type\": \"aggressive\",\n      \"strategy\": \"优先控制火头，使用水罐车和无人机协同\",\n      \"required_resources\": [\"R001\", \"R003\"],\n      \"estimated_control_time\": 90,\n      \"safety_checks\": {\"wind_ok\": true, \"slope_ok\": true, \"evacuation_ready\": true}\n    },\n    {\n      \"plan_id\": \"plan_B\",\n      \"plan_type\": \"balanced\",\n      \"strategy\": \"建立隔离带，配合地面队伍推进\",\n      \"required_resources\": [\"R002\", \"R004\"],\n      \"estimated_control_time\": 120,\n      \"safety_checks\": {\"wind_ok\": true, \"slope_ok\": true, \"evacuation_ready\": true}\n    },\n    {\n      \"plan_id\": \"plan_C\",\n      \"plan_type\": \"conservative\",\n      \"strategy\": \"优先疏散周边居民，设置缓冲区\",\n      \"required_resources\": [\"R002\"],\n      \"estimated_control_time\": 180,\n      \"safety_checks\": {\"wind_ok\": true, \"slope_ok\": true, \"evacuation_ready\": true}\n    }\n  ],\n  \"recommended_plan\": \"plan_B\",\n  \"recommendation_reason\": \"综合风速、坡度和资源可用性，平衡型方案最安全有效\"\n}\n只输出 JSON。",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          864,
+          -112
+        ],
+        "id": "e44df7c4-6144-49fb-8742-ec8fd0d4888f",
+        "name": "DecisionAgent"
+      },
+      {
+        "parameters": {
+          "jsCode": "// 获取输入数据（注意：输入是一个数组，第一个元素是包含 output 的对象）\nconst inputItem = $input.first().json;\nconst rawString = inputItem.output;\n\n// 去掉 Markdown 代码块标记（```json 和 ```）\nlet jsonStr = rawString.replace(/```json\\s*\\n/, '').replace(/```\\s*$/, '');\n\n// 解析为真正的 JavaScript 对象\nconst parsed = JSON.parse(jsonStr);\n\n// 输出纯净的决策对象（直接包含 candidate_plans 等字段）\nreturn [{ json: parsed }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1232,
+          -112
+        ],
+        "id": "e28305cd-a72a-4e98-9c01-dd739e02d733",
+        "name": "CleanDecisionJSON"
+      },
+      {
+        "parameters": {
+          "jsCode": "// ============================================\n// 资源调度智能体 - 方案 A（激进型）- 使用 DataGenerator\n// ============================================\n\nconst switchInput = $input.first().json;\nconst plans = switchInput.candidate_plans;\nif (!plans || !Array.isArray(plans)) throw new Error('缺少 candidate_plans');\n\nconst plan = plans.find(p => p.plan_id === 'plan_A');\nif (!plan) throw new Error('未找到 plan_A');\n\n// 从 DataGenerator 获取火点和资源\nconst dataGen = $('DataGenerator');\nconst scene = dataGen.first().json.scene;\nconst firePoint = scene.firePoint;   // 注意大小写\nconst resources = dataGen.first().json.resources;\n\nif (!firePoint || typeof firePoint.lon === 'undefined') {\n  throw new Error('firePoint 无效，请检查 DataGenerator 输出中的 scene.firePoint');\n}\n\nconst matchedResources = resources.filter(r => plan.required_resources.includes(r.id));\n\nfunction calculateRoute(from, to) {\n  if (!from || !to) throw new Error('起点或终点无效');\n  const dx = to.lon - from.lon;\n  const dy = to.lat - from.lat;\n  const distanceKm = Math.hypot(dx, dy) * 111;\n  const estimatedMinutes = distanceKm * 2;\n  return {\n    waypoints: [from, to],\n    distance_km: distanceKm,\n    estimated_time_min: Math.round(estimatedMinutes)\n  };\n}\n\nconst taskPackage = {\n  package_type: 'task_package',\n  plan_id: plan.plan_id,\n  plan_type: plan.plan_type,\n  timestamp: new Date().toISOString(),\n  tasks: matchedResources.map(r => {\n    if (!r.location) throw new Error(`资源 ${r.id} 缺少 location`);\n    return {\n      resource_id: r.id,\n      task_type: 'direct_suppression',\n      target: firePoint,\n      main_route: calculateRoute(r.location, firePoint),\n      backup_route: calculateRoute(r.location, firePoint),\n      evacuation_route: { type: 'evacuation', exit_points: [] },\n      estimated_eta_min: r.eta,\n      priority: 'critical'\n    };\n  }),\n  safety_checks: plan.safety_checks,\n  execution_instructions: plan.strategy,\n  status: 'dispatched'\n};\n\nreturn [{ json: taskPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1664,
+          -288
+        ],
+        "id": "0b170c57-98c5-43e0-9450-e81120505013",
+        "name": "plan_A"
+      },
+      {
+        "parameters": {
+          "jsCode": "// ============================================\n// 资源调度智能体 - 方案 B（激进型）- 使用 DataGenerator\n// ============================================\n\nconst switchInput = $input.first().json;\nconst plans = switchInput.candidate_plans;\nif (!plans || !Array.isArray(plans)) throw new Error('缺少 candidate_plans');\n\nconst plan = plans.find(p => p.plan_id === 'plan_B');\nif (!plan) throw new Error('未找到 plan_B');\n\n// 从 DataGenerator 获取火点和资源\nconst dataGen = $('DataGenerator');\nconst scene = dataGen.first().json.scene;\nconst firePoint = scene.firePoint;   // 注意大小写\nconst resources = dataGen.first().json.resources;\n\nif (!firePoint || typeof firePoint.lon === 'undefined') {\n  throw new Error('firePoint 无效，请检查 DataGenerator 输出中的 scene.firePoint');\n}\n\nconst matchedResources = resources.filter(r => plan.required_resources.includes(r.id));\n\nfunction calculateRoute(from, to) {\n  if (!from || !to) throw new Error('起点或终点无效');\n  const dx = to.lon - from.lon;\n  const dy = to.lat - from.lat;\n  const distanceKm = Math.hypot(dx, dy) * 111;\n  const estimatedMinutes = distanceKm * 2;\n  return {\n    waypoints: [from, to],\n    distance_km: distanceKm,\n    estimated_time_min: Math.round(estimatedMinutes)\n  };\n}\n\nconst taskPackage = {\n  package_type: 'task_package',\n  plan_id: plan.plan_id,\n  plan_type: plan.plan_type,\n  timestamp: new Date().toISOString(),\n  tasks: matchedResources.map(r => {\n    if (!r.location) throw new Error(`资源 ${r.id} 缺少 location`);\n    return {\n      resource_id: r.id,\n      task_type: 'direct_suppression',\n      target: firePoint,\n      main_route: calculateRoute(r.location, firePoint),\n      backup_route: calculateRoute(r.location, firePoint),\n      evacuation_route: { type: 'evacuation', exit_points: [] },\n      estimated_eta_min: r.eta,\n      priority: 'critical'\n    };\n  }),\n  safety_checks: plan.safety_checks,\n  execution_instructions: plan.strategy,\n  status: 'dispatched'\n};\n\nreturn [{ json: taskPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1664,
+          -80
+        ],
+        "id": "5a55e8fd-3c0a-483f-bda7-c4f4f4ec4139",
+        "name": "plan_B"
+      },
+      {
+        "parameters": {
+          "jsCode": "// ============================================\n// 资源调度智能体 - 方案 C（激进型）- 使用 DataGenerator\n// ============================================\n\nconst switchInput = $input.first().json;\nconst plans = switchInput.candidate_plans;\nif (!plans || !Array.isArray(plans)) throw new Error('缺少 candidate_plans');\n\nconst plan = plans.find(p => p.plan_id === 'plan_C');\nif (!plan) throw new Error('未找到 plan_C');\n\n// 从 DataGenerator 获取火点和资源\nconst dataGen = $('DataGenerator');\nconst scene = dataGen.first().json.scene;\nconst firePoint = scene.firePoint;   // 注意大小写\nconst resources = dataGen.first().json.resources;\n\nif (!firePoint || typeof firePoint.lon === 'undefined') {\n  throw new Error('firePoint 无效，请检查 DataGenerator 输出中的 scene.firePoint');\n}\n\nconst matchedResources = resources.filter(r => plan.required_resources.includes(r.id));\n\nfunction calculateRoute(from, to) {\n  if (!from || !to) throw new Error('起点或终点无效');\n  const dx = to.lon - from.lon;\n  const dy = to.lat - from.lat;\n  const distanceKm = Math.hypot(dx, dy) * 111;\n  const estimatedMinutes = distanceKm * 2;\n  return {\n    waypoints: [from, to],\n    distance_km: distanceKm,\n    estimated_time_min: Math.round(estimatedMinutes)\n  };\n}\n\nconst taskPackage = {\n  package_type: 'task_package',\n  plan_id: plan.plan_id,\n  plan_type: plan.plan_type,\n  timestamp: new Date().toISOString(),\n  tasks: matchedResources.map(r => {\n    if (!r.location) throw new Error(`资源 ${r.id} 缺少 location`);\n    return {\n      resource_id: r.id,\n      task_type: 'direct_suppression',\n      target: firePoint,\n      main_route: calculateRoute(r.location, firePoint),\n      backup_route: calculateRoute(r.location, firePoint),\n      evacuation_route: { type: 'evacuation', exit_points: [] },\n      estimated_eta_min: r.eta,\n      priority: 'critical'\n    };\n  }),\n  safety_checks: plan.safety_checks,\n  execution_instructions: plan.strategy,\n  status: 'dispatched'\n};\n\nreturn [{ json: taskPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1664,
+          128
+        ],
+        "id": "8319669f-d316-408b-ae18-ef75fe40a34d",
+        "name": "plan_C"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "fire-feedback",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          1616,
+          400
+        ],
+        "id": "0ae14a59-baf0-4c08-8bf4-623e7b8f3995",
+        "name": "Webhook",
+        "webhookId": "d20faf65-d847-4761-ae50-9d688cd2f2e1"
+      },
+      {
+        "parameters": {
+          "jsCode": "// 获取原始反馈数据\nconst raw = $input.first().json;\n\n// 标准化反馈包\nconst feedbackPackage = {\n  package_type: 'feedback_package',\n  execution_id: raw.execution_id,      // 必须与主流程中生成的 execution_id 一致\n  task_id: raw.task_id,\n  status: raw.status,                   // \"completed\", \"blocked\", \"in_progress\"\n  position: raw.position || null,\n  obstacle_info: raw.obstacle_info || {},\n  timestamp: new Date().toISOString(),\n  // 判断是否需要重规划\n  triggers_replanning: (raw.status === 'blocked' || raw.obstacle_info?.road_blocked === true),\n  reprocess_reason: raw.obstacle_info?.road_blocked ? 'road_blocked' : \n                    (raw.status === 'blocked' ? 'task_blocked' : null)\n};\n\nreturn [{ json: feedbackPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1824,
+          400
+        ],
+        "id": "c566218f-1728-4d54-a491-2e1cc4df4834",
+        "name": "构建反馈包"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://host.docker.internal:5678/webhook/fire-feedback",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"execution_id\": \"{{ $('DataGenerator').first().json.execution_id }}\",\n  \"task_id\": \"{{ $json.tasks[0].resource_id || $json.task_id || 'T001' }}\",\n  \"status\": \"pending\",\n  \"feedback_type\": \"initial_task\",\n  \"payload\": {{ $json | json }}\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          2240,
+          -80
+        ],
+        "id": "a40177e2-4f79-4781-860b-bd32b15bcec3",
+        "name": "HTTP Request"
+      },
+      {
+        "parameters": {
+          "jsCode": "// 获取上游数据（资源调度节点的输出）\nconst taskPayload = $input.first().json;\nconsole.log('原始任务包:', JSON.stringify(taskPayload, null, 2));\n\n// 获取 execution_id\nconst dataGen = $('DataGenerator');  // 确保节点名称正确，如“模拟数据生成器”\nlet execution_id = 'unknown';\nif (dataGen && dataGen.first()) {\n  execution_id = dataGen.first().json.execution_id;\n}\nconsole.log('execution_id:', execution_id);\n\n// 提取 task_id —— 根据实际输出结构调整\nlet task_id = 'T001';\nif (taskPayload.tasks && Array.isArray(taskPayload.tasks) && taskPayload.tasks[0]) {\n  task_id = taskPayload.tasks[0].resource_id || 'T001';\n} else if (taskPayload.plan_id) {\n  task_id = taskPayload.plan_id;\n}\nconsole.log('task_id:', task_id);\n\n// 构建请求体 —— 确保 payload 是整个任务包对象\nconst requestBody = {\n  execution_id: execution_id,\n  task_id: task_id,\n  status: \"pending\",\n  feedback_type: \"initial_task\",\n  payload: taskPayload   // 注意：是对象，不是数字\n};\n\nconsole.log('最终请求体:', JSON.stringify(requestBody, null, 2));\nreturn [{ json: requestBody }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2080,
+          -80
+        ],
+        "id": "512d260c-2326-444d-8674-55e436595773",
+        "name": "构建反馈请求体"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "main-process",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -224,
+          112
+        ],
+        "id": "fc6a3a91-c2e1-4390-b03b-25bae37882c8",
+        "name": "Webhook1",
+        "webhookId": "ef9ecc40-4405-459e-9eca-dceab610138e"
+      },
+      {
+        "parameters": {
+          "jsCode": "const input = $input.first().json;\n\n// 如果输入中包含 package_type === 'feedback_package'，说明是反馈重规划\nif (input.package_type === 'feedback_package') {\n  // 直接从反馈包中提取 execution_id，并保留原始场景数据（从 DataGenerator 获取，但这里无法直接获取，所以要用其他方式）\n  // 简化：我们将反馈包存入，让后续节点知道需要重新决策\n  return [{\n    json: {\n      is_replan: true,\n      feedback: input,\n      // 注意：原始场景数据可以从 DataGenerator 节点重新获取，但在这个节点里无法直接引用下游节点。\n      // 更好的方法是在 DataGenerator 节点内部处理 is_replan 逻辑。\n      // 所以我们这里只传递标志，让 DataGenerator 判断。\n    }\n  }];\n} else {\n  // 首次调用（可能是手动或初始 Webhook），告诉 DataGenerator 使用默认模拟数据\n  return [{\n    json: {\n      is_replan: false,\n      // 空对象，DataGenerator 会忽略\n    }\n  }];\n}"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -48,
+          112
+        ],
+        "id": "c89ecf88-0564-4754-af5b-0d7ae78395c4",
+        "name": "数据源路由器"
+      },
+      {
+        "parameters": {
+          "jsCode": "const inputData = $input.first().json;\nlet rawOutput = inputData.output;\n\n// 如果 output 是字符串，尝试解析\nif (typeof rawOutput === 'string') {\n  // 去除可能的 Markdown 代码块标记\n  rawOutput = rawOutput.replace(/```json\\n?/g, '').replace(/```\\n?/g, '');\n  try {\n    const parsed = JSON.parse(rawOutput);\n    return [{ json: parsed }];\n  } catch (e) {\n    throw new Error(`解析 EnvAgent 输出失败: ${e.message}\\n原始内容: ${rawOutput.slice(0, 200)}`);\n  }\n}\n\n// 如果已经是对象，直接返回\nreturn [{ json: rawOutput }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          592,
+          208
+        ],
+        "id": "ade7b8a4-a6a5-4a13-a691-ec306f691945",
+        "name": "ParseEnvOutput"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          672,
+          -64
+        ],
+        "id": "6170ea92-ce4a-4827-aaf8-dc77fa690368",
+        "name": "Merge"
+      }
+    ],
+    "connections": {
+      "When clicking ‘Execute workflow’": {
+        "main": [
+          [
+            {
+              "node": "DataGenerator",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ollama Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "EnvAgent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ollama Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "DecisionAgent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "EnvAgent": {
+        "main": [
+          [
+            {
+              "node": "ParseEnvOutput",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DataGenerator": {
+        "main": [
+          [
+            {
+              "node": "EnvAgent",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "FireSpread",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FireSpread": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "RiskFusion": {
+        "main": [
+          [
+            {
+              "node": "DecisionAgent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch": {
+        "main": [
+          [
+            {
+              "node": "plan_A",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "plan_B",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "plan_C",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DecisionAgent": {
+        "main": [
+          [
+            {
+              "node": "CleanDecisionJSON",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CleanDecisionJSON": {
+        "main": [
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "plan_A": {
+        "main": [
+          [
+            {
+              "node": "构建反馈请求体",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "plan_B": {
+        "main": [
+          [
+            {
+              "node": "构建反馈请求体",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "plan_C": {
+        "main": [
+          [
+            {
+              "node": "构建反馈请求体",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "构建反馈包",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "构建反馈请求体": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook1": {
+        "main": [
+          [
+            {
+              "node": "数据源路由器",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "数据源路由器": {
+        "main": [
+          [
+            {
+              "node": "DataGenerator",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ParseEnvOutput": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "RiskFusion",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "ba7d43b7-3b34-4ab9-b802-183fa04f4128",
+    "activeVersionId": "ba7d43b7-3b34-4ab9-b802-183fa04f4128",
+    "versionCounter": 233,
+    "triggerCount": 2,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-05-31T09:23:58.493Z",
+        "createdAt": "2026-05-31T09:23:58.493Z",
+        "role": "workflow:owner",
+        "workflowId": "aCEy4kc1oQgz8ehx",
+        "projectId": "NNdx0PXJ11V8Li4j",
+        "project": {
+          "updatedAt": "2026-05-31T09:18:08.617Z",
+          "createdAt": "2026-05-31T09:17:26.198Z",
+          "id": "NNdx0PXJ11V8Li4j",
+          "name": "FEIFAN SHI <3396692392@qq.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "b6692817-67ac-4415-add2-47c1fde14112"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": "Version ba7d43b7",
+      "description": ""
+    }
+  }
+]

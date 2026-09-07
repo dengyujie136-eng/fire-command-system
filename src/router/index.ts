@@ -3,7 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   {
     path: '/',
-    redirect: '/realtime-monitor'
+    name: 'HomePage',
+    component: () => import('../views/HomePage.vue')
   },
   {
     path: '/multi-source-fusion',

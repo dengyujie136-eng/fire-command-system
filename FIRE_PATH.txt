@@ -1,0 +1,242 @@
+**应急路径规划 Agent 对接说明**
+前端需要在“应急路径规划”页面实现基于 Agent 返回结果的路线可视化与交互。请后端 Agent 在完成 ForeFire 蔓延预测分析后，生成一个完整的 `route_package`，用于前端加载关键点、三条路径、风险等级、距离耗时和高程剖面。
+
+**业务目标**
+Agent 需要根据以下数据完成路径规划：
+
+- ForeFire 火势蔓延预测结果：火线 GeoJSON、各时刻过火区域、最终火场范围。
+- 气象风场数据：风速、风向、风场时序，重点考虑下风向风险。
+- 地形 DEM：坡度、海拔、山谷、山脊、陡坡区域。
+- 燃料/植被数据：高可燃区域应提高通行风险。
+- 起终点：
+  - 高风险目标入口点
+  - 南侧安全集结点
+- 可选：道路、林道、防火通道、河谷线等通行网络数据。
+
+**需要实现的功能**
+1. 生成两个点图层数据：
+   - `entry_point`：高风险目标入口点。
+   - `assembly_point`：南侧安全集结点。
+
+2. 生成三条路线：
+   - `main_evacuation`：主疏散路线，优先给人员撤离使用，尽量低风险、时间短。
+   - `fire_rescue_approach`：消防救援接近路线，优先靠近火场但避开高风险火线和强风下风向。
+   - `safe_route`：安全路径，优先风险最低，可以牺牲距离和耗时。
+
+3. 每条路线需要返回：
+   - 路线名称
+   - 路线类型
+   - 风险等级：`low` / `medium` / `high`
+   - 距离，单位 km
+   - 预计耗时，单位 min
+   - 路线坐标数组
+   - 高程剖面数组
+   - 路线规划理由
+   - 风险说明
+   - 是否推荐
+
+4. 前端会根据返回结果：
+   - 在 Cesium map 上绘制两个关键点。
+   - 在 map 上绘制三条不同颜色路线。
+   - 点击左侧路线卡片时高亮对应路线。
+   - 根据 `elevation_profile` 绘制高程剖面图。
+
+**推荐返回格式**
+请放在 Agent 最终结果：
+
+```json
+{
+  "payload": {
+    "packages": {
+      "route_package": {
+        "entry_point": {
+          "id": "entry-point-001",
+          "name": "高风险目标入口点",
+          "type": "entry_point",
+          "longitude": 101.269444,
+          "latitude": 28.530278,
+          "description": "靠近当前高危火点的救援/撤离入口"
+        },
+        "assembly_point": {
+          "id": "assembly-point-south",
+          "name": "南侧安全集结点",
+          "type": "assembly_point",
+          "longitude": 101.2632,
+          "latitude": 28.5221,
+          "description": "位于火场南侧、避开主要下风向的安全集结区域"
+        },
+        "route_options": [
+          {
+            "id": "main_evacuation",
+            "name": "主疏散路线",
+            "type": "evacuation",
+            "priority": "recommended",
+            "risk": "low",
+            "distance_km": 2.836,
+            "eta_min": 6.1,
+            "color": "#22c55e",
+            "reason": "路线位于火场南侧，避开预测火线扩展方向，坡度较缓，适合人员快速撤离。",
+            "risk_summary": "低风险，未穿越预测高温区和强风下风向。",
+            "coordinates": [
+              [101.269444, 28.530278],
+              [101.2681, 28.5289],
+              [101.2664, 28.5267],
+              [101.2648, 28.5243],
+              [101.2632, 28.5221]
+            ],
+            "elevation_profile": [
+              { "distance_km": 0.0, "elevation_m": 2860 },
+              { "distance_km": 0.6, "elevation_m": 2825 },
+              { "distance_km": 1.2, "elevation_m": 2780 },
+              { "distance_km": 2.0, "elevation_m": 2735 },
+              { "distance_km": 2.836, "elevation_m": 2688 }
+            ]
+          },
+          {
+            "id": "fire_rescue_approach",
+            "name": "消防救援接近路线",
+            "type": "rescue_approach",
+            "priority": "secondary",
+            "risk": "medium",
+            "distance_km": 2.626,
+            "eta_min": 7.9,
+            "color": "#f59e0b",
+            "reason": "路线更接近火场边缘，便于消防力量进入，但部分路段接近中风险扩散区。",
+            "risk_summary": "中风险，需持续监测风向变化。",
+            "coordinates": [
+              [101.2632, 28.5221],
+              [101.2651, 28.5240],
+              [101.2667, 28.5262],
+              [101.2685, 28.5286],
+              [101.269444, 28.530278]
+            ],
+            "elevation_profile": [
+              { "distance_km": 0.0, "elevation_m": 2688 },
+              { "distance_km": 0.7, "elevation_m": 2720 },
+              { "distance_km": 1.4, "elevation_m": 2788 },
+              { "distance_km": 2.0, "elevation_m": 2830 },
+              { "distance_km": 2.626, "elevation_m": 2860 }
+            ]
+          },
+          {
+            "id": "safe_route",
+            "name": "安全路径",
+            "type": "safe",
+            "priority": "fallback",
+            "risk": "low",
+            "distance_km": null,
+            "eta_min": null,
+            "color": "#38bdf8",
+            "reason": "该路径优先避开火线预测范围、下风向和陡坡区，可作为备用安全通道。",
+            "risk_summary": "低风险，距离和耗时可根据路网进一步计算。",
+            "coordinates": [],
+            "elevation_profile": []
+          }
+        ],
+        "blocked_routes": [
+          {
+            "id": "north-risk-corridor",
+            "name": "北侧风险通道",
+            "reason": "处于预测火势扩展方向和较强风场影响范围内，不建议通行。",
+            "coordinates": [
+              [101.269444, 28.530278],
+              [101.2710, 28.5320],
+              [101.2728, 28.5340]
+            ]
+          }
+        ],
+        "risk_zones": [
+          {
+            "id": "fire-spread-risk-zone",
+            "name": "预测火势影响区",
+            "type": "fire_risk",
+            "risk": "high",
+            "coordinates": [
+              [101.2670, 28.5290],
+              [101.2710, 28.5295],
+              [101.2720, 28.5330],
+              [101.2675, 28.5335],
+              [101.2670, 28.5290]
+            ]
+          }
+        ],
+        "summary": "已规划主疏散路线、消防救援接近路线和备用安全路径。推荐优先使用主疏散路线。"
+      }
+    }
+  }
+}
+```
+
+**字段要求**
+- 坐标统一使用 WGS84 经纬度，格式为 `[longitude, latitude]`。
+- `coordinates` 必须按路线行进顺序排列。
+- `elevation_profile.distance_km` 必须从 0 开始递增。
+- `risk` 使用英文枚举：
+  - `low`
+  - `medium`
+  - `high`
+- 前端会根据 `risk` 做颜色和标签逻辑。
+- 文案字段如 `name`、`reason`、`risk_summary`、`summary` 请直接返回中文。
+
+**接口位置**
+当前 Agent 决策接口保持不变：
+
+```txt
+POST /api/agent/forefire/decision
+```
+
+WebSocket 保持不变：
+
+```txt
+ws://10.62.223.117:8000/ws/agent/forefire/decision
+```
+
+前端会优先读取：
+
+```txt
+payload.packages.route_package
+```
+
+**前端输入给 Agent 的上下文**
+前端会在开始模拟成功后发送：
+
+```json
+{
+  "event_id": "muli-fire-demo-001",
+  "ignition_point": {
+    "longitude": 101.269444,
+    "latitude": 28.530278
+  },
+  "forefire_json": {},
+  "weather": {},
+  "include_coordinates": true
+}
+```
+
+请 Agent 基于 `forefire_json`、`weather`、地形/燃料/风场数据生成 `route_package`。
+
+**后端实现建议**
+- 若已有 DEM：对每条路线按固定间距采样 DEM，生成 `elevation_profile`。
+- 若有道路/林道数据：优先基于路网做 A* / Dijkstra 路径规划。
+- 若暂时没有路网：可先基于栅格代价面规划路线，代价由以下因素组成：
+  - 距离成本
+  - 坡度成本
+  - 接近火线成本
+  - 下风向风险成本
+  - 高燃料区域成本
+- 三条路径应使用不同权重：
+  - 主疏散路线：低风险 + 短时间。
+  - 消防救援接近路线：接近目标 + 可控风险。
+  - 安全路径：最低风险优先。
+
+**最小可用版本**
+如果后端短期不能完成真实路网规划，至少先返回：
+- `entry_point`
+- `assembly_point`
+- 三条 `route_options`
+- 每条路线的 `coordinates`
+- 每条路线的 `distance_km`
+- 每条路线的 `eta_min`
+- 每条路线的 `elevation_profile`
+
+这样前端就可以先完成地图可视化、路线点击高亮和高程剖面联动。

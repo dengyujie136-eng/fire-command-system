@@ -1,0 +1,16 @@
+services:
+  forefire-api:
+    build:
+      context: ./backend/forefire_api
+    container_name: forefire-api
+    ports:
+      - "5000:8080"
+    environment:
+      ENVIRONMENT_DIR: /app/environment
+      FOREFIRE_OUTPUT_DIR: /app/output
+      FOREFIRE_DATA_DIR: /app/data
+      FOREFIRE_CMD: "forefire -i {case_file}"
+    volumes:
+      - ./environment:/app/environment:ro
+      - ./forefire-output:/app/output
+      - ./backend/forefire_api/data:/app/data

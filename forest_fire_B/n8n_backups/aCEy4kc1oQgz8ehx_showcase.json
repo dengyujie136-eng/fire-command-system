@@ -1,0 +1,698 @@
+[
+  {
+    "updatedAt": "2026-06-01T09:41:52.533Z",
+    "createdAt": "2026-05-31T09:23:58.489Z",
+    "id": "aCEy4kc1oQgz8ehx",
+    "name": "星火智援-多因子耦合多智能体闭环展示",
+    "description": "展示型 n8n 工作流：以态势包、风险包、方案包、任务包、反馈包串联环境评估、火势推演、决策指挥、资源调度和反馈学习智能体。",
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -760,
+          -120
+        ],
+        "id": "40454d62-9c04-49ed-bf7c-9ab717297f2e",
+        "name": "手动演示触发"
+      },
+      {
+        "parameters": {
+          "jsCode": "const source = $('01 多源感知与样例数据源').first().json;\nconst { weather, terrain, vegetation, sensing, targets, firePoint } = source.scene;\n\nconst evidenceWeights = {\n  satellite: 0.28,\n  uav: 0.26,\n  tower: 0.18,\n  canopy: 0.13,\n  ground: 0.15\n};\nconst evidence = {\n  satellite: sensing.satellite.confidence,\n  uav: sensing.uav.confidence,\n  tower: sensing.tower.confidence,\n  canopy: sensing.canopy.confidence,\n  ground: sensing.ground.confidence\n};\nconst fireConfidence = Object.entries(evidenceWeights)\n  .reduce((sum, [key, weight]) => sum + evidence[key] * weight, 0);\n\nconst windFactor = Math.min(1, weather.windSpeed / 18);\nconst humidityFactor = Math.max(0, 1 - weather.humidity / 70);\nconst slopeFactor = Math.min(1, terrain.slope / 35);\nconst fuelDryness = Math.max(0, 1 - vegetation.fuelMoisture / 35);\nconst crownFactor = vegetation.crownDryness;\nconst roadPenalty = Math.max(0, 1 - terrain.roadAccessibility);\nconst targetExposure = Math.max(...targets.map(t => t.exposure));\n\nconst fireDangerIndex = (\n  windFactor * 0.22 +\n  humidityFactor * 0.13 +\n  slopeFactor * 0.18 +\n  fuelDryness * 0.18 +\n  crownFactor * 0.10 +\n  targetExposure * 0.12 +\n  fireConfidence * 0.07\n);\nconst level = fireDangerIndex >= 0.72 ? 'extreme' : fireDangerIndex >= 0.55 ? 'high' : fireDangerIndex >= 0.35 ? 'moderate' : 'low';\n\nreturn [{\n  json: {\n    package_type: 'situation_package',\n    agent: 'EnvironmentAssessmentAgent',\n    scene_id: source.scene_id,\n    fire_point: { lat: firePoint.lat, lon: firePoint.lon, confidence: fireConfidence },\n    weather_summary: {\n      wind_speed: weather.windSpeed,\n      wind_direction: weather.windDirection,\n      humidity: weather.humidity,\n      temperature: weather.temp,\n      danger_level: level\n    },\n    terrain_impact: {\n      slope: terrain.slope,\n      aspect: terrain.aspect,\n      road_accessibility: terrain.roadAccessibility,\n      slope_risk: slopeFactor >= 0.65 ? 'high' : slopeFactor >= 0.4 ? 'moderate' : 'low',\n      aspect_effect: '坡向与主导风向接近，东向/东北向蔓延敏感。'\n    },\n    fuel_status: {\n      moisture: vegetation.fuelMoisture,\n      fuel_load: vegetation.fuelLoad,\n      crown_dryness: vegetation.crownDryness,\n      combustibility: fuelDryness >= 0.65 ? 'high' : fuelDryness >= 0.4 ? 'moderate' : 'low'\n    },\n    evidence_chain: Object.entries(evidence).map(([sourceName, confidence]) => ({\n      source: sourceName,\n      confidence,\n      weight: evidenceWeights[sourceName],\n      contribution: Number((confidence * evidenceWeights[sourceName]).toFixed(3))\n    })),\n    fire_confidence: Number(fireConfidence.toFixed(3)),\n    factor_scores: {\n      wind_factor: Number(windFactor.toFixed(3)),\n      humidity_factor: Number(humidityFactor.toFixed(3)),\n      slope_factor: Number(slopeFactor.toFixed(3)),\n      fuel_dryness: Number(fuelDryness.toFixed(3)),\n      crown_factor: Number(crownFactor.toFixed(3)),\n      road_penalty: Number(roadPenalty.toFixed(3)),\n      target_exposure: Number(targetExposure.toFixed(3))\n    },\n    surrounding_risks: targets.map(t => `${t.name}:${t.priority}:${t.direction}`),\n    required_actions: ['无人机热成像复核', '下风向重点目标保护', '道路可达性复核', '持续刷新火线边界'],\n    risk_hint: `态势风险为 ${level}，主要受风速、坡度、可燃物干燥度和东侧重点目标暴露共同驱动。`\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -20,
+          -160
+        ],
+        "id": "790cf1f7-aacf-4458-88e9-4d4e7d049b75",
+        "name": "02 环境评估Agent（态势包）"
+      },
+      {
+        "parameters": {
+          "jsCode": "const inbound = $json || {};\nconst overrides = inbound.overrides || {};\nconst sceneId = inbound.scene_id || 'forest-fire-demo-001';\n\nconst firePoint = overrides.firePoint || { lat: 28.530278, lon: 101.269444, confidence: 0.91 };\nconst weather = {\n  windSpeed: overrides.windSpeed ?? 12.6,\n  windDirection: overrides.windDirection ?? 82,\n  temp: overrides.temp ?? 31.4,\n  humidity: overrides.humidity ?? 28,\n  rainfall24h: overrides.rainfall24h ?? 0.8\n};\nconst terrain = {\n  slope: overrides.slope ?? 23.5,\n  aspect: overrides.aspect ?? 96,\n  elevation: overrides.elevation ?? 1840,\n  roadAccessibility: overrides.roadAccessibility ?? 0.64\n};\nconst vegetation = {\n  fuelMoisture: overrides.fuelMoisture ?? 11.5,\n  fuelLoad: overrides.fuelLoad ?? 0.72,\n  crownDryness: overrides.crownDryness ?? 0.68,\n  vegetationIndex: overrides.vegetationIndex ?? 0.58\n};\n\nconst sensing = {\n  satellite: {\n    thermal_anomaly: true,\n    confidence: 0.86,\n    products: ['wide_area_screening', 'fireline_boundary', 'temporal_verification']\n  },\n  uav: {\n    available: true,\n    thermal_confirmed: true,\n    confidence: 0.92,\n    eta_minutes: 12\n  },\n  tower: {\n    smoke_detected: true,\n    confidence: 0.78,\n    camera_quality: 0.82\n  },\n  canopy: {\n    crown_temp_anomaly: true,\n    confidence: 0.69,\n    device_status: 'sample_plot_enhancement'\n  },\n  ground: {\n    temperature_rise: 4.8,\n    smoke_ppm: 31,\n    soil_moisture: 13,\n    confidence: 0.74\n  }\n};\n\nconst resources = [\n  { id: 'R-FIRE-01', type: 'fire_crew', name: '北侧消防组', location: { lat: 28.534, lon: 101.242 }, count: 18, status: 'available', eta: 20 },\n  { id: 'R-FIRE-02', type: 'fire_crew', name: '南侧消防组', location: { lat: 28.515, lon: 101.292 }, count: 12, status: 'available', eta: 28 },\n  { id: 'R-UAV-01', type: 'uav', name: '侦查无人机', location: { lat: 28.526, lon: 101.263 }, count: 1, status: 'available', eta: 10 },\n  { id: 'R-UAV-02', type: 'uav', name: '通信中继无人机', location: { lat: 28.524, lon: 101.266 }, count: 1, status: 'available', eta: 14 },\n  { id: 'R-WATER-01', type: 'water_tanker', name: '水罐车组', location: { lat: 28.518, lon: 101.255 }, count: 4, status: 'available', eta: 25 },\n  { id: 'R-MED-01', type: 'medical', name: '县医院应急点', location: { lat: 28.506, lon: 101.279 }, count: 8, status: 'available', eta: 35 }\n];\n\nconst targets = [\n  { id: 'T-VILLAGE-E', name: '东侧村庄', type: 'village', direction: 'east', exposure: 0.88, priority: 'critical' },\n  { id: 'T-POWER-01', name: '输电通道', type: 'power_line', direction: 'north-east', exposure: 0.74, priority: 'high' },\n  { id: 'T-SCENIC-01', name: '景区入口', type: 'scenic_spot', direction: 'south-east', exposure: 0.56, priority: 'medium' }\n];\n\nreturn [{\n  json: {\n    execution_id: `${sceneId}-${Date.now()}`,\n    scene_id: sceneId,\n    timestamp: new Date().toISOString(),\n    commander_instruction: inbound.commander_instruction || '东侧风速增大，优先保护村庄和输电通道，调度无人机复核火线。',\n    scene: { firePoint, weather, terrain, vegetation, sensing, targets },\n    resources,\n    product_chain: ['可信感知', '火势推演', '协同决策', '任务调度', '反馈学习'],\n    display_note: '展示数据：用于说明多源感知、多因子耦合、多智能体闭环，不等同于真实火场指挥命令。'\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -300,
+          -40
+        ],
+        "id": "249664d1-891f-4836-bb9e-26aadaa5bc2c",
+        "name": "01 多源感知与样例数据源"
+      },
+      {
+        "parameters": {
+          "jsCode": "const source = $('01 多源感知与样例数据源').first().json;\nconst { weather, terrain, vegetation, firePoint } = source.scene;\n\nconst baseSpreadRate = 4.2; // m/min, demonstration baseline\nconst windMultiplier = 1 + Math.min(1.8, weather.windSpeed / 10);\nconst slopeMultiplier = 1 + Math.min(1.2, terrain.slope / 28);\nconst fuelMultiplier = 0.65 + Math.max(0, 1 - vegetation.fuelMoisture / 32);\nconst crownMultiplier = 1 + vegetation.crownDryness * 0.35;\nconst spreadRate = baseSpreadRate * windMultiplier * slopeMultiplier * fuelMultiplier * crownMultiplier;\n\nconst dir = weather.windDirection;\nconst rad = (90 - dir) * Math.PI / 180;\nconst stepMinutes = [30, 60, 120, 180, 240];\nconst areaCurve = stepMinutes.map((minute, index) => {\n  const hours = minute / 60;\n  const area = 0.42 + Math.pow(spreadRate * hours / 35, 1.22) * (1 + index * 0.09);\n  const centerShiftKm = spreadRate * minute / 1000;\n  return {\n    elapsed_minutes: minute,\n    area_km2: Number(area.toFixed(3)),\n    center: {\n      lat: Number((firePoint.lat + Math.sin(rad) * centerShiftKm / 110.576).toFixed(6)),\n      lon: Number((firePoint.lon + Math.cos(rad) * centerShiftKm / 98.0).toFixed(6))\n    }\n  };\n});\nconst latest = areaCurve[areaCurve.length - 1];\nconst previous = areaCurve[areaCurve.length - 2];\nconst latestGrowth = (latest.area_km2 - previous.area_km2) / ((latest.elapsed_minutes - previous.elapsed_minutes) / 60);\nconst intensity = latestGrowth >= 2.5 ? 'extreme' : latestGrowth >= 1.3 ? 'high' : latestGrowth >= 0.6 ? 'moderate' : 'low';\n\nconst directionText = dir >= 45 && dir <= 135 ? 'east' : dir > 135 && dir <= 225 ? 'south' : dir > 225 && dir <= 315 ? 'west' : 'north';\n\nreturn [{\n  json: {\n    package_type: 'spread_package',\n    agent: 'FireSpreadAgent',\n    mechanism: 'Rothermel simplified + ForeFire output adapter display',\n    input_coupling_from_environment: ['wind_speed', 'wind_direction', 'slope', 'fuel_moisture', 'crown_dryness'],\n    spread_rate_m_per_min: Number(spreadRate.toFixed(3)),\n    latest_growth_km2_per_hour: Number(latestGrowth.toFixed(3)),\n    latest_spread_intensity: intensity,\n    main_spread_direction: directionText,\n    area_growth_curve: areaCurve,\n    high_risk_periods: areaCurve.filter(p => p.elapsed_minutes >= 120),\n    final_bbox: [\n      Number((latest.center.lon - 0.016).toFixed(6)),\n      Number((latest.center.lat - 0.012).toFixed(6)),\n      Number((latest.center.lon + 0.019).toFixed(6)),\n      Number((latest.center.lat + 0.014).toFixed(6))\n    ],\n    priority_protection_directions: directionText === 'east' ? ['east', 'north-east'] : [directionText],\n    coupling_notes: [\n      '风速提高使火头推进速度增大。',\n      '坡度与坡向影响热对流和可达性。',\n      '可燃物含水率降低会放大蔓延强度。',\n      '树冠干燥度用于补强冠层火风险。'\n    ]\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -20,
+          80
+        ],
+        "id": "087bbbc9-b447-4a0c-9954-ee8cc5e67fd1",
+        "name": "03 火势推演Agent（机理推演包）"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all().map(item => item.json);\nconst situation = items.find(item => item.package_type === 'situation_package');\nconst spread = items.find(item => item.package_type === 'spread_package');\nif (!situation || !spread) throw new Error('需要同时输入态势包和火势推演包。');\n\nconst factors = situation.factor_scores;\nconst spreadIntensity = Math.min(1, spread.spread_rate_m_per_min / 22);\nconst growthPressure = Math.min(1, spread.latest_growth_km2_per_hour / 3.5);\nconst targetExposure = factors.target_exposure;\nconst resourcePressure = Math.min(1, (spread.area_growth_curve.at(-1).area_km2 / 8) * (1 + factors.road_penalty * 0.5));\n\nconst mainEffects = {\n  wind: factors.wind_factor * 0.17,\n  humidity_drought: factors.humidity_factor * 0.09,\n  slope: factors.slope_factor * 0.11,\n  fuel: factors.fuel_dryness * 0.14,\n  crown: factors.crown_factor * 0.07,\n  evidence_confidence: situation.fire_confidence * 0.08,\n  spread_intensity: spreadIntensity * 0.14,\n  target_exposure: targetExposure * 0.11\n};\n\nconst couplingTerms = {\n  wind_slope: factors.wind_factor * factors.slope_factor * 0.09,\n  weather_fuel: factors.wind_factor * factors.fuel_dryness * factors.humidity_factor * 0.08,\n  terrain_fuel_crown: factors.slope_factor * factors.fuel_dryness * factors.crown_factor * 0.07,\n  spread_target: spreadIntensity * targetExposure * 0.08,\n  resource_access: resourcePressure * factors.road_penalty * 0.04\n};\n\nconst riskScore = Object.values(mainEffects).reduce((a, b) => a + b, 0)\n  + Object.values(couplingTerms).reduce((a, b) => a + b, 0);\nconst riskLevel = riskScore >= 0.78 ? 'extreme' : riskScore >= 0.58 ? 'high' : riskScore >= 0.38 ? 'moderate' : 'low';\n\nconst couplingMatrix = [\n  { from: '气象风场', to: '地形坡度', term: 'wind_slope', mechanism: '风坡同向时加速火头推进', weight: 0.09 },\n  { from: '风速/湿度', to: '可燃物含水率', term: 'weather_fuel', mechanism: '干热大风降低细小可燃物含水率', weight: 0.08 },\n  { from: '坡度', to: '树冠干燥度', term: 'terrain_fuel_crown', mechanism: '坡面热对流和冠层干燥共同提高冠火风险', weight: 0.07 },\n  { from: '蔓延强度', to: '重点目标暴露', term: 'spread_target', mechanism: '火线推进方向与村庄/输电通道暴露叠加', weight: 0.08 },\n  { from: '资源可达性', to: '道路通行', term: 'resource_access', mechanism: '道路受阻会放大调度时间风险', weight: 0.04 }\n];\n\nreturn [{\n  json: {\n    package_type: 'risk_package',\n    agent: 'RiskFusionAgent',\n    risk_score: Number(riskScore.toFixed(3)),\n    risk_level: riskLevel,\n    main_effects: Object.fromEntries(Object.entries(mainEffects).map(([k, v]) => [k, Number(v.toFixed(3))])),\n    coupling_terms: Object.fromEntries(Object.entries(couplingTerms).map(([k, v]) => [k, Number(v.toFixed(3))])),\n    coupling_matrix: couplingMatrix,\n    situation_package: situation,\n    spread_package: spread,\n    predicted_affected_zones: situation.surrounding_risks,\n    recommended_priority: riskLevel === 'extreme' ? 'immediate_response' : riskLevel === 'high' ? 'high_priority' : 'routine',\n    agent_coupling_edges: [\n      { from: 'EnvironmentAssessmentAgent', to: 'FireSpreadAgent', data: '气象/地形/可燃物约束' },\n      { from: 'FireSpreadAgent', to: 'CommandDecisionAgent', data: '蔓延方向/强度/风险时段' },\n      { from: 'RiskFusionAgent', to: 'CommandDecisionAgent', data: '多因子耦合风险分数' }\n    ]\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          -40
+        ],
+        "id": "0f584681-55fc-447d-89f4-115a8947fc95",
+        "name": "05 多因子耦合Agent（风险包）"
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.recommended_plan.plan_id }}",
+                      "rightValue": "PLAN-A",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "route-plan-a"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "PLAN-A 火头压制"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.recommended_plan.plan_id }}",
+                      "rightValue": "PLAN-B",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "route-plan-b"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "PLAN-B 分段围控"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.recommended_plan.plan_id }}",
+                      "rightValue": "PLAN-C",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "route-plan-c"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "PLAN-C 保守疏散"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [
+          1480,
+          -60
+        ],
+        "id": "c888467a-9224-4b07-95eb-df89889718a1",
+        "name": "07 推荐方案路由"
+      },
+      {
+        "parameters": {
+          "jsCode": "const riskPackage = $input.first().json;\nconst situation = riskPackage.situation_package;\nconst spread = riskPackage.spread_package;\nconst source = $('01 多源感知与样例数据源').first().json;\nconst resources = source.resources;\n\nfunction resourceCount(type) {\n  return resources.filter(r => r.type === type).reduce((sum, r) => sum + (r.count || 1), 0);\n}\nfunction scorePlan(plan) {\n  return Number((\n    0.30 * plan.safety_margin +\n    0.25 * plan.response_efficiency +\n    0.20 * plan.resource_match +\n    0.20 * plan.expected_control_effect -\n    0.15 * plan.execution_difficulty\n  ).toFixed(2));\n}\nfunction safetyRules(plan) {\n  const flags = [];\n  const reasons = [];\n  let status = 'available';\n  if (riskPackage.risk_level === 'high' || riskPackage.risk_level === 'extreme') {\n    if (!plan.tasks.some(t => t.type === 'evacuation' || t.type === 'protect_key_targets')) {\n      status = 'downgraded';\n      flags.push('missing_evacuation_or_key_target_protection');\n      reasons.push('高风险方案必须包含疏散或重点目标保护。');\n    }\n  }\n  if (situation.weather_summary.wind_speed >= 12 && plan.tasks.some(t => t.type === 'low_altitude_uav_recon')) {\n    status = 'downgraded';\n    flags.push('uav_low_altitude_limited_by_wind');\n    reasons.push('风速超过 12 m/s，低空无人机任务降级为中高空复核。');\n  }\n  if (resourceCount('fire_crew') < 24 && plan.plan_id !== 'PLAN-C') {\n    status = 'downgraded';\n    flags.push('crew_capacity_tight');\n    reasons.push('消防员可用数量偏紧，激进/均衡方案需增加安全冗余。');\n  }\n  return { status_adjustment: status, flags, reasons };\n}\n\nconst direction = spread.main_spread_direction;\nconst priority = spread.priority_protection_directions.join(', ');\nconst plans = [\n  {\n    plan_id: 'PLAN-A',\n    name: '火头压制与重点目标前置保护',\n    plan_type: 'aggressive',\n    strategy: `沿 ${direction} 火头方向快速建立压制线，同时保护 ${priority} 方向重点目标。`,\n    target_area: `${priority} sector near bbox ${JSON.stringify(spread.final_bbox)}`,\n    required_resources: ['R-FIRE-01', 'R-UAV-01', 'R-WATER-01'],\n    safety_margin: 76,\n    response_efficiency: 84,\n    resource_match: 72,\n    expected_control_effect: 82,\n    execution_difficulty: 66,\n    tasks: [\n      { type: 'protect_key_targets', action: 'deploy crews to village and power-line buffer' },\n      { type: 'uav_recon', action: 'map active perimeter at medium altitude' },\n      { type: 'water_supply', action: 'stage water tankers near safe access point' }\n    ]\n  },\n  {\n    plan_id: 'PLAN-B',\n    name: '隔离带构建与分段围控',\n    plan_type: 'balanced',\n    strategy: '先建立安全隔离带，再按火线分段推进，兼顾控制效率与人员安全。',\n    target_area: `outer perimeter around bbox ${JSON.stringify(spread.final_bbox)}`,\n    required_resources: ['R-FIRE-01', 'R-FIRE-02', 'R-UAV-02', 'R-WATER-01'],\n    safety_margin: 84,\n    response_efficiency: 76,\n    resource_match: 80,\n    expected_control_effect: 78,\n    execution_difficulty: 52,\n    tasks: [\n      { type: 'evacuation', action: 'prepare evacuation corridor outside final bbox' },\n      { type: 'perimeter_suppression', action: 'split fireline into crew sectors' },\n      { type: 'communication_relay', action: 'deploy aerial relay for command links' },\n      { type: 'water_supply', action: 'secure tanker shuttle route' }\n    ]\n  },\n  {\n    plan_id: 'PLAN-C',\n    name: '保守疏散与持续监测',\n    plan_type: 'conservative',\n    strategy: '优先人员疏散、交通管制和外围监测，等待下一轮火线边界更新后再压制。',\n    target_area: `${direction} spread corridor and evacuation exits`,\n    required_resources: ['R-FIRE-02', 'R-UAV-01', 'R-MED-01'],\n    safety_margin: 90,\n    response_efficiency: 62,\n    resource_match: 74,\n    expected_control_effect: 62,\n    execution_difficulty: 38,\n    tasks: [\n      { type: 'evacuation', action: 'move exposed personnel away from spread corridor' },\n      { type: 'uav_recon', action: 'refresh perimeter intelligence' },\n      { type: 'medical_standby', action: 'stage medical team near safe camp' }\n    ]\n  }\n].map(plan => {\n  const safety = safetyRules(plan);\n  const scored = { ...plan, risk_level: riskPackage.risk_level, score: scorePlan(plan), safety_rules: safety, status: safety.status_adjustment };\n  scored.reasons = [\n    `耦合风险 ${riskPackage.risk_score} / ${riskPackage.risk_level}`,\n    ...safety.reasons\n  ];\n  return scored;\n});\n\nconst available = plans.filter(p => p.status === 'available');\nconst recommended = (available.length ? available : plans).sort((a, b) => b.score - a.score)[0];\nrecommended.status = available.includes(recommended) ? 'recommended' : 'recommended_with_warnings';\nrecommended.reasons.push('综合安全裕度、响应效率、资源匹配和控制效果后评分最高。');\n\nreturn [{\n  json: {\n    package_type: 'plan_package',\n    agent: 'CommandDecisionAgent',\n    scoring_formula: 'score = 0.30*safety_margin + 0.25*response_efficiency + 0.20*resource_match + 0.20*expected_control_effect - 0.15*execution_difficulty',\n    risk_package: riskPackage,\n    candidate_plans: plans,\n    recommended_plan: recommended,\n    blocked_or_downgraded_plans: plans.filter(p => p.status === 'downgraded' || p.status === 'blocked'),\n    agent_coupling_edges: [\n      ...riskPackage.agent_coupling_edges,\n      { from: 'CommandDecisionAgent', to: 'ResourceDispatchAgent', data: '推荐方案/安全规则/资源需求' }\n    ]\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1020,
+          -40
+        ],
+        "id": "e44df7c4-6144-49fb-8742-ec8fd0d4888f",
+        "name": "06 决策指挥Agent（方案包）"
+      },
+      {
+        "parameters": {
+          "jsCode": "const planPackage = $input.first().json;\nif (!Array.isArray(planPackage.candidate_plans) || !planPackage.recommended_plan) {\n  throw new Error('方案包缺少 candidate_plans 或 recommended_plan。');\n}\nplanPackage.candidate_plans = planPackage.candidate_plans\n  .slice()\n  .sort((a, b) => b.score - a.score);\nplanPackage.plan_count = planPackage.candidate_plans.length;\nplanPackage.recommended_plan_id = planPackage.recommended_plan.plan_id;\nreturn [{ json: planPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1260,
+          -40
+        ],
+        "id": "e28305cd-a72a-4e98-9c01-dd739e02d733",
+        "name": "06b 方案包校验与排序"
+      },
+      {
+        "parameters": {
+          "jsCode": "const planPackage = $input.first().json;\nconst source = $('01 多源感知与样例数据源').first().json;\nconst selectedPlan = planPackage.recommended_plan;\nconst firePoint = source.scene.firePoint;\n\nfunction distanceKm(a, b) {\n  const dx = (b.lon - a.lon) * 98.0;\n  const dy = (b.lat - a.lat) * 110.576;\n  return Math.sqrt(dx * dx + dy * dy);\n}\nfunction route(from, to, mode) {\n  const d = distanceKm(from, to);\n  const offset = mode === 'safe' ? 0.006 : mode === 'backup' ? -0.004 : 0;\n  return {\n    mode,\n    waypoints: [\n      from,\n      { lat: Number(((from.lat + to.lat) / 2 + offset).toFixed(6)), lon: Number(((from.lon + to.lon) / 2 - offset).toFixed(6)) },\n      to\n    ],\n    distance_km: Number((d * (mode === 'safe' ? 1.28 : mode === 'backup' ? 1.16 : 1)).toFixed(3)),\n    estimated_time_min: Math.round(d * (mode === 'safe' ? 4.0 : 3.2) + 12)\n  };\n}\n\nconst matchedResources = source.resources.filter(r => selectedPlan.required_resources.includes(r.id));\nconst tasks = matchedResources.map((resource, index) => {\n  const taskType = resource.type === 'uav' ? 'recon_or_relay'\n    : resource.type === 'water_tanker' ? 'water_supply'\n    : resource.type === 'medical' ? 'medical_standby'\n    : selectedPlan.tasks[index % selectedPlan.tasks.length]?.type || 'field_support';\n  return {\n    task_id: `TASK-${selectedPlan.plan_id}-${index + 1}`,\n    resource_id: resource.id,\n    resource_name: resource.name,\n    resource_type: resource.type,\n    task_type: taskType,\n    target: firePoint,\n    main_route: route(resource.location, firePoint, 'safe'),\n    backup_route: route(resource.location, firePoint, 'backup'),\n    evacuation_route: {\n      mode: 'evacuation',\n      exit_points: [\n        { lat: Number((firePoint.lat - 0.025).toFixed(6)), lon: Number((firePoint.lon - 0.035).toFixed(6)) },\n        { lat: Number((firePoint.lat - 0.018).toFixed(6)), lon: Number((firePoint.lon + 0.028).toFixed(6)) }\n      ]\n    },\n    estimated_eta_min: resource.eta,\n    priority: selectedPlan.risk_level === 'extreme' ? 'critical' : taskType === 'medical_standby' ? 'high' : 'critical',\n    status: 'planned',\n    feedback_required: true\n  };\n});\n\nconst taskPackage = {\n  package_type: 'task_package',\n  agent: 'ResourceDispatchAgent',\n  plan_id: selectedPlan.plan_id,\n  plan_type: selectedPlan.plan_type,\n  selected_strategy: selectedPlan.strategy,\n  risk_level: selectedPlan.risk_level,\n  timestamp: new Date().toISOString(),\n  resources_used: matchedResources.map(r => r.id),\n  tasks,\n  safety_checks: selectedPlan.safety_rules,\n  execution_instructions: [\n    selectedPlan.strategy,\n    '每个任务必须回传位置、阻断、资源消耗和火线变化。',\n    '若风速继续升高或道路受阻，进入反馈学习节点触发重规划。'\n  ],\n  dispatch_coupling: {\n    from_plan_package: selectedPlan.plan_id,\n    to_feedback_package: 'task_status + resource_consumption + observed_fireline',\n    front_end_panels: ['任务列表', '路线规划', '无人机调度', '物资人员调度']\n  },\n  status: 'dispatched'\n};\n\nreturn [{ json: taskPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1740,
+          -260
+        ],
+        "id": "0b170c57-98c5-43e0-9450-e81120505013",
+        "name": "07A 资源调度Agent（PLAN-A）"
+      },
+      {
+        "parameters": {
+          "jsCode": "const planPackage = $input.first().json;\nconst source = $('01 多源感知与样例数据源').first().json;\nconst selectedPlan = planPackage.recommended_plan;\nconst firePoint = source.scene.firePoint;\n\nfunction distanceKm(a, b) {\n  const dx = (b.lon - a.lon) * 98.0;\n  const dy = (b.lat - a.lat) * 110.576;\n  return Math.sqrt(dx * dx + dy * dy);\n}\nfunction route(from, to, mode) {\n  const d = distanceKm(from, to);\n  const offset = mode === 'safe' ? 0.006 : mode === 'backup' ? -0.004 : 0;\n  return {\n    mode,\n    waypoints: [\n      from,\n      { lat: Number(((from.lat + to.lat) / 2 + offset).toFixed(6)), lon: Number(((from.lon + to.lon) / 2 - offset).toFixed(6)) },\n      to\n    ],\n    distance_km: Number((d * (mode === 'safe' ? 1.28 : mode === 'backup' ? 1.16 : 1)).toFixed(3)),\n    estimated_time_min: Math.round(d * (mode === 'safe' ? 4.0 : 3.2) + 12)\n  };\n}\n\nconst matchedResources = source.resources.filter(r => selectedPlan.required_resources.includes(r.id));\nconst tasks = matchedResources.map((resource, index) => {\n  const taskType = resource.type === 'uav' ? 'recon_or_relay'\n    : resource.type === 'water_tanker' ? 'water_supply'\n    : resource.type === 'medical' ? 'medical_standby'\n    : selectedPlan.tasks[index % selectedPlan.tasks.length]?.type || 'field_support';\n  return {\n    task_id: `TASK-${selectedPlan.plan_id}-${index + 1}`,\n    resource_id: resource.id,\n    resource_name: resource.name,\n    resource_type: resource.type,\n    task_type: taskType,\n    target: firePoint,\n    main_route: route(resource.location, firePoint, 'safe'),\n    backup_route: route(resource.location, firePoint, 'backup'),\n    evacuation_route: {\n      mode: 'evacuation',\n      exit_points: [\n        { lat: Number((firePoint.lat - 0.025).toFixed(6)), lon: Number((firePoint.lon - 0.035).toFixed(6)) },\n        { lat: Number((firePoint.lat - 0.018).toFixed(6)), lon: Number((firePoint.lon + 0.028).toFixed(6)) }\n      ]\n    },\n    estimated_eta_min: resource.eta,\n    priority: selectedPlan.risk_level === 'extreme' ? 'critical' : taskType === 'medical_standby' ? 'high' : 'critical',\n    status: 'planned',\n    feedback_required: true\n  };\n});\n\nconst taskPackage = {\n  package_type: 'task_package',\n  agent: 'ResourceDispatchAgent',\n  plan_id: selectedPlan.plan_id,\n  plan_type: selectedPlan.plan_type,\n  selected_strategy: selectedPlan.strategy,\n  risk_level: selectedPlan.risk_level,\n  timestamp: new Date().toISOString(),\n  resources_used: matchedResources.map(r => r.id),\n  tasks,\n  safety_checks: selectedPlan.safety_rules,\n  execution_instructions: [\n    selectedPlan.strategy,\n    '每个任务必须回传位置、阻断、资源消耗和火线变化。',\n    '若风速继续升高或道路受阻，进入反馈学习节点触发重规划。'\n  ],\n  dispatch_coupling: {\n    from_plan_package: selectedPlan.plan_id,\n    to_feedback_package: 'task_status + resource_consumption + observed_fireline',\n    front_end_panels: ['任务列表', '路线规划', '无人机调度', '物资人员调度']\n  },\n  status: 'dispatched'\n};\n\nreturn [{ json: taskPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1740,
+          -60
+        ],
+        "id": "5a55e8fd-3c0a-483f-bda7-c4f4f4ec4139",
+        "name": "07B 资源调度Agent（PLAN-B）"
+      },
+      {
+        "parameters": {
+          "jsCode": "const planPackage = $input.first().json;\nconst source = $('01 多源感知与样例数据源').first().json;\nconst selectedPlan = planPackage.recommended_plan;\nconst firePoint = source.scene.firePoint;\n\nfunction distanceKm(a, b) {\n  const dx = (b.lon - a.lon) * 98.0;\n  const dy = (b.lat - a.lat) * 110.576;\n  return Math.sqrt(dx * dx + dy * dy);\n}\nfunction route(from, to, mode) {\n  const d = distanceKm(from, to);\n  const offset = mode === 'safe' ? 0.006 : mode === 'backup' ? -0.004 : 0;\n  return {\n    mode,\n    waypoints: [\n      from,\n      { lat: Number(((from.lat + to.lat) / 2 + offset).toFixed(6)), lon: Number(((from.lon + to.lon) / 2 - offset).toFixed(6)) },\n      to\n    ],\n    distance_km: Number((d * (mode === 'safe' ? 1.28 : mode === 'backup' ? 1.16 : 1)).toFixed(3)),\n    estimated_time_min: Math.round(d * (mode === 'safe' ? 4.0 : 3.2) + 12)\n  };\n}\n\nconst matchedResources = source.resources.filter(r => selectedPlan.required_resources.includes(r.id));\nconst tasks = matchedResources.map((resource, index) => {\n  const taskType = resource.type === 'uav' ? 'recon_or_relay'\n    : resource.type === 'water_tanker' ? 'water_supply'\n    : resource.type === 'medical' ? 'medical_standby'\n    : selectedPlan.tasks[index % selectedPlan.tasks.length]?.type || 'field_support';\n  return {\n    task_id: `TASK-${selectedPlan.plan_id}-${index + 1}`,\n    resource_id: resource.id,\n    resource_name: resource.name,\n    resource_type: resource.type,\n    task_type: taskType,\n    target: firePoint,\n    main_route: route(resource.location, firePoint, 'safe'),\n    backup_route: route(resource.location, firePoint, 'backup'),\n    evacuation_route: {\n      mode: 'evacuation',\n      exit_points: [\n        { lat: Number((firePoint.lat - 0.025).toFixed(6)), lon: Number((firePoint.lon - 0.035).toFixed(6)) },\n        { lat: Number((firePoint.lat - 0.018).toFixed(6)), lon: Number((firePoint.lon + 0.028).toFixed(6)) }\n      ]\n    },\n    estimated_eta_min: resource.eta,\n    priority: selectedPlan.risk_level === 'extreme' ? 'critical' : taskType === 'medical_standby' ? 'high' : 'critical',\n    status: 'planned',\n    feedback_required: true\n  };\n});\n\nconst taskPackage = {\n  package_type: 'task_package',\n  agent: 'ResourceDispatchAgent',\n  plan_id: selectedPlan.plan_id,\n  plan_type: selectedPlan.plan_type,\n  selected_strategy: selectedPlan.strategy,\n  risk_level: selectedPlan.risk_level,\n  timestamp: new Date().toISOString(),\n  resources_used: matchedResources.map(r => r.id),\n  tasks,\n  safety_checks: selectedPlan.safety_rules,\n  execution_instructions: [\n    selectedPlan.strategy,\n    '每个任务必须回传位置、阻断、资源消耗和火线变化。',\n    '若风速继续升高或道路受阻，进入反馈学习节点触发重规划。'\n  ],\n  dispatch_coupling: {\n    from_plan_package: selectedPlan.plan_id,\n    to_feedback_package: 'task_status + resource_consumption + observed_fireline',\n    front_end_panels: ['任务列表', '路线规划', '无人机调度', '物资人员调度']\n  },\n  status: 'dispatched'\n};\n\nreturn [{ json: taskPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1740,
+          140
+        ],
+        "id": "8319669f-d316-408b-ae18-ef75fe40a34d",
+        "name": "07C 资源调度Agent（PLAN-C）"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "fire-feedback",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          1480,
+          300
+        ],
+        "id": "0ae14a59-baf0-4c08-8bf4-623e7b8f3995",
+        "name": "Webhook 外部执行反馈入口",
+        "webhookId": "d20faf65-d847-4761-ae50-9d688cd2f2e1"
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = $json.body || $json;\nreturn [{\n  json: {\n    package_type: 'feedback_package',\n    agent: 'ExternalFeedbackAdapter',\n    execution_id: body.execution_id || `external-${Date.now()}`,\n    scene_id: body.scene_id || body.payload?.scene_id || 'forest-fire-demo-001',\n    plan_id: body.plan_id || body.payload?.plan_id || 'external',\n    generated_at: new Date().toISOString(),\n    feedback_type: body.feedback_type || 'external_field_feedback',\n    task_status: body.task_status || [],\n    observed_fireline_update: body.observed_fireline_update || {},\n    resource_consumption: body.resource_consumption || {},\n    triggers: body.triggers || { need_replan: true, reasons: ['external_feedback_received'] },\n    payload: body.payload || body\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1740,
+          300
+        ],
+        "id": "c566218f-1728-4d54-a491-2e1cc4df4834",
+        "name": "08b 外部反馈包标准化"
+      },
+      {
+        "parameters": {
+          "jsCode": "const feedback = $input.first().json;\nconst riskPackage = $('05 多因子耦合Agent（风险包）').first().json;\n\nconst routeBlocked = feedback.task_status?.some(t => t.status === 'blocked_need_replan');\nconst growthIncreased = feedback.observed_fireline_update?.latest_growth_km2_per_hour\n  > riskPackage.spread_package.latest_growth_km2_per_hour;\n\nconst learningPackage = {\n  package_type: 'learning_package',\n  agent: 'FeedbackLearningAgent',\n  scene_id: feedback.scene_id || 'external-feedback',\n  plan_id: feedback.plan_id || feedback.payload?.plan_id || 'unknown',\n  received_feedback_type: feedback.feedback_type || 'external_feedback',\n  closed_loop_result: {\n    need_replan: Boolean(routeBlocked || growthIncreased || feedback.triggers?.need_replan),\n    update_risk_level: growthIncreased && riskPackage.risk_level === 'moderate' ? 'high' : riskPackage.risk_level,\n    update_reason: [\n      routeBlocked ? '执行路线受阻，反馈给资源调度与路径规划。' : null,\n      growthIncreased ? '实测火线增长率高于推演，反馈给火势推演参数。' : null,\n      '资源消耗回流到物资/人员调度面板。'\n    ].filter(Boolean)\n  },\n  parameter_updates: {\n    coupling_weight_resource_access_delta: routeBlocked ? 0.02 : 0,\n    spread_growth_bias_delta: growthIncreased ? 0.08 : 0,\n    evidence_confidence_note: '无人机/前线反馈作为下一轮态势包的高权重证据。'\n  },\n  feedback_edges: [\n    { from: 'ResourceDispatchAgent', to: 'FeedbackLearningAgent', data: '任务状态/资源消耗/路线受阻' },\n    { from: 'FeedbackLearningAgent', to: 'EnvironmentAssessmentAgent', data: '现场证据权重修正' },\n    { from: 'FeedbackLearningAgent', to: 'FireSpreadAgent', data: '实测火线增长率校准' },\n    { from: 'FeedbackLearningAgent', to: 'CommandDecisionAgent', data: '规则库与候选方案阈值修正' }\n  ],\n  raw_feedback: feedback,\n  generated_at: new Date().toISOString()\n};\n\nreturn [{ json: learningPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2280,
+          -60
+        ],
+        "id": "a40177e2-4f79-4781-860b-bd32b15bcec3",
+        "name": "09 反馈学习Agent（闭环校准）"
+      },
+      {
+        "parameters": {
+          "jsCode": "const taskPackage = $input.first().json;\nconst source = $('01 多源感知与样例数据源').first().json;\nconst riskPackage = $('05 多因子耦合Agent（风险包）').first().json;\n\nconst feedbackPackage = {\n  package_type: 'feedback_package',\n  agent: 'FeedbackBuilder',\n  execution_id: source.execution_id,\n  scene_id: source.scene_id,\n  plan_id: taskPackage.plan_id,\n  task_package: taskPackage,\n  generated_at: new Date().toISOString(),\n  feedback_type: 'simulated_execution_feedback',\n  task_status: taskPackage.tasks.map((task, index) => ({\n    task_id: task.task_id,\n    resource_id: task.resource_id,\n    status: index === 0 && riskPackage.risk_level !== 'low' ? 'blocked_need_replan' : 'executing',\n    progress: index === 0 ? 0.35 : 0.62,\n    eta_delta_min: index === 0 ? 9 : 0,\n    message: index === 0 ? '东侧道路受烟雾影响，建议切换备用路线并提高无人机复核频次。' : '按计划推进，持续回传。'\n  })),\n  observed_fireline_update: {\n    direction: riskPackage.spread_package.main_spread_direction,\n    latest_growth_km2_per_hour: Number((riskPackage.spread_package.latest_growth_km2_per_hour * 1.08).toFixed(3)),\n    confidence: 0.82\n  },\n  resource_consumption: {\n    water_tanker_rounds: 2,\n    uav_battery_drop_percent: 18,\n    fire_hose_rolls: 12,\n    medical_standby: true\n  },\n  model_feedback: {\n    coupling_terms_to_watch: Object.keys(riskPackage.coupling_terms).filter(k => riskPackage.coupling_terms[k] >= 0.03),\n    suggested_weight_update: {\n      resource_access: '+0.02 when blocked routes are reported',\n      spread_target: '+0.01 when target exposure is confirmed by UAV'\n    }\n  },\n  triggers: {\n    need_replan: true,\n    reasons: ['route_blocked', 'growth_rate_updated', 'resource_consumption_reported']\n  }\n};\n\nreturn [{ json: feedbackPackage }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2020,
+          -60
+        ],
+        "id": "512d260c-2326-444d-8674-55e436595773",
+        "name": "08 执行反馈包（状态回传）"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "main-process",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -760,
+          80
+        ],
+        "id": "fc6a3a91-c2e1-4390-b03b-25bae37882c8",
+        "name": "Webhook 主流程入口",
+        "webhookId": "ef9ecc40-4405-459e-9eca-dceab610138e"
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = $json.body || $json.query || $json.params || $json;\nreturn [{\n  json: {\n    trigger_source: body.trigger_source || 'webhook',\n    scene_id: body.scene_id || 'forest-fire-demo-001',\n    commander_instruction: body.commander_instruction || '东侧风速增大，优先保护村庄和输电通道，调度无人机复核火线。',\n    overrides: body.overrides || {},\n    received_at: new Date().toISOString()\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -520,
+          80
+        ],
+        "id": "c89ecf88-0564-4754-af5b-0d7ae78395c4",
+        "name": "00 数据源路由器"
+      },
+      {
+        "parameters": {
+          "jsCode": "const situation = $input.first().json;\nconst required = ['package_type', 'agent', 'fire_point', 'factor_scores', 'evidence_chain'];\nconst missing = required.filter(key => situation[key] === undefined);\nif (missing.length) throw new Error(`态势包缺少字段: ${missing.join(', ')}`);\nreturn [{ json: situation }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          -160
+        ],
+        "id": "ade7b8a4-a6a5-4a13-a691-ec306f691945",
+        "name": "02b 态势包结构校验"
+      },
+      {
+        "parameters": {
+          "mode": "append"
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          520,
+          -40
+        ],
+        "id": "6170ea92-ce4a-4827-aaf8-dc77fa690368",
+        "name": "04 智能体输出汇聚"
+      },
+      {
+        "parameters": {
+          "jsCode": "const learning = $input.first().json;\nconst situation = $('02 环境评估Agent（态势包）').first().json;\nconst spread = $('03 火势推演Agent（机理推演包）').first().json;\nconst risk = $('05 多因子耦合Agent（风险包）').first().json;\nconst plan = $('06 决策指挥Agent（方案包）').first().json;\nconst feedback = learning.raw_feedback || {};\nconst task = feedback.task_package || null;\n\nreturn [{\n  json: {\n    status: 'showcase_closed_loop_generated',\n    generated_at: new Date().toISOString(),\n    architecture: {\n      title: '星火智援多因子耦合多智能体闭环',\n      agents: ['EnvironmentAssessmentAgent', 'FireSpreadAgent', 'RiskFusionAgent', 'CommandDecisionAgent', 'ResourceDispatchAgent', 'FeedbackLearningAgent'],\n      data_packages: ['situation_package', 'risk_package', 'plan_package', 'task_package', 'feedback_package', 'learning_package'],\n      purpose: '展示火情发现、态势研判、火势推演、协同决策、资源调度与反馈复盘的闭环链路。'\n    },\n    packages: {\n      situation_package: situation,\n      risk_package: risk,\n      plan_package: {\n        recommended_plan_id: plan.recommended_plan_id,\n        recommended_plan: plan.recommended_plan,\n        candidate_plans: plan.candidate_plans,\n        blocked_or_downgraded_plans: plan.blocked_or_downgraded_plans\n      },\n      task_package: task,\n      feedback_package: feedback,\n      learning_package: learning\n    },\n    front_end_payload: {\n      scene_id: situation.scene_id,\n      fire_point: situation.fire_point,\n      risk_level: risk.risk_level,\n      risk_score: risk.risk_score,\n      spread_direction: spread.main_spread_direction,\n      latest_growth_km2_per_hour: spread.latest_growth_km2_per_hour,\n      recommended_plan_id: plan.recommended_plan_id || plan.recommended_plan.plan_id,\n      recommended_plan_name: plan.recommended_plan.name,\n      need_replan: learning.closed_loop_result.need_replan,\n      map_layers: ['fireline', 'risk_heatmap', 'resources', 'routes', 'targets'],\n      dashboard_cards: [\n        { name: '态势包', value: situation.risk_hint },\n        { name: '风险包', value: `${risk.risk_level} / ${risk.risk_score}` },\n        { name: '方案包', value: plan.recommended_plan.name },\n        { name: '反馈包', value: learning.closed_loop_result.update_reason.join('；') }\n      ]\n    }\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2540,
+          -60
+        ],
+        "id": "b3d3bca1-159a-4b6b-9276-frontend0001",
+        "name": "10 前端展示输出（五包闭环）"
+      },
+      {
+        "parameters": {
+          "content": "### 五包闭环展示\n态势包 -> 风险包 -> 方案包 -> 任务包 -> 反馈包\n\n用于答辩展示：每个包都是前端可消费的结构化 JSON，反馈包会回流到态势、推演和决策节点，体现闭环优化。",
+          "height": 260,
+          "width": 560,
+          "color": 4
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -760,
+          -520
+        ],
+        "id": "1a8c6697-3330-4b24-b701-note000001",
+        "name": "说明：五包闭环"
+      },
+      {
+        "parameters": {
+          "content": "### 多因子耦合机制\n主效应：风速、湿度、坡度、可燃物、树冠干燥度、证据置信度、蔓延强度、目标暴露。\n\n耦合项：风-坡、气象-可燃物、地形-树冠、蔓延-目标、资源-道路。",
+          "height": 280,
+          "width": 640,
+          "color": 5
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          680,
+          -520
+        ],
+        "id": "1a8c6697-3330-4b24-b701-note000002",
+        "name": "说明：多因子耦合"
+      },
+      {
+        "parameters": {
+          "content": "### 智能体之间的耦合\n环境评估Agent提供气象/地形/可燃物约束；火势推演Agent提供火线方向和强度；决策指挥Agent基于风险包生成候选方案；资源调度Agent转成任务和路线；反馈学习Agent根据阻断、消耗和实测火线触发重规划。",
+          "height": 280,
+          "width": 780,
+          "color": 6
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1460,
+          -520
+        ],
+        "id": "1a8c6697-3330-4b24-b701-note000003",
+        "name": "说明：智能体耦合"
+      },
+      {
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "main-process",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -760,
+          260
+        ],
+        "id": "b3d3bca1-159a-4b6b-9276-getwebhook01",
+        "name": "Webhook 浏览器GET入口",
+        "webhookId": "browser-get-main-process"
+      }
+    ],
+    "connections": {
+      "手动演示触发": {
+        "main": [
+          [
+            {
+              "node": "01 多源感知与样例数据源",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook 主流程入口": {
+        "main": [
+          [
+            {
+              "node": "00 数据源路由器",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook 浏览器GET入口": {
+        "main": [
+          [
+            {
+              "node": "00 数据源路由器",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "00 数据源路由器": {
+        "main": [
+          [
+            {
+              "node": "01 多源感知与样例数据源",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "01 多源感知与样例数据源": {
+        "main": [
+          [
+            {
+              "node": "02 环境评估Agent（态势包）",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "03 火势推演Agent（机理推演包）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "02 环境评估Agent（态势包）": {
+        "main": [
+          [
+            {
+              "node": "02b 态势包结构校验",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "02b 态势包结构校验": {
+        "main": [
+          [
+            {
+              "node": "04 智能体输出汇聚",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "03 火势推演Agent（机理推演包）": {
+        "main": [
+          [
+            {
+              "node": "04 智能体输出汇聚",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "04 智能体输出汇聚": {
+        "main": [
+          [
+            {
+              "node": "05 多因子耦合Agent（风险包）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "05 多因子耦合Agent（风险包）": {
+        "main": [
+          [
+            {
+              "node": "06 决策指挥Agent（方案包）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "06 决策指挥Agent（方案包）": {
+        "main": [
+          [
+            {
+              "node": "06b 方案包校验与排序",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "06b 方案包校验与排序": {
+        "main": [
+          [
+            {
+              "node": "07 推荐方案路由",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "07 推荐方案路由": {
+        "main": [
+          [
+            {
+              "node": "07A 资源调度Agent（PLAN-A）",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "07B 资源调度Agent（PLAN-B）",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "07C 资源调度Agent（PLAN-C）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "07A 资源调度Agent（PLAN-A）": {
+        "main": [
+          [
+            {
+              "node": "08 执行反馈包（状态回传）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "07B 资源调度Agent（PLAN-B）": {
+        "main": [
+          [
+            {
+              "node": "08 执行反馈包（状态回传）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "07C 资源调度Agent（PLAN-C）": {
+        "main": [
+          [
+            {
+              "node": "08 执行反馈包（状态回传）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "08 执行反馈包（状态回传）": {
+        "main": [
+          [
+            {
+              "node": "09 反馈学习Agent（闭环校准）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook 外部执行反馈入口": {
+        "main": [
+          [
+            {
+              "node": "08b 外部反馈包标准化",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "08b 外部反馈包标准化": {
+        "main": [
+          [
+            {
+              "node": "09 反馈学习Agent（闭环校准）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "09 反馈学习Agent（闭环校准）": {
+        "main": [
+          [
+            {
+              "node": "10 前端展示输出（五包闭环）",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "ba7d43b7-3b34-4ab9-b802-183fa04f4128",
+    "activeVersionId": "ba7d43b7-3b34-4ab9-b802-183fa04f4128",
+    "versionCounter": 233,
+    "triggerCount": 2,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-05-31T09:23:58.493Z",
+        "createdAt": "2026-05-31T09:23:58.493Z",
+        "role": "workflow:owner",
+        "workflowId": "aCEy4kc1oQgz8ehx",
+        "projectId": "NNdx0PXJ11V8Li4j",
+        "project": {
+          "updatedAt": "2026-05-31T09:18:08.617Z",
+          "createdAt": "2026-05-31T09:17:26.198Z",
+          "id": "NNdx0PXJ11V8Li4j",
+          "name": "FEIFAN SHI <3396692392@qq.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "b6692817-67ac-4415-add2-47c1fde14112"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": "Version ba7d43b7",
+      "description": ""
+    }
+  }
+]

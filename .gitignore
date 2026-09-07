@@ -11,9 +11,25 @@ lerna-debug.log*
 .env.*
 !.env.example
 node_modules
+.npm-cache
+.venv
+backend/forefire_api/.venv
+forefire-output
 dist
 dist-ssr
 *.local
+
+# Local GIS datasets, generated simulation state, and databases
+environment/
+forest_fire_B/data/
+*.db
+*.sqlite
+*.sqlite3
+demo_state_summary.json
+
+# Legacy document-generation workspace and binary source documents
+forest_fire_B/frontend/
+forest_fire_B/docs/*.docx
 
 # Editor directories and files
 .vscode/*
