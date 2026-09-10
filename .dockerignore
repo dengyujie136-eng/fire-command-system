@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+dist
+environment
+forefire-output
+forest_fire_B
+fire_agent_backend
+backend
+*.db
+*.sqlite*
+*.log

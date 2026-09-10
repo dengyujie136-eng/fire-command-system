@@ -1,0 +1,17 @@
+{
+  "dataset_id": "replace-with-stable-id",
+  "name": "数据集名称",
+  "source_url": "https://example.org/dataset",
+  "license": "数据许可",
+  "acquired_at": "YYYY-MM-DD",
+  "spatial_extent": [100.0, 27.0, 102.0, 29.0],
+  "temporal_extent": ["YYYY-MM-DD", "YYYY-MM-DD"],
+  "source_crs": "EPSG:4326",
+  "target_crs": "EPSG:4326",
+  "processing_steps": [
+    "裁剪到研究区",
+    "检查并修复无效几何"
+  ],
+  "sha256": "replace-with-file-checksum",
+  "local_path": "data/raw/example-file"
+}
