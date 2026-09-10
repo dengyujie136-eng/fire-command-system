@@ -42,6 +42,8 @@ def standardize_agent_result(result: Mapping[str, Any]) -> AgentStandardOutput:
         return _risk_output(agent_name, status, output, reasoning)
     if agent_name == "RouteAgent":
         return _route_output(agent_name, status, output, reasoning)
+    if agent_name == "ResourceAgent":
+        return _resource_output(agent_name, status, output, reasoning)
     if agent_name == "CommanderAgent":
         return _commander_output(agent_name, status, output, reasoning)
     return _base_output(agent_name, status, "generic", output, reasoning)
@@ -337,6 +339,66 @@ def _route_output(
         },
     )
 
+
+def _resource_output(
+    agent_name: str,
+    status: str,
+    output: dict[str, Any],
+    reasoning: list[str],
+) -> AgentStandardOutput:
+    plans = list(output.get("dispatch_plans") or [])
+    recommended = output.get("recommended_plan")
+    resource_summary = output.get("resource_summary", {})
+    warnings = list(output.get("warnings") or [])
+
+    return _base_output(
+        agent_name,
+        status,
+        "resource",
+        output,
+        reasoning,
+        algorithm=output.get("algorithm") or {
+            "result": {
+                "resource_summary": resource_summary,
+                "dispatch_plans": plans,
+                "dispatch_comparison": output.get("dispatch_comparison", {}),
+            },
+            "metrics": {
+                "plan_count": len(plans),
+                "successful_plan_count": sum(1 for plan in plans if plan.get("success")),
+                "inventory_count": resource_summary.get("inventory_count"),
+                "llm_used": False,
+            },
+            "artifacts": [],
+        },
+        analysis=output.get("analysis") or {
+            "summary": resource_summary.get("status", ""),
+            "reasoning": reasoning,
+            "factors": ["capability match", "resource status", "ETA", "risk", "route geometry", "shortage"],
+            "warnings": warnings,
+            "confidence": None,
+        },
+        visualization=output.get("visualization") or {
+            "layers": [],
+            "timeline": [],
+            "annotations": [],
+            "interactions": [],
+        },
+        decision=output.get("decision") or {
+            "recommended_dispatch_plan": recommended,
+            "recommendations": [recommended] if recommended else [],
+            "priority": None,
+            "actions": [],
+            "constraints": [],
+            "basis": ["Resource Calculation Unit result"],
+        },
+        provenance=output.get("provenance") or {
+            "source_agent": agent_name,
+            "data_sources": ["ResourceAgentTask", "Resource Calculation Unit"],
+            "provider": None,
+            "model": None,
+        },
+    )
 def _commander_output(
     agent_name: str,
     status: str,

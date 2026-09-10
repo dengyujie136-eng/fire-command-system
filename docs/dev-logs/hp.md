@@ -1,3 +1,77 @@
+## 2026-09-10 - ResourceAgent independent integration
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Add an independent ResourceAgent that consumes the existing Resource Calculation Unit and emits AgentResult plus standard Agent Output, without wiring it into CommanderAgent, API, database, frontend, decision_service, recommendation_service, or the main orchestration flow.
+
+### Completed
+
+- Added `ResourceAgentTask` as a small input envelope for `ResourceTask`, resource inventory, road network, mode, compare strategies, and metadata.
+- Added independent `ResourceAgent` supporting `fastest_response`, `safest_response`, `capability_first`, `balanced`, and `compare` modes.
+- ResourceAgent calls the public `calculate_resource_dispatch()` entry point for each requested strategy and does not reimplement routing, resource scoring, capability matching, allocation, or shortage calculation.
+- Compare mode runs real `fastest_response`, `safest_response`, `capability_first`, and `balanced` dispatch calculations, then chooses among the resulting dispatch plans with deterministic plan-level shortage/ETA/risk/selected-count scoring.
+- Preserved true `selected_resources`, `candidate_resources`, `rejected_resources`, `resource_shortage`, ETA, risk, route geometry, terrain metrics, road metrics, accessibility, warnings, reason codes, and diagnostics from `ResourceDispatchResult`.
+- Added rejection explanations and key-factor summaries without hiding shortages or unavailable/rejected resources.
+- Added Cesium-ready visualization payloads for target point, selected/candidate/rejected resource points, and selected resource routes, with no hard-coded styling.
+- Labeled UAV/air resources as simplified direct flight-time estimates rather than 3D flight paths.
+- Added standard Agent Output conversion for `ResourceAgent` with domain `resource`.
+- Kept RouteAgent, Routing Unit, Resource Calculation Unit, CommanderAgent, API, database, frontend, decision_service, recommendation_service, and main Orchestrator behavior unchanged.
+
+### Main Files
+
+- `fire_agent_backend/app/agents/resource_agent.py`: new independent ResourceAgent, ResourceAgentTask, dispatch-plan packaging, deterministic compare recommendation, analysis, visualization, decision, and provenance output.
+- `fire_agent_backend/app/agents/test_resource_agent.py`: new ResourceAgent test suite covering strategies, comparison, real selected/rejected/shortage fields, metrics, unreachable cases, blocked-road changes, standard output, and no-LLM behavior.
+- `fire_agent_backend/app/agents/schema.py`: added ResourceAgent branch and resource-domain standard output adapter.
+- `fire_agent_backend/app/agents/__init__.py`: exported `ResourceAgent` and `ResourceAgentTask`.
+- `docs/dev-logs/hp.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes; new internal `ResourceAgentTask` carries `task`, `resources`, `road_network`, `mode`, `compare_strategies`, optional task/incident ids, and metadata.
+- Response fields: no public HTTP response schema changes; new internal ResourceAgent output includes `resource_summary`, `dispatch_plans`, `recommended_plan`, `selected_resources`, `candidate_resources`, `rejected_resources`, `resource_shortage`, `dispatch_comparison`, `warnings`, `algorithm`, `analysis`, `visualization`, `decision`, and `provenance`.
+- Error and status changes: invalid ResourceAgent mode or compare strategy returns AgentResult `status="error"`; unreachable, empty inventory, no matching capability, and shortage cases return structured dispatch outputs without fake selections.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none; tests use the existing synthetic mountain routing network and resource inventory.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `python -m unittest app.agents.test_resource_agent` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `python -m unittest app.services.resources.test_resource_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `python -m unittest app.agents.test_route_agent` from `fire_agent_backend` ran 20 tests.
+- `[passed]` `python -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `python -m unittest app.agents.test_agents` from `fire_agent_backend`; unittest discovered 0 tests in that module.
+- `[passed]` `python -m compileall fire_agent_backend/app backend/forefire_api/app`.
+- `[passed]` `docker compose config --quiet`.
+- `[passed]` `npm run build`; Vite reported existing chunk-size warnings only.
+- `[pending]` `git diff --check` and final `git status` will be run after this log entry and before commit.
+
+### Impact On Other Modules
+
+- Upstream dependencies: consumes only supplied ResourceTask, resource inventory, RoadNetwork, and the existing Resource Calculation Unit.
+- Downstream outputs: future coordination can consume recommended dispatch plans, alternatives, selected/candidate/rejected resources, shortages, route geometry, ETA, risk, metrics, reason codes, and visualization layers.
+- High-conflict shared files: `fire_agent_backend/app/agents/schema.py` changed minimally to standardize ResourceAgent output; no public API contract, database model, frontend integration, CommanderAgent, decision_service, recommendation_service, or main Orchestrator changes were made.
+
+### Known Issues And Next Steps
+
+- ResourceAgent remains internal and independent; it is not connected to the active command flow, API, database, or frontend.
+- Compare recommendation is deterministic plan-level selection over real ResourceDispatchResult outputs, not a new resource optimization algorithm.
+- UAV routing remains a simplified direct flight-time estimate from the Resource Calculation Unit.
+- Real resource inventory adapters, live road data, and RouteAgent/ResourceAgent coordination are future work.
+- Normal sandboxed command execution still fails with `helper_unknown_error: setup refresh had errors`; necessary local reads, writes, tests, and checks used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes as an isolated ResourceAgent integration after review.
+- Project owner should check: resource-domain standard output shape, compare recommendation policy, and the next-stage RouteAgent/ResourceAgent coordination boundary before wiring into CommanderAgent or APIs.
 ## 2026-09-10 - Wildfire resource dispatch calculation unit
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary
