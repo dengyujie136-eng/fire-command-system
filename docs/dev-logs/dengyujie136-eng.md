@@ -226,3 +226,44 @@
 - 第4天将使用固定公开图片和临时生成的小型测试栅格实现影像裁剪计算单元。
 - 当前`fire-agent-api`没有共享数据卷挂载，业务后端依赖也未声明Rasterio；真实联调前需要单独协调公共配置。
 - 详细个人方案保存在仓库外：`C:\Users\Daisy\Desktop\GIS综合实习\个人工作\成员乙-第4天影像裁剪开发方案.md`。
+
+## 2026-09-10｜第4天候选点影像裁剪与标准化
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：本批次尚未提交
+- 任务目标：完成候选点周边 GeoTIFF 窗口裁剪、普通图片模型输入标准化，并保存空间范围、处理参数和完整性哈希。
+
+### 已完成
+
+- 新建乙模块内部`image_processing`计算单元，未注册公共 HTTP 路由。
+- 建立严格请求与结果 Schema，区分`model_input`与`pipeline_test`。
+- 支持 JPEG、PNG、WebP 的 EXIF 方向校正、RGB 转换、等比例缩放和 JPEG/PNG 输出。
+- 支持投影 GeoTIFF 的 WGS84 候选点坐标转换、米制半径窗口读取、栅格边界裁切、波段选择、百分位拉伸和 NoData 统计。
+- 输出模型图、预览图和 JSON 侧车元数据，文件使用临时文件加原子替换。
+- 基于源文件 SHA-256 与参数 SHA-256 生成确定性派生标识；重复执行直接复用，输出被篡改时拒绝继续。
+- 输出记录可幂等写入既有`visual_image_derivatives`表，没有新增公共数据库表。
+- 路径解析限制在`data`根目录，拒绝路径穿越、远程 URL 和内嵌 Base64。
+- 补充 NumPy、Pillow、Rasterio 及 Docker 的`libexpat1`运行依赖，增加 pip 下载超时配置。
+
+### 真实数据管线验证
+
+- 使用甲交付的`dixie_fire_2021_copernicus_dem_30m_utm10.tif`验证空间裁剪。
+- 测试候选坐标：`(-121.38241, 39.87194)`；半径：1500 m；源 CRS：`EPSG:32610`。
+- 实际读取窗口：列偏移 905、行偏移 3923、宽 101、高 101；NoData 比例 0。
+- 输出：101×101 RGB JPEG、预览 JPEG 和完整 JSON 元数据；第二次运行命中缓存且哈希一致。
+- 该 DEM 只用于真实空间数据管线测试，结果强制携带`pipeline_test output is not eligible as visual fire evidence`告警，不用于 Qwen-VL 火情判断。
+
+### 验证结果
+
+- `[通过]` 宿主机`python -m unittest discover -s tests -v`：54 项共计，53 项通过，1 项因宿主机未安装 Rasterio 跳过。
+- `[通过]` Docker 中`python -m unittest discover -s tests -v`：54 项全部通过，包含 GeoTIFF 空间裁剪。
+- `[通过]` 甲交付的真实 DEM 裁剪、参数侧车文件、预览图和幂等缓存。
+- `[通过]` `python -m compileall -q app tests`。
+
+### 当前边界与后续所需
+
+- 甲已交付可用的候选点、DEM、燃料及数据库数据，足以验证候选坐标到栅格窗口的空间处理链。
+- 仍缺真实 Sentinel-2、Landsat、无人机、瞭望塔或现场 RGB/多光谱影像，不能完成真实视觉火情裁剪和波段组合验证。
+- 甲的真实候选目前仍为`imagery_status=pending`，不能进入视觉证据处理；需等待`available`状态及可读的`imagery_refs.uri`。
+- Compose 当前将`./data`以只读方式挂载到`fire-agent-api`；本次通过一次性可写挂载完成计算验证。在注册正式裁剪 API 前，需由负责人决定独立派生数据卷或可写子目录。
+- 本次未修改`app/main.py`、公共数据库初始化或公共 API 文档，未推送远程仓库。
