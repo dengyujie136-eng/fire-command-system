@@ -96,6 +96,12 @@ class MemberAContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             HotspotCandidate.model_validate(payload)
 
+    def test_local_data_asset_uri_is_not_confused_with_embedded_data(self) -> None:
+        payload = load_json("candidate_input.json")["candidates"][0]
+        payload["imagery_refs"][0]["uri"] = "data://raw/imagery/fire.jpg"
+        candidate = HotspotCandidate.model_validate(payload)
+        self.assertEqual(candidate.imagery_refs[0].uri, "data://raw/imagery/fire.jpg")
+
     def test_orchestration_outcome_contains_required_fields(self) -> None:
         outcome = VisualVerificationOutcome(
             candidate_id="candidate-001",

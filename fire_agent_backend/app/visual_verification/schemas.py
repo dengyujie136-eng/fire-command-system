@@ -143,7 +143,8 @@ class HotspotImageryReference(BaseModel):
     @field_validator("uri")
     @classmethod
     def reject_embedded_image_data(cls, value: str) -> str:
-        if value.lstrip().lower().startswith("data:"):
+        lowered = value.lstrip().lower()
+        if lowered.startswith("data:") and not lowered.startswith("data://"):
             raise ValueError("imagery_refs must use an asset, path, or API reference, not data URI")
         return value
 
@@ -410,6 +411,7 @@ class ImageAnalysisRequest(BaseModel):
 
     visual_case_id: str = Field(min_length=1, max_length=100)
     image_asset_ids: list[str] = Field(min_length=1)
+    image_uris: dict[str, str] = Field(default_factory=dict)
     prompt_version: str = Field(default="visual-fire-v1", min_length=1, max_length=80)
 
     @field_validator("image_asset_ids")
@@ -418,6 +420,14 @@ class ImageAnalysisRequest(BaseModel):
         if any(not item.strip() for item in value):
             raise ValueError("image_asset_ids cannot contain blank values")
         return list(dict.fromkeys(value))
+
+    @model_validator(mode="after")
+    def validate_image_uris(self) -> "ImageAnalysisRequest":
+        if self.image_uris and set(self.image_uris) != set(self.image_asset_ids):
+            raise ValueError("image_uris keys must exactly match image_asset_ids")
+        if any(not uri.startswith("visual-output://") for uri in self.image_uris.values()):
+            raise ValueError("model image URIs must use visual-output://")
+        return self
 
 
 class VisualAnalysisResult(BaseModel):
