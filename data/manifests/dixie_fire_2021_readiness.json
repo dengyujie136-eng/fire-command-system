@@ -1,0 +1,74 @@
+{
+    "schema_version":  "fire.dixie.readiness.v0.1",
+    "generated_at":  "2026-09-10T03:26:51.4683068Z",
+    "branch":  "member/qingzhe_ivory",
+    "event_id":  "dixie_fire_2021",
+    "raw_firms":  {
+                      "file_count":  21,
+                      "row_count":  70460,
+                      "first_date":  "2021-07-13",
+                      "last_date":  "2021-10-25"
+                  },
+    "rasters":  [
+                    {
+                        "path":  "data/processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif",
+                        "size_bytes":  61949429,
+                        "sha256":  "9580ad5b7226d28a5586c8f258ba3e699f48332df90c4cbddd050f1d3d96543f",
+                        "crs":  "EPSG:32610",
+                        "expected_pixel_size_m":  30
+                    },
+                    {
+                        "path":  "data/processed/dem/dixie_fire_2021_slope_deg_30m_utm10.tif",
+                        "size_bytes":  75671326,
+                        "sha256":  "83d6faeda8d79a0c9463a8dcfb5eae15a8746a8bba005ee591ec38b866afbfef",
+                        "crs":  "EPSG:32610",
+                        "expected_pixel_size_m":  30
+                    },
+                    {
+                        "path":  "data/processed/dem/dixie_fire_2021_aspect_deg_30m_utm10.tif",
+                        "size_bytes":  75047139,
+                        "sha256":  "654a850399f83f6a24960d121de321448aad6ddf40d030ebe4ea971bf55cd3de",
+                        "crs":  "EPSG:32610",
+                        "expected_pixel_size_m":  30
+                    },
+                    {
+                        "path":  "data/processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif",
+                        "size_bytes":  1553351,
+                        "sha256":  "9a844264250e59cc22a4b0826296bdc6be2a6f7698fd50f41c488823d3a530ac",
+                        "crs":  "EPSG:32610",
+                        "expected_pixel_size_m":  30
+                    },
+                    {
+                        "path":  "data/processed/fuel/dixie_fire_2021_fuel_class_30m_utm10.tif",
+                        "size_bytes":  1298390,
+                        "sha256":  "52e1f79ce51dae9321d26a9f0e5537f9d6414d132aaefd63b2e9fcf3d2695af6",
+                        "crs":  "EPSG:32610",
+                        "expected_pixel_size_m":  30
+                    }
+                ],
+    "hourly_weather":  {
+                           "raw_path":  "data/raw/weather/dixie_fire_2021_nasa_power_hourly.json",
+                           "normalized_path":  "data/processed/weather/dixie_fire_2021_nasa_power_hourly.csv",
+                           "row_count":  2520,
+                           "interval_minutes":  60,
+                           "is_interpolated":  false,
+                           "precipitation":  "missing_in_source; represented as null"
+                       },
+    "forefire_manifest":  {
+                              "path":  "data/processed/forefire_input/dixie_fire_2021_forefire_input_manifest.json",
+                              "input_status":  "ready_for_member_c_preparation",
+                              "forefire_case_generated":  false,
+                              "forefire_run_verified":  false,
+                              "candidate_id":  "dixie_fire_2021-firms-viirs_snpp-20210714T091100Z-39.871940--121.382410"
+                          },
+    "osm":  {
+                "status":  "deferred",
+                "processed_layers_available":  false,
+                "reason":  "Overpass request timed out; retained response is an error page and excluded from the manifest."
+            },
+    "docker_postgis":  {
+                           "checked":  false,
+                           "service_status":  null,
+                           "counts":  null
+                       }
+}

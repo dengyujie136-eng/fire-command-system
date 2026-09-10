@@ -1,0 +1,41 @@
+{
+    "schema_version":  "fire.raster.sources.v0.1",
+    "event_id":  "dixie_fire_2021",
+    "aoi":  {
+                "west":  -121.720069,
+                "south":  39.7271,
+                "east":  -120.00918,
+                "north":  40.918238,
+                "crs":  "EPSG:4326",
+                "buffer_m":  15000
+            },
+    "processing_crs":  "EPSG:32610",
+    "datasets":  [
+                     {
+                         "dataset_id":  "dixie_fire_2021_esa_worldcover_2021",
+                         "source_url":  "https://ai4edataeuwest.blob.core.windows.net/esa-worldcover/v200/2021/map/ESA_WorldCover_10m_2021_v200_N39W123_Map.tif",
+                         "stac_collection":  "esa-worldcover",
+                         "source_resolution_m":  10,
+                         "output_resolution_m":  30,
+                         "output_path":  "data/processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif",
+                         "resampling":  "nearest-neighbour",
+                         "use":  "land-cover display and simplified fuel classification"
+                     },
+                     {
+                         "dataset_id":  "dixie_fire_2021_copernicus_dem_glo30",
+                         "source_url":  "https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-digital-elevation-model",
+                         "stac_collection":  "cop-dem-glo-30",
+                         "source_resolution_m":  30,
+                         "output_resolution_m":  30,
+                         "source_tiles":  [
+                                              "https://elevationeuwest.blob.core.windows.net/copernicus-dem/COP30_hh/Copernicus_DSM_COG_10_N40_00_W122_00_DEM.tif",
+                                              "https://elevationeuwest.blob.core.windows.net/copernicus-dem/COP30_hh/Copernicus_DSM_COG_10_N40_00_W121_00_DEM.tif",
+                                              "https://elevationeuwest.blob.core.windows.net/copernicus-dem/COP30_hh/Copernicus_DSM_COG_10_N39_00_W122_00_DEM.tif",
+                                              "https://elevationeuwest.blob.core.windows.net/copernicus-dem/COP30_hh/Copernicus_DSM_COG_10_N39_00_W121_00_DEM.tif"
+                                          ],
+                         "output_path":  "data/processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif",
+                         "resampling":  "bilinear",
+                         "use":  "terrain, slope and aspect inputs for fire spread"
+                     }
+                 ]
+}

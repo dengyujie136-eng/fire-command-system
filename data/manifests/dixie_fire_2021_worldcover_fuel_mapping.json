@@ -1,0 +1,23 @@
+{
+  "schema_version": "fire.fuel.mapping.v0.1",
+  "event_id": "dixie_fire_2021",
+  "source_dataset": "ESA_WorldCover_2021",
+  "source_path": "data/processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif",
+  "source_crs": "EPSG:32610",
+  "mapping_status": "course-demo-proxy",
+  "warning": "WorldCover is land cover, not a calibrated wildfire fuel model. Use LANDFIRE fuel models when a calibrated ForeFire run is required.",
+  "classes": [
+    { "worldcover_value": 10, "label": "Tree cover", "fuel_class": "forest", "burnable": true },
+    { "worldcover_value": 20, "label": "Shrubland", "fuel_class": "shrub", "burnable": true },
+    { "worldcover_value": 30, "label": "Grassland", "fuel_class": "grass", "burnable": true },
+    { "worldcover_value": 40, "label": "Cropland", "fuel_class": "low_fuel", "burnable": true },
+    { "worldcover_value": 50, "label": "Built-up", "fuel_class": "non_burnable", "burnable": false },
+    { "worldcover_value": 60, "label": "Bare / sparse vegetation", "fuel_class": "low_fuel", "burnable": false },
+    { "worldcover_value": 70, "label": "Snow and ice", "fuel_class": "non_burnable", "burnable": false },
+    { "worldcover_value": 80, "label": "Permanent water bodies", "fuel_class": "non_burnable", "burnable": false },
+    { "worldcover_value": 90, "label": "Herbaceous wetland", "fuel_class": "wet_low_fuel", "burnable": false },
+    { "worldcover_value": 95, "label": "Mangroves", "fuel_class": "wet_forest", "burnable": true },
+    { "worldcover_value": 100, "label": "Moss and lichen", "fuel_class": "low_fuel", "burnable": false }
+  ],
+  "next_calibration_step": "Compare this proxy with LANDFIRE fuel model data before reporting quantitative spread accuracy."
+}

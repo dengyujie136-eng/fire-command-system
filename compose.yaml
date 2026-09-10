@@ -45,12 +45,14 @@ services:
     environment:
       ENVIRONMENT: production
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xinghuo}:${POSTGRES_PASSWORD:-xinghuo_dev}@postgis:5432/${POSTGRES_DB:-xinghuo}
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
       FOREFIRE_API_URL: http://forefire-api:8080
       LLM_PROVIDER: ${LLM_PROVIDER:-zhipu}
       LLM_MODEL: ${LLM_MODEL:-glm-4.6}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
+    volumes:
+      - ./data:/app/data:ro
     depends_on:
       postgis:
         condition: service_healthy

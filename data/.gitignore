@@ -1,0 +1,26 @@
+# Downloaded source data and generated GIS products stay local.
+raw/*
+raw/**/*
+!raw/**/
+!raw/**/.gitkeep
+!raw/**/README.md
+
+interim/*
+!interim/**/
+!interim/**/.gitkeep
+
+processed/*
+processed/**/*
+!processed/**/
+!processed/**/.gitkeep
+!processed/**/README.md
+
+# Small demonstrations may be added deliberately.
+samples/*
+!samples/.gitkeep
+
+# Keep manifests and metadata under version control.
+manifests/*
+!manifests/.gitkeep
+!manifests/*.json
+!manifests/*.md

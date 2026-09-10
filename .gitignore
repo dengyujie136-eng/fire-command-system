@@ -18,6 +18,11 @@ dist
 dist-ssr
 *.local
 
+# Local handoff packages and database seeds are transferred outside Git.
+handoff/
+dixie_fire_2021_database_seed.sql
+handoff_dixie_*.sql
+
 # Local GIS datasets, generated simulation state, and databases
 environment/
 forest_fire_B/data/
