@@ -1,3 +1,71 @@
+## 2026-09-10 - Route calculation unit
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Build an independent, testable route calculation unit in `fire_agent_backend` without wiring it into Agent, API, database, frontend, Commander, or recommendation flows.
+
+### Completed
+
+- Added a standalone routing service package under `fire_agent_backend/app/services/routing/`.
+- Implemented shared internal `RoadNetwork`, `RoadNode`, `RoadEdge`, `RoutingRequest`, and `RouteResult` structures.
+- Implemented Dijkstra, A*, and risk-aware A* using the same graph and output schema.
+- Made risk participate in edge cost for risk-aware A* through configurable `risk_weight`.
+- Added blocked-edge support so blocked roads are skipped during search and can trigger rerouting or unreachable results.
+- Added a deterministic synthetic road network that separates algorithm logic from demo/test data.
+- Added independent unit tests for shortest path, A*, consistency, risk-weight influence, blocked reroute, unreachable, geometry, metrics, and algorithm comparison.
+
+### Main Files
+
+- `fire_agent_backend/app/services/routing/models.py`: internal road network, edge/node, request, and route result data structures.
+- `fire_agent_backend/app/services/routing/algorithms.py`: Dijkstra, A*, risk-aware A*, shared cost calculation, GeoJSON output, comparison helper.
+- `fire_agent_backend/app/services/routing/sample_networks.py`: small synthetic risk tradeoff road network used by tests and demos.
+- `fire_agent_backend/app/services/routing/test_route_calculation.py`: independent `unittest` coverage for the routing calculation unit.
+- `fire_agent_backend/app/services/routing/__init__.py`: package exports.
+- `docs/dev-logs/hp.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: none.
+- Request fields: none.
+- Response fields: none.
+- Error and status changes: none.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: no database/GIS data changed; test network uses synthetic coordinates only.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.routing.test_route_calculation`
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents`
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend\app backend\forefire_api\app`
+- `[passed]` `docker compose config --quiet`
+- `[passed]` `git diff --check`
+- `[not run]` `npm run build`: no frontend files were changed in this stage.
+
+### Impact On Other Modules
+
+- Upstream dependencies: none changed.
+- Downstream outputs: future RouteAgent/resource dispatch can call the new point-to-point route calculation unit.
+- High-conflict shared files: none changed.
+
+### Known Issues And Next Steps
+
+- The new routing unit uses an in-memory `RoadNetwork`; no real OSM/GIS road adapter is connected yet.
+- Risk values are supplied per edge or by request overrides; no RiskAgent/GIS spatial risk adapter is connected yet.
+- Time-dependent routing is intentionally not implemented in this stage.
+- Normal sandboxed command execution failed with `helper_unknown_error: setup refresh had errors`; necessary local reads, writes, and checks used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes after review as an isolated route calculation unit.
+- Project owner should check: cost function choices, `RouteResult` field names, and future RouteAgent integration boundary.
 ## 2026-09-10 - Path planning and resource dispatch audit
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary
