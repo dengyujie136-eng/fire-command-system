@@ -303,8 +303,8 @@ def _geotiff_image(
 
 
 class ImageProcessingService:
-    def __init__(self, data_root: Path) -> None:
-        self.paths = SafeImagePathResolver(data_root)
+    def __init__(self, source_root: Path, output_root: Path | None = None) -> None:
+        self.paths = SafeImagePathResolver(source_root, output_root)
 
     def process(self, request: ImageCropRequest) -> ImageProcessingResult:
         source = self.paths.resolve_source(request.source_uri)
@@ -379,9 +379,9 @@ class ImageProcessingService:
             source_kind=source_kind,
             source_sha256=source_sha256,
             parameter_sha256=parameter_sha256,
-            output_uri=self.paths.relative_uri(output_path),
-            preview_uri=self.paths.relative_uri(preview_path),
-            metadata_uri=self.paths.relative_uri(metadata_path),
+            output_uri=self.paths.output_uri(output_path),
+            preview_uri=self.paths.output_uri(preview_path),
+            metadata_uri=self.paths.output_uri(metadata_path),
             output_sha256=_sha256(output_path),
             preview_sha256=_sha256(preview_path),
             source_size=details["source_size"],

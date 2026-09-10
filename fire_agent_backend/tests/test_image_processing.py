@@ -29,9 +29,10 @@ class ImageProcessingTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.data_root = Path(self.temporary.name) / "data"
+        self.output_root = Path(self.temporary.name) / "visual-output"
         self.source_directory = self.data_root / "raw" / "imagery"
         self.source_directory.mkdir(parents=True)
-        self.service = ImageProcessingService(self.data_root)
+        self.service = ImageProcessingService(self.data_root, self.output_root)
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -64,9 +65,10 @@ class ImageProcessingTests(unittest.TestCase):
         self.assertEqual(result.preview_size.model_dump(), {"width": 512, "height": 256})
         self.assertIsNone(result.crs)
         self.assertFalse(result.cache_hit)
-        output = self.data_root / result.output_uri.removeprefix("data://")
-        preview = self.data_root / result.preview_uri.removeprefix("data://")
-        metadata = self.data_root / result.metadata_uri.removeprefix("data://")
+        self.assertTrue(result.output_uri.startswith("visual-output://"))
+        output = self.service.paths.resolve_output(result.output_uri)
+        preview = self.service.paths.resolve_output(result.preview_uri)
+        metadata = self.service.paths.resolve_output(result.metadata_uri)
         self.assertTrue(output.is_file())
         self.assertTrue(preview.is_file())
         self.assertTrue(metadata.is_file())
@@ -87,7 +89,7 @@ class ImageProcessingTests(unittest.TestCase):
         self.create_image()
         request = self.request()
         result = self.service.process(request)
-        output = self.data_root / result.output_uri.removeprefix("data://")
+        output = self.service.paths.resolve_output(result.output_uri)
         output.write_bytes(b"tampered")
 
         with self.assertRaises(DerivativeConflictError):
@@ -107,6 +109,20 @@ class ImageProcessingTests(unittest.TestCase):
         Image.new("RGB", (32, 32)).save(outside)
         with self.assertRaises(UnsafeImagePathError):
             self.service.process(self.request(source_uri=str(outside)))
+
+    def test_source_and_derivative_roots_are_separate(self) -> None:
+        source = self.create_image()
+        source_hash = source.read_bytes()
+        result = self.service.process(self.request())
+
+        output = self.service.paths.resolve_output(result.output_uri)
+        self.assertTrue(output.is_relative_to(self.output_root))
+        self.assertFalse(output.is_relative_to(self.data_root))
+        self.assertEqual(source.read_bytes(), source_hash)
+
+    def test_output_uri_cannot_escape_derivative_root(self) -> None:
+        with self.assertRaises(UnsafeImagePathError):
+            self.service.paths.resolve_output("visual-output://../outside.jpg")
 
     @unittest.skipUnless(
         __import__("importlib").util.find_spec("rasterio") is not None,
@@ -157,7 +173,8 @@ class ImageDerivativePersistenceTests(unittest.IsolatedAsyncioTestCase):
         image_path = data_root / "raw" / "imagery" / "fire.jpg"
         image_path.parent.mkdir(parents=True)
         Image.new("RGB", (640, 480), (200, 70, 20)).save(image_path)
-        self.service = ImageProcessingService(data_root)
+        output_root = Path(self.temporary.name) / "visual-output"
+        self.service = ImageProcessingService(data_root, output_root)
         self.result = self.service.process(ImageCropRequest(
             visual_case_id="case-fire-001",
             source_asset_id="asset-fire-001",

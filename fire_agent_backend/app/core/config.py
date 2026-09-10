@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     project_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[2])
     data_dir: Path | None = None
+    visual_output_dir: Path | None = None
     database_url: str | None = None
     database_echo: bool = False
 
@@ -48,6 +49,12 @@ class Settings(BaseSettings):
     @property
     def resolved_data_dir(self) -> Path:
         return self.data_dir or (self.project_root / "data")
+
+    @property
+    def resolved_visual_output_dir(self) -> Path:
+        return self.visual_output_dir or (
+            self.resolved_data_dir / "processed" / "visual_verification"
+        )
 
     @property
     def resolved_database_url(self) -> str:

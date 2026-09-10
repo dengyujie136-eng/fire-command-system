@@ -12,6 +12,8 @@ lerna-debug.log*
 node_modules
 .npm-cache
 .venv
+__pycache__/
+*.py[cod]
 backend/forefire_api/.venv
 forefire-output
 dist

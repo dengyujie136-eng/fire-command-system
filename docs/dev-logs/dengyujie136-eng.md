@@ -267,3 +267,41 @@
 - 甲的真实候选目前仍为`imagery_status=pending`，不能进入视觉证据处理；需等待`available`状态及可读的`imagery_refs.uri`。
 - Compose 当前将`./data`以只读方式挂载到`fire-agent-api`；本次通过一次性可写挂载完成计算验证。在注册正式裁剪 API 前，需由负责人决定独立派生数据卷或可写子目录。
 - 本次未修改`app/main.py`、公共数据库初始化或公共 API 文档，未推送远程仓库。
+
+## 2026-09-10｜原始影像与派生影像存储隔离
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：本批次尚未提交
+- 任务目标：保持甲交付的原始`data`只读，将乙生成的裁剪图、预览图和元数据改为独立可写持久卷。
+
+### 已完成
+
+- 新增`VISUAL_OUTPUT_DIR`配置和`resolved_visual_output_dir`默认路径。
+- 将影像处理服务改为`source_root`和`output_root`双根目录，源文件只能从前者读取，派生文件只能写入后者。
+- 将派生文件 URI 从源数据的`data://`命名空间分离为`visual-output://`。
+- 新增派生 URI 安全解析，拒绝错误 scheme、目录穿越和输出根目录外的路径。
+- 修改高冲突公共文件`compose.yaml`：显式配置`DATA_DIR=/app/data`、`VISUAL_OUTPUT_DIR=/app/visual-output`，新增`visual-derivatives`持久卷。
+- 补充`.gitignore`的 Python `__pycache__`和`*.py[cod]`规则，防止本地编译产物进入仓库。
+- 实际运行容器挂载验证：`/app/data`为`RW=false`的 bind mount，`/app/visual-output`为`RW=true`的 volume。
+- 从只读 DEM 生成`visual-output://dixie-dual-root-test/...jpg`，第二次运行成功命中持久卷中的缓存。
+
+### 接口、数据库与他人模块影响
+
+- 未新增公共 HTTP API，甲到乙的候选 Schema、`imagery_refs.uri`和`data://...`源地址不变。
+- 无数据库表或字段变化；新的派生记录会保存`visual-output://...`地址。
+- 甲无需修改数据包或当前接口，但应知悉公共 Compose 新增了乙的输出卷。
+- 项目负责人合并时需重点检查`compose.yaml`的`fire-agent-api.environment`、`fire-agent-api.volumes`和顶层`volumes`三处。
+
+### 验证结果
+
+- `[通过]` 宿主机全量 56 项：55 项通过，1 项因宿主机未安装 Rasterio 跳过。
+- `[通过]` Docker 全量 56 项测试，包含 GeoTIFF 裁剪和双根目录隔离。
+- `[通过]` `docker compose ... config --quiet`。
+- `[通过]` `python -m compileall -q fire_agent_backend/app backend/forefire_api/app`。
+- `[通过]` `npm run build`；仅有现有的大体积 chunk 提示。
+- `[通过]` 重建并重启`fire-agent-api`，`http://127.0.0.1:8200/health`返回`ok=true`。
+
+### 下一步
+
+- 在负责人确认公共接口窗口后，新增裁剪触发接口和派生图片读取接口。
+- 等待甲提供`imagery_status=available`的真实视觉影像，再执行真实火情影像裁剪验证。
