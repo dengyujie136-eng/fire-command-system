@@ -1,3 +1,72 @@
+## 2026-09-10 - Terrain-aware fire routing enhancement
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Enhance the standalone route calculation unit for mountain forest fire rescue routing without wiring it into API, Agent, database, frontend, Commander, or recommendation flows.
+
+### Completed
+
+- Added terrain-aware edge properties for slope, elevation gain, road class, surface type, road width, and reserved curvature severity.
+- Added `VehicleProfile` with default fire engine and light utility vehicle profiles.
+- Applied vehicle accessibility before traversal cost so blocked roads and vehicle-inaccessible roads are reported separately.
+- Updated travel-time cost to account for slope direction, road class, surface, width, and curvature penalties.
+- Preserved Dijkstra, A*, and risk-aware A* while extending their shared cost model.
+- Added terrain, road, and accessibility metrics to `RouteResult` without replacing existing result fields.
+- Added a deterministic mountain fire rescue network with short/steep/high-risk, longer/paved/fast, longest/fire-access/low-risk, and narrow-trail alternatives.
+- Expanded routing unit tests to cover shortest, fastest, safest, slope ETA, road-condition ETA, vehicle accessibility, blocked reroute, unreachable, GeoJSON, and existing algorithm comparison behavior.
+
+### Main Files
+
+- `fire_agent_backend/app/services/routing/models.py`: terrain-aware edge attributes, vehicle profiles, and added result metric fields.
+- `fire_agent_backend/app/services/routing/algorithms.py`: shared terrain/road/vehicle-aware cost model, directional slope handling, accessibility filtering, and warnings.
+- `fire_agent_backend/app/services/routing/sample_networks.py`: added mountain forest fire rescue synthetic network.
+- `fire_agent_backend/app/services/routing/test_route_calculation.py`: expanded routing unit coverage to 23 tests.
+- `fire_agent_backend/app/services/routing/__init__.py`: exported new network and vehicle profile helpers.
+- `docs/dev-logs/hp.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: internal `RoutingRequest` adds optional `vehicle_profile`.
+- Response fields: internal `RouteResult` keeps existing fields and adds `terrain_metrics`, `road_metrics`, and `accessibility`.
+- Error and status changes: unreachable route message now references vehicle constraints; successful routes can warn about skipped blocked or vehicle-inaccessible edges.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: no database/GIS data changed; the new mountain road network uses synthetic coordinates only.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend\app backend\forefire_api\app`.
+- `[passed]` `docker compose config --quiet`.
+- `[passed]` `git diff --check` with CRLF conversion warnings only.
+- `[not run]` `npm run build`: no frontend files were changed in this stage.
+
+### Impact On Other Modules
+
+- Upstream dependencies: edge risk is still supplied by routing inputs or request overrides; no RiskAgent, SpreadAgent, DEM, OSM, or external API integration was added.
+- Downstream outputs: future route/resource integration can select shortest, fastest, or risk-aware terrain routes from the standalone unit.
+- High-conflict shared files: none changed.
+
+### Known Issues And Next Steps
+
+- Terrain values are synthetic per-edge attributes; no real DEM sampling or OSM adapter is connected yet.
+- Vehicle profiles are internal Python objects; no public request schema or route endpoint is wired in this stage.
+- Cost factors are deterministic engineering defaults and should be calibrated with real mountain road/vehicle data before operational use.
+- Normal sandboxed command execution still fails with `helper_unknown_error: setup refresh had errors`; necessary local reads, writes, and checks used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes as an isolated terrain-aware routing calculation enhancement after review.
+- Project owner should check: cost factor calibration, result metric naming, and future integration boundary before wiring into API or Agent flows.
 ## 2026-09-10 - Route calculation unit
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary

@@ -4,8 +4,77 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 RoadStatus = Literal["normal", "restricted", "blocked"]
+RoadClass = Literal[
+    "paved_road",
+    "secondary_road",
+    "forest_road",
+    "fire_access_road",
+    "unpaved_road",
+    "trail",
+    "unknown",
+]
+SurfaceType = Literal["asphalt", "gravel", "dirt", "unknown"]
 RoutingAlgorithm = Literal["dijkstra", "astar", "risk_aware_astar"]
 RoutingCostMode = Literal["distance", "travel_time"]
+
+
+def _fire_engine_road_classes() -> frozenset[RoadClass]:
+    return frozenset({"paved_road", "secondary_road", "forest_road", "fire_access_road", "unpaved_road"})
+
+
+def _light_vehicle_road_classes() -> frozenset[RoadClass]:
+    return frozenset({"paved_road", "secondary_road", "forest_road", "fire_access_road", "unpaved_road", "trail"})
+
+
+def _fire_engine_class_factors() -> dict[RoadClass, float]:
+    return {
+        "paved_road": 1.0,
+        "secondary_road": 0.95,
+        "fire_access_road": 0.82,
+        "forest_road": 0.68,
+        "unpaved_road": 0.62,
+        "trail": 0.0,
+        "unknown": 0.70,
+    }
+
+
+def _light_vehicle_class_factors() -> dict[RoadClass, float]:
+    return {
+        "paved_road": 1.0,
+        "secondary_road": 0.96,
+        "fire_access_road": 0.88,
+        "forest_road": 0.78,
+        "unpaved_road": 0.72,
+        "trail": 0.45,
+        "unknown": 0.75,
+    }
+
+
+def _surface_factors() -> dict[SurfaceType, float]:
+    return {
+        "asphalt": 1.0,
+        "gravel": 0.82,
+        "dirt": 0.64,
+        "unknown": 0.76,
+    }
+
+
+@dataclass(frozen=True)
+class VehicleProfile:
+    vehicle_type: str
+    width_m: float
+    max_slope_percent: float
+    allowed_road_classes: frozenset[RoadClass]
+    road_class_speed_factors: dict[RoadClass, float]
+    surface_speed_factors: dict[SurfaceType, float] = field(default_factory=_surface_factors)
+    min_clearance_m: float = 0.35
+    preferred_road_width_m: float = 4.0
+    minimum_speed_kmh: float = 5.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def minimum_road_width_m(self) -> float:
+        return self.width_m + self.min_clearance_m
 
 
 @dataclass(frozen=True)
@@ -35,6 +104,12 @@ class RoadEdge:
     base_cost: float = 0.0
     risk_score: float = 0.0
     bidirectional: bool = True
+    slope_percent: float = 0.0
+    elevation_gain_m: float | None = None
+    road_class: RoadClass = "secondary_road"
+    surface_type: SurfaceType = "asphalt"
+    road_width_m: float | None = None
+    curvature_severity: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -49,6 +124,7 @@ class RoutingRequest:
     blocked_edge_ids: frozenset[str] = field(default_factory=frozenset)
     edge_status_overrides: dict[str, RoadStatus] = field(default_factory=dict)
     edge_risk_overrides: dict[str, float] = field(default_factory=dict)
+    vehicle_profile: VehicleProfile | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -70,6 +146,9 @@ class RouteResult:
     blocked_edges_avoided: list[str]
     warnings: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    terrain_metrics: dict[str, Any] = field(default_factory=dict)
+    road_metrics: dict[str, Any] = field(default_factory=dict)
+    accessibility: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -89,6 +168,9 @@ class RouteResult:
             "blocked_edges_avoided": list(self.blocked_edges_avoided),
             "warnings": list(self.warnings),
             "metadata": dict(self.metadata),
+            "terrain_metrics": dict(self.terrain_metrics),
+            "road_metrics": dict(self.road_metrics),
+            "accessibility": dict(self.accessibility),
         }
 
 
@@ -144,3 +226,27 @@ class RoadNetwork:
     def max_speed_kmh(self) -> float:
         speeds = [edge.speed_kmh for edge in self.edges.values() if edge.speed_kmh and edge.speed_kmh > 0]
         return max(speeds) if speeds else 30.0
+
+
+def default_fire_engine_profile() -> VehicleProfile:
+    return VehicleProfile(
+        vehicle_type="fire_engine",
+        width_m=2.55,
+        max_slope_percent=18.0,
+        allowed_road_classes=_fire_engine_road_classes(),
+        road_class_speed_factors=_fire_engine_class_factors(),
+        preferred_road_width_m=4.2,
+        minimum_speed_kmh=5.0,
+    )
+
+
+def light_utility_vehicle_profile() -> VehicleProfile:
+    return VehicleProfile(
+        vehicle_type="light_utility_vehicle",
+        width_m=1.85,
+        max_slope_percent=24.0,
+        allowed_road_classes=_light_vehicle_road_classes(),
+        road_class_speed_factors=_light_vehicle_class_factors(),
+        preferred_road_width_m=3.0,
+        minimum_speed_kmh=4.0,
+    )
