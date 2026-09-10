@@ -1,3 +1,63 @@
+## 2026-09-10 - Path planning and resource dispatch audit
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Audit existing path planning and resource dispatch code without changing business logic.
+
+### Completed
+
+- Reviewed the active `fire_agent_backend` decision, recommendation, recalculation, model, router, and frontend package-rendering chain.
+- Reviewed legacy `forest_fire_B` route planning, dispatch state, resource context, and ForeFire agent packaging code as migration references.
+- Identified current route/resource behavior as deterministic recommendation packages plus fallback handling, not real route planning or resource optimization.
+- Added a documentation-only audit report at `docs/audits/path-resource-current-state.md`.
+
+### Main Files
+
+- `docs/audits/path-resource-current-state.md`: added the current-state audit report for route planning and resource dispatch.
+- `docs/dev-logs/hp.md`: recorded this audit task.
+
+### API Changes
+
+- Added/changed/removed: none.
+- Request fields: none.
+- Response fields: none.
+- Error and status changes: none.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` repository inspection commands: `git status`, `git branch --show-current`, `git remote -v`.
+- `[passed]` source audit with `rg` and targeted `Get-Content` reads.
+- `[passed]` `git diff --check` after documentation edits.
+- `[not run]` `npm run build`: audit-only documentation task with no application code change.
+- `[not run]` Python backend tests: audit-only documentation task with no application code change.
+
+### Impact On Other Modules
+
+- Upstream dependencies: none changed.
+- Downstream outputs: no runtime behavior changed; future route/resource implementation should use the audit findings.
+- High-conflict shared files: none changed.
+
+### Known Issues And Next Steps
+
+- Active backend route planning is not a real path planner; it emits deterministic options and later fallback geometry.
+- Active backend resource dispatch is not a real optimizer; it emits fixed tasks and summary numbers.
+- Legacy `forest_fire_B/services/route_search.py` is the strongest reusable route reference but must be ported and tested instead of directly coupling active backend to frozen legacy code.
+- Normal sandboxed command execution failed with `helper_unknown_error: setup refresh had errors`; necessary local reads used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes, documentation-only audit if the project owner wants the audit artifact versioned.
+- Project owner should check: the proposed next-stage file plan and legacy migration boundaries before implementation begins.
 ## 2026-09-10 - Complete Python backend dependencies
 - Branch: `member/hp`
 - Latest commit: none at the time of this environment setup
