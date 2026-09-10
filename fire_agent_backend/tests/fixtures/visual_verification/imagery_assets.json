@@ -1,0 +1,54 @@
+{
+  "contract_version": "visual-imagery-v1",
+  "event_id": "cresta-dam-visual-demo",
+  "assets": [
+    {
+      "asset_id": "asset-wildfire-smoke",
+      "candidate_id": "cresta-dam-visual-demo-firms-viirs_snpp-20260909T020000Z-39.842700--121.382100",
+      "role": "primary",
+      "source_type": "satellite_natural_color",
+      "acquired_at": "2020-12-03T18:44:00Z",
+      "local_fixture_path": "images/wildfire_smoke_nasa.jpg",
+      "source_page": "https://earthobservatory.nasa.gov/images/147625/new-fires-scorch-the-hills-of-southern-california?src=eoa-iotd",
+      "sha256": "9b1d652427c2413a85b1b7062c75aeb3124cc70892219db9a827e63d0e73cdf5",
+      "quality": "good",
+      "is_simulated": true
+    },
+    {
+      "asset_id": "asset-wildfire-false-color",
+      "candidate_id": "cresta-dam-visual-demo-firms-viirs_snpp-20260909T020000Z-39.842700--121.382100",
+      "role": "context",
+      "source_type": "satellite_false_color",
+      "acquired_at": "2020-12-03T18:44:00Z",
+      "local_fixture_path": "images/wildfire_false_color_nasa.jpg",
+      "source_page": "https://earthobservatory.nasa.gov/images/147625/new-fires-scorch-the-hills-of-southern-california?src=eoa-iotd",
+      "sha256": "581e9eee67127ec4b54e4942e2df726f6ca3f7b34d728bb08b7d425ba5290976",
+      "quality": "good",
+      "is_simulated": true
+    },
+    {
+      "asset_id": "asset-bare-ground",
+      "candidate_id": "cresta-dam-visual-demo-firms-viirs_snpp-20260909T020000Z-39.861200--121.356400",
+      "role": "primary",
+      "source_type": "ground_reference",
+      "acquired_at": null,
+      "local_fixture_path": "images/bare_ground_usgs.jpg",
+      "source_page": "https://www.usgs.gov/media/images/sunset-over-desert",
+      "sha256": "289f10bcb557b363bff527767b17917c37c593ba9ea8d97e9ccaad6f0acff528",
+      "quality": "usable",
+      "is_simulated": true
+    },
+    {
+      "asset_id": "asset-cloud-cover",
+      "candidate_id": "cresta-dam-visual-demo-firms-viirs_snpp-20260909T020000Z-39.875500--121.401800",
+      "role": "primary",
+      "source_type": "geostationary_satellite",
+      "acquired_at": "2026-09-09T01:50:00Z",
+      "local_fixture_path": "images/cloud_cover_noaa.jpg",
+      "source_page": "https://www.star.nesdis.noaa.gov/goes/fulldisk.php?sat=G18&src=nav",
+      "sha256": "9fa5bda8010e99b00c3e95bfd9f6ae248c594a79b931ed74b81f9a63b2d6ff02",
+      "quality": "poor",
+      "is_simulated": true
+    }
+  ]
+}

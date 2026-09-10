@@ -1,0 +1,20 @@
+{
+  "analysis_run_id": "run-confirmed-001",
+  "visual_case_id": "visual-case-fire-001",
+  "run_status": "succeeded",
+  "fire_detected": true,
+  "flame_detected": true,
+  "smoke_detected": true,
+  "burn_scar_detected": true,
+  "wildfire_likelihood": 0.96,
+  "image_quality": "good",
+  "scene_type": "forest_wildfire",
+  "alternative_explanations": [],
+  "decision": "confirmed",
+  "reasoning_summary": "Natural-color smoke plumes and false-color active-fire and burn-scar signatures agree.",
+  "used_evidence_ids": ["asset-wildfire-smoke", "asset-wildfire-false-color"],
+  "model_name": "deterministic-fixture",
+  "model_version": "day2-v1",
+  "prompt_version": "visual-fire-v1",
+  "is_fallback": true
+}
