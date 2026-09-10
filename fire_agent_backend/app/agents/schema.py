@@ -40,6 +40,8 @@ def standardize_agent_result(result: Mapping[str, Any]) -> AgentStandardOutput:
         return _spread_output(agent_name, status, output, reasoning)
     if agent_name == "RiskAgent":
         return _risk_output(agent_name, status, output, reasoning)
+    if agent_name == "RouteAgent":
+        return _route_output(agent_name, status, output, reasoning)
     if agent_name == "CommanderAgent":
         return _commander_output(agent_name, status, output, reasoning)
     return _base_output(agent_name, status, "generic", output, reasoning)
@@ -265,6 +267,75 @@ def _risk_output(
         provenance={"source_agent": agent_name, "data_sources": ["RiskAgent rules", "SpreadAgent output"], "provider": None, "model": None},
     )
 
+
+def _route_output(
+    agent_name: str,
+    status: str,
+    output: dict[str, Any],
+    reasoning: list[str],
+) -> AgentStandardOutput:
+    candidates = list(output.get("candidate_routes") or [])
+    recommended = output.get("recommended_route")
+    route_summary = output.get("route_summary", {})
+    warnings = list(output.get("warnings") or [])
+
+    return _base_output(
+        agent_name,
+        status,
+        "route",
+        output,
+        reasoning,
+        algorithm=output.get("algorithm") or {
+            "result": {
+                "route_summary": route_summary,
+                "candidate_routes": candidates,
+                "route_comparison": output.get("route_comparison", {}),
+            },
+            "metrics": {
+                "candidate_count": len(candidates),
+                "reachable_candidate_count": sum(1 for candidate in candidates if candidate.get("success")),
+            },
+            "artifacts": [],
+        },
+        analysis=output.get("analysis") or {
+            "summary": route_summary.get("status", ""),
+            "reasoning": reasoning,
+            "factors": ["distance", "ETA", "risk", "terrain", "road condition", "accessibility"],
+            "warnings": warnings,
+            "confidence": None,
+        },
+        visualization=output.get("visualization") or {
+            "layers": [
+                {
+                    "id": candidate.get("route_id"),
+                    "type": "route",
+                    "layer_type": "route",
+                    "route_role": candidate.get("objective"),
+                    "geometry": candidate.get("geometry"),
+                    "properties": candidate,
+                }
+                for candidate in candidates
+                if candidate.get("success")
+            ],
+            "timeline": [],
+            "annotations": [],
+            "interactions": [],
+        },
+        decision=output.get("decision") or {
+            "recommended_route": recommended,
+            "recommendations": [recommended] if recommended else [],
+            "priority": None,
+            "actions": [],
+            "constraints": [],
+            "basis": ["Route Calculation Unit result"],
+        },
+        provenance=output.get("provenance") or {
+            "source_agent": agent_name,
+            "data_sources": ["RouteTask", "Route Calculation Unit"],
+            "provider": None,
+            "model": None,
+        },
+    )
 
 def _commander_output(
     agent_name: str,

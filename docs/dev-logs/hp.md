@@ -1,3 +1,73 @@
+## 2026-09-10 - RouteAgent independent integration
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Add an independent RouteAgent that consumes the existing terrain-aware Route Calculation Unit and emits AgentResult plus standard Agent Output, without wiring it into the main Orchestrator or old recommendation flow.
+
+### Completed
+
+- Added `RouteTask` as a small point-to-point routing task wrapper for start, destination, objective, vehicle, road network, risk weight, blocked/avoid edges, and metadata.
+- Added independent `RouteAgent` that supports `shortest`, `fastest`, `safest`, and `compare` objectives.
+- RouteAgent calls the public `calculate_route()` entry point for each objective and does not reimplement Dijkstra, A*, risk-aware A*, slope, ETA, or GeoJSON logic.
+- Converted calculated `RouteResult` values into structured `candidate_routes`, `route_summary`, `route_comparison`, and deterministic `recommended_route` output.
+- Preserved real route geometry, distance, ETA, risk, terrain metrics, road metrics, accessibility, blocked-edge warnings, and vehicle-inaccessible warnings in each candidate route.
+- Added standard Agent Output conversion for `RouteAgent` with domain `route` and algorithm, analysis, visualization, decision, and provenance layers.
+- Kept RouteAgent independent from the active Situation -> Spread -> Risk -> Commander orchestrator chain.
+- Added standalone RouteAgent tests covering task objectives, comparison, recommendation provenance, visualization geometry, metrics, accessibility, error handling, standard output, and no-LLM behavior.
+
+### Main Files
+
+- `fire_agent_backend/app/agents/route_agent.py`: new independent RouteAgent and RouteTask implementation.
+- `fire_agent_backend/app/agents/test_route_agent.py`: new standalone RouteAgent test suite.
+- `fire_agent_backend/app/agents/schema.py`: minimal RouteAgent branch in `standardize_agent_result()` and route-domain adapter.
+- `fire_agent_backend/app/agents/__init__.py`: exported `RouteAgent` and `RouteTask`.
+- `docs/dev-logs/hp.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes; new internal `RouteTask` supports `start_node_id`, `destination_node_id`, `objective`, `vehicle`, `road_network`, `risk_weight`, `blocked_edge_ids`, `avoid_edge_ids`, `edge_status_overrides`, `edge_risk_overrides`, and metadata fields.
+- Response fields: no public HTTP response schema changes; new internal RouteAgent output contains `route_summary`, `candidate_routes`, `recommended_route`, `route_comparison`, and `warnings`.
+- Error and status changes: unsupported objective, unsupported vehicle, and missing start/destination return AgentResult `status="error"`; unreachable routes return structured candidate failures without fake geometry.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none; tests use existing synthetic mountain routing network.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_route_agent` from `fire_agent_backend` ran 20 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend\app backend\forefire_api\app`.
+- `[passed]` `docker compose config --quiet`.
+- `[passed]` `git diff --check` with CRLF conversion warnings only.
+- `[not run]` `npm run build`: no frontend files were changed in this stage.
+
+### Impact On Other Modules
+
+- Upstream dependencies: consumes only the existing Route Calculation Unit and supplied road-network/risk inputs.
+- Downstream outputs: future Resource Calculation Unit can consume candidate ETA, geometry, risk, terrain, road, and accessibility metrics per start/destination pair.
+- High-conflict shared files: `fire_agent_backend/app/agents/schema.py` was minimally changed to standardize RouteAgent output; no API, database, frontend, CommanderAgent, decision_service, recommendation_service, or main Orchestrator changes were made.
+
+### Known Issues And Next Steps
+
+- RouteAgent remains internal and independent; no HTTP endpoint or orchestrator integration exists yet.
+- Recommendations are deterministic and based on calculated RouteResult fields; no LLM is used.
+- RouteTask still expects a provided `RoadNetwork`; real DEM/OSM/GIS adapters are future work.
+- No ResourceAgent or resource dispatch module was started in this stage.
+- Normal sandboxed command execution has previously failed with `helper_unknown_error: setup refresh had errors`; necessary local reads, writes, and checks used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes as an isolated RouteAgent integration after review.
+- Project owner should check: `schema.py` route-domain output shape and future ResourceAgent/Commander integration boundary.
 ## 2026-09-10 - Terrain-aware fire routing enhancement
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary
