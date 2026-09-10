@@ -1,3 +1,76 @@
+## 2026-09-10 - Wildfire resource dispatch calculation unit
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Build a standalone forest wildfire emergency Resource Calculation Unit that matches real inventory to task requirements using capability checks, availability, route-aware ETA/risk, deterministic scoring, and shortage reporting without creating ResourceAgent or wiring the main flow.
+
+### Completed
+
+- Added an independent `fire_agent_backend/app/services/resources/` package with separated models, allocation logic, synthetic sample inventory, and unit tests.
+- Added resource models for fire engines, fire teams, UAVs, status, capability sets, capacity, quantity, readiness, mobility mode, and route vehicle profile.
+- Added `ResourceTask` and `ResourceRequirement` for task type, target node, priority, required capabilities, minimum/desired resource requirements, strategy, road constraints, and metadata.
+- Added deterministic `calculate_resource_dispatch()` with hard capability/status filters, route-aware ground-resource evaluation, UAV straight-line flight-time estimation, scoring, greedy multi-resource allocation, duplicate prevention, and shortage reporting.
+- Ground resources call the public Route Calculation Unit through `calculate_route()`; Resource Calculation Unit does not call RouteAgent and does not reimplement routing algorithms.
+- Added dispatch strategies: `fastest_response`, `safest_response`, `capability_first`, and `balanced`.
+- Added structured selected, candidate, and rejected resource evaluations with reason codes and diagnostics.
+- Added synthetic mountain resource inventory that demonstrates nearest != fastest, fastest != safest, capability mismatch, vehicle inaccessible, unavailable resource exclusion, blocked-road dispatch change, UAV reconnaissance, and shortage behavior.
+- Kept API, database, frontend, recommendation_service, decision_service, CommanderAgent, RouteAgent, Agent Output Schema, main Orchestrator, forest_fire_B, and Routing Unit unchanged.
+
+### Main Files
+
+- `fire_agent_backend/app/services/resources/models.py`: new Resource, ResourceRequirement, ResourceTask, and ResourceDispatchResult structures.
+- `fire_agent_backend/app/services/resources/allocation.py`: deterministic resource evaluation, routing integration, strategy scoring, greedy allocation, and diagnostics.
+- `fire_agent_backend/app/services/resources/sample_resources.py`: synthetic wildfire resource inventory and sample tasks.
+- `fire_agent_backend/app/services/resources/test_resource_calculation.py`: standalone Resource Calculation Unit test suite.
+- `fire_agent_backend/app/services/resources/__init__.py`: public package exports.
+- `docs/dev-logs/hp.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes; new internal `ResourceTask` supports `task_id`, `task_type`, `target_node_id`, `priority`, `required_capabilities`, `minimum_resource_requirements`, `desired_resource_requirements`, `strategy`, `deadline_minutes`, routing constraints, and metadata.
+- Response fields: no public HTTP response schema changes; new internal `ResourceDispatchResult` provides `success`, `status`, `task`, `strategy`, `selected_resources`, `candidate_resources`, `rejected_resources`, `resource_shortage`, `total_resource_count`, `estimated_response`, `warnings`, and `metadata`.
+- Error and status changes: unsupported strategy or missing target raises `ValueError` in the calculation unit; unavailable, capability-mismatched, inaccessible, and unreachable resources are represented as rejected evaluations with reason codes.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none; tests use existing synthetic routing network nodes and synthetic resource inventory.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.resources.test_resource_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_route_agent` from `fire_agent_backend` ran 20 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend\app backend\forefire_api\app`.
+- `[passed]` `docker compose config --quiet`.
+- `[passed]` `git diff --check`.
+- `[not run]` `npm run build`: no frontend files were changed in this stage.
+
+### Impact On Other Modules
+
+- Upstream dependencies: consumes only supplied resource inventory, supplied resource task requirements, and the existing Route Calculation Unit.
+- Downstream outputs: future ResourceAgent can consume selected/candidate/rejected resources, route geometry, ETA, risk, capability scores, reason codes, and shortage facts without recalculating them.
+- High-conflict shared files: none changed.
+
+### Known Issues And Next Steps
+
+- Resource Calculation Unit is internal and standalone; no ResourceAgent, API endpoint, DB adapter, frontend view, or orchestrator integration exists yet.
+- UAV routing is explicitly a straight-line flight-time estimate, not real aerial path planning.
+- Multi-resource allocation is deterministic greedy/scoring, not integer programming or global multi-task optimization.
+- Synthetic inventory is separated from allocation logic and marked synthetic.
+- Normal sandboxed command execution has previously failed with `helper_unknown_error: setup refresh had errors`; necessary local reads, writes, and checks used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes as an isolated Resource Calculation Unit after review.
+- Project owner should check: scoring weights, reason-code naming, and future ResourceAgent integration boundary.
 ## 2026-09-10 - RouteAgent independent integration
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary
