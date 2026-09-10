@@ -1,6 +1,10 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.visual_verification.candidate_service import (
     CandidateConflictError,
@@ -19,10 +23,52 @@ from app.visual_verification.schemas import (
     VisualCaseDetail,
     VisualCaseRead,
 )
+from app.visual_verification.image_processing.errors import (
+    DerivativeConflictError,
+    ImageProcessingError,
+    SourceImageNotFoundError,
+    VisualAssetNotFoundError,
+    VisualCaseNotFoundError,
+)
+from app.visual_verification.image_processing.paths import SafeImagePathResolver
+from app.visual_verification.image_processing.schemas import (
+    DerivativePreparationOptions,
+    ImageProcessingResult,
+    VisualImageDerivativeRead,
+)
+from app.visual_verification.image_processing.workflow import (
+    get_derivative,
+    prepare_case_asset_derivative,
+)
 from app.visual_verification.states import VisualCaseStatus
 
 
 router = APIRouter(prefix="/visual-verification", tags=["visual-verification"])
+
+
+def _processing_http_error(exc: ImageProcessingError) -> HTTPException:
+    if isinstance(
+        exc,
+        (VisualCaseNotFoundError, VisualAssetNotFoundError, SourceImageNotFoundError),
+    ):
+        response_status = status.HTTP_404_NOT_FOUND
+    elif isinstance(exc, DerivativeConflictError):
+        response_status = status.HTTP_409_CONFLICT
+    else:
+        response_status = status.HTTP_422_UNPROCESSABLE_CONTENT
+    return HTTPException(
+        status_code=response_status,
+        detail={"code": exc.code, "message": exc.message},
+    )
+
+
+def _derivative_path(uri: str) -> Path:
+    settings = get_settings()
+    resolver = SafeImagePathResolver(
+        settings.resolved_data_dir,
+        settings.resolved_visual_output_dir,
+    )
+    return resolver.resolve_output(uri)
 
 
 @router.post("/candidates/import", response_model=CandidateIngestBatchResult)
@@ -91,3 +137,74 @@ async def candidate_detail(
         case=VisualCaseRead.model_validate(record),
         assets=[VisualCaseAssetRead.model_validate(asset) for asset in assets],
     )
+
+
+@router.post(
+    "/candidates/{visual_case_id}/assets/{source_asset_id}/derivatives",
+    response_model=ImageProcessingResult,
+)
+async def prepare_derivative(
+    visual_case_id: str,
+    source_asset_id: str,
+    payload: DerivativePreparationOptions,
+    db: AsyncSession = Depends(get_db),
+) -> ImageProcessingResult:
+    settings = get_settings()
+    try:
+        result, _record, _created = await prepare_case_asset_derivative(
+            db,
+            visual_case_id=visual_case_id,
+            source_asset_id=source_asset_id,
+            options=payload,
+            source_root=settings.resolved_data_dir,
+            output_root=settings.resolved_visual_output_dir,
+        )
+        await db.commit()
+        return result
+    except ImageProcessingError as exc:
+        await db.rollback()
+        raise _processing_http_error(exc) from exc
+
+
+@router.get(
+    "/derivatives/{derivative_id}",
+    response_model=VisualImageDerivativeRead,
+)
+async def derivative_detail(
+    derivative_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> VisualImageDerivativeRead:
+    record = await get_derivative(db, derivative_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Visual derivative not found")
+    return VisualImageDerivativeRead.model_validate(record)
+
+
+@router.get("/derivatives/{derivative_id}/image", response_class=FileResponse)
+async def derivative_image(
+    derivative_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    record = await get_derivative(db, derivative_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Visual derivative not found")
+    try:
+        return FileResponse(_derivative_path(record.file_uri))
+    except ImageProcessingError as exc:
+        raise _processing_http_error(exc) from exc
+
+
+@router.get("/derivatives/{derivative_id}/preview", response_class=FileResponse)
+async def derivative_preview(
+    derivative_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    record = await get_derivative(db, derivative_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Visual derivative not found")
+    if not record.preview_uri:
+        raise HTTPException(status_code=404, detail="Visual derivative preview not found")
+    try:
+        return FileResponse(_derivative_path(record.preview_uri))
+    except ImageProcessingError as exc:
+        raise _processing_http_error(exc) from exc

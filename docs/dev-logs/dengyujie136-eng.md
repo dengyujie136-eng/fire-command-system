@@ -305,3 +305,37 @@
 
 - 在负责人确认公共接口窗口后，新增裁剪触发接口和派生图片读取接口。
 - 等待甲提供`imagery_status=available`的真实视觉影像，再执行真实火情影像裁剪验证。
+
+## 2026-09-10｜影像派生内部接口与 Qwen-VL 输入准备
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：本批次尚未提交
+- 任务目标：串联已入库候选案例、已绑定影像、裁剪计算与派生记录，为后续 Qwen-VL 调用提供可追溯的标准图片。
+
+### 已完成
+
+- 新增案例-资产派生工作流，候选坐标、模拟标记、资产 URI 和影像状态全部从数据库取得，不允许调用者伪造。
+- 只允许`imagery_status=available`的案例进入处理；未绑定资产、案例缺失和不安全存量元数据有稳定错误码。
+- 栅格和图片处理放入线程池，避免阻塞 FastAPI 异步事件循环。
+- 裁剪成功后幂等写入`visual_image_derivatives`，保留完整源资产和参数追溯。
+- 新增派生详情、模型图和预览图读取路由，读文件时再次执行`visual-output://`路径边界校验。
+- 路由仍未注册到`app/main.py`，因此当前正式 8200 公共 API 不受影响。
+
+### 内部 API 提案
+
+- `POST /visual-verification/candidates/{visual_case_id}/assets/{source_asset_id}/derivatives`：传入裁剪半径、波段、输出尺寸等可控参数，返回`ImageProcessingResult`。
+- `GET /visual-verification/derivatives/{derivative_id}`：返回派生记录和追溯参数。
+- `GET /visual-verification/derivatives/{derivative_id}/image`：返回 Qwen-VL 可读的标准图。
+- `GET /visual-verification/derivatives/{derivative_id}/preview`：返回前端预览图。
+- 错误响应区分 404 资源缺失、409 派生冲突和 422 影像不可处理。
+
+### 验证结果
+
+- `[通过]` 宿主机全量 59 项：58 项通过，1 项因未安装 Rasterio 跳过。
+- `[通过]` Docker 全量 59 项，包含 GeoTIFF、工作流落库、待影像拒绝、资产越权拒绝和 OpenAPI 路由生成。
+
+### 当前边界和下一步
+
+- 已具备 Qwen-VL 输入文件的生成、定位、读取和追溯能力。
+- 正式对外开放前仍需负责人确认`app/main.py`的集成时机，并将乙的6张表纳入公共数据库初始化或迁移。
+- 下一个开发批次应建立 Qwen-VL 提示词版本、图片传输适配器、严格结构化响应解析、超时/重试与不确定降级。

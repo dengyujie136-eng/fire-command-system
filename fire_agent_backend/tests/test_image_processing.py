@@ -13,13 +13,22 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.db.base import Base
 from app.visual_verification.image_processing.errors import (
     DerivativeConflictError,
+    ImageryNotReadyError,
     SourceImageNotFoundError,
     UnsafeImagePathError,
+    VisualAssetNotFoundError,
 )
 from app.visual_verification.image_processing.persistence import persist_derivative
-from app.visual_verification.image_processing.schemas import ImageCropRequest
+from app.visual_verification.image_processing.schemas import (
+    DerivativePreparationOptions,
+    ImageCropRequest,
+)
 from app.visual_verification.image_processing.service import ImageProcessingService
+from app.visual_verification.image_processing.workflow import (
+    prepare_case_asset_derivative,
+)
 from app.visual_verification.models import (
+    VisualCaseAssetRecord,
     VisualImageDerivativeRecord,
     VisualVerificationCaseRecord,
 )
@@ -169,12 +178,12 @@ class ImageProcessingTests(unittest.TestCase):
 class ImageDerivativePersistenceTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
-        data_root = Path(self.temporary.name) / "data"
-        image_path = data_root / "raw" / "imagery" / "fire.jpg"
+        self.data_root = Path(self.temporary.name) / "data"
+        image_path = self.data_root / "raw" / "imagery" / "fire.jpg"
         image_path.parent.mkdir(parents=True)
         Image.new("RGB", (640, 480), (200, 70, 20)).save(image_path)
-        output_root = Path(self.temporary.name) / "visual-output"
-        self.service = ImageProcessingService(data_root, output_root)
+        self.output_root = Path(self.temporary.name) / "visual-output"
+        self.service = ImageProcessingService(self.data_root, self.output_root)
         self.result = self.service.process(ImageCropRequest(
             visual_case_id="case-fire-001",
             source_asset_id="asset-fire-001",
@@ -190,6 +199,7 @@ class ImageDerivativePersistenceTests(unittest.IsolatedAsyncioTestCase):
                     sync_connection,
                     tables=[
                         VisualVerificationCaseRecord.__table__,
+                        VisualCaseAssetRecord.__table__,
                         VisualImageDerivativeRecord.__table__,
                     ],
                 )
@@ -232,6 +242,122 @@ class ImageDerivativePersistenceTests(unittest.IsolatedAsyncioTestCase):
                 first.processing_parameters["parameter_sha256"],
                 self.result.parameter_sha256,
             )
+
+    async def test_case_asset_workflow_uses_stored_identity_and_persists(self) -> None:
+        async with self.session_factory() as session:
+            session.add(VisualVerificationCaseRecord(
+                visual_case_id="case-fire-001",
+                source_candidate_id="candidate-fire-001",
+                upstream_schema_version="fire.hotspot.candidate.v0.1",
+                upstream_status="candidate",
+                event_id="dixie_fire_2021",
+                event_name="Dixie Fire",
+                observed_at=datetime(2021, 7, 14, 9, 11, tzinfo=UTC),
+                longitude=-121.38241,
+                latitude=39.87194,
+                imagery_status="available",
+                data_owner={"organization": "fixture"},
+                replay_metadata={"is_replay": True},
+                product_fields={},
+                upstream_payload_hash="0" * 64,
+                status="imagery_ready",
+                version=1,
+                is_simulated=True,
+            ))
+            session.add(VisualCaseAssetRecord(
+                visual_case_id="case-fire-001",
+                source_asset_id="asset-fire-001",
+                asset_role="primary",
+                source_type="fixture",
+                source_name="fixture",
+                mime_type="image/jpeg",
+                acquired_at=datetime(2021, 7, 14, 9, 10, tzinfo=UTC),
+                content_uri="data://raw/imagery/fire.jpg",
+                quality_status="unassessed",
+                is_simulated=True,
+            ))
+            await session.flush()
+
+            result, record, created = await prepare_case_asset_derivative(
+                session,
+                visual_case_id="case-fire-001",
+                source_asset_id="asset-fire-001",
+                options=DerivativePreparationOptions(),
+                source_root=self.data_root,
+                output_root=self.output_root,
+            )
+
+            self.assertTrue(created)
+            self.assertEqual(record.derivative_id, result.derivative_id)
+            self.assertEqual(result.visual_case_id, "case-fire-001")
+            self.assertEqual(result.source_asset_id, "asset-fire-001")
+            self.assertTrue(result.output_uri.startswith("visual-output://"))
+
+    async def test_case_asset_workflow_rejects_unattached_asset(self) -> None:
+        async with self.session_factory() as session:
+            session.add(VisualVerificationCaseRecord(
+                visual_case_id="case-fire-001",
+                source_candidate_id="candidate-fire-001",
+                upstream_schema_version="fire.hotspot.candidate.v0.1",
+                upstream_status="candidate",
+                event_id="dixie_fire_2021",
+                event_name="Dixie Fire",
+                observed_at=datetime(2021, 7, 14, 9, 11, tzinfo=UTC),
+                longitude=-121.38241,
+                latitude=39.87194,
+                imagery_status="available",
+                data_owner={"organization": "fixture"},
+                replay_metadata={"is_replay": True},
+                product_fields={},
+                upstream_payload_hash="0" * 64,
+                status="imagery_ready",
+                version=1,
+                is_simulated=True,
+            ))
+            await session.flush()
+
+            with self.assertRaises(VisualAssetNotFoundError):
+                await prepare_case_asset_derivative(
+                    session,
+                    visual_case_id="case-fire-001",
+                    source_asset_id="missing-asset",
+                    options=DerivativePreparationOptions(),
+                    source_root=self.data_root,
+                    output_root=self.output_root,
+                )
+
+    async def test_case_asset_workflow_rejects_pending_case(self) -> None:
+        async with self.session_factory() as session:
+            session.add(VisualVerificationCaseRecord(
+                visual_case_id="case-pending-001",
+                source_candidate_id="candidate-pending-001",
+                upstream_schema_version="fire.hotspot.candidate.v0.1",
+                upstream_status="candidate",
+                event_id="dixie_fire_2021",
+                event_name="Dixie Fire",
+                observed_at=datetime(2021, 7, 14, 9, 11, tzinfo=UTC),
+                longitude=-121.38241,
+                latitude=39.87194,
+                imagery_status="pending",
+                data_owner={"organization": "fixture"},
+                replay_metadata={"is_replay": True},
+                product_fields={},
+                upstream_payload_hash="1" * 64,
+                status="imagery_searching",
+                version=1,
+                is_simulated=True,
+            ))
+            await session.flush()
+
+            with self.assertRaises(ImageryNotReadyError):
+                await prepare_case_asset_derivative(
+                    session,
+                    visual_case_id="case-pending-001",
+                    source_asset_id="any-asset",
+                    options=DerivativePreparationOptions(),
+                    source_root=self.data_root,
+                    output_root=self.output_root,
+                )
 
 
 if __name__ == "__main__":

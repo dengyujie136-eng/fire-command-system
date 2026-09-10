@@ -50,3 +50,11 @@ class EmptyRasterCropError(ImageProcessingError):
 
 class DerivativeConflictError(ImageProcessingError):
     code = "derivative_conflict"
+
+
+class VisualCaseNotFoundError(ImageProcessingError):
+    code = "visual_case_not_found"
+
+
+class VisualAssetNotFoundError(ImageProcessingError):
+    code = "visual_asset_not_found"

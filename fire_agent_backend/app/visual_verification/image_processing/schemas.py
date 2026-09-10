@@ -88,6 +88,49 @@ class ImageCropRequest(BaseModel):
         return self
 
 
+class DerivativePreparationOptions(BaseModel):
+    """Caller-controlled processing options; case and asset identity come from storage."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    crop_radius_m: float = Field(default=1500.0, gt=0, le=50_000)
+    source_kind: Literal["auto", "plain_image", "geotiff"] = "auto"
+    band_indexes: list[int] | None = None
+    output_format: Literal["jpeg", "png"] = "jpeg"
+    max_dimension: int = Field(default=1536, ge=128, le=4096)
+    thumbnail_dimension: int = Field(default=512, ge=64, le=1024)
+    jpeg_quality: int = Field(default=90, ge=50, le=100)
+    stretch_percentiles: tuple[float, float] = (2.0, 98.0)
+    processing_purpose: Literal["model_input", "pipeline_test"] = "model_input"
+
+    @field_validator("band_indexes")
+    @classmethod
+    def validate_band_indexes(cls, value: list[int] | None) -> list[int] | None:
+        return ImageCropRequest.validate_band_indexes(value)
+
+    @field_validator("stretch_percentiles")
+    @classmethod
+    def validate_stretch(cls, value: tuple[float, float]) -> tuple[float, float]:
+        return ImageCropRequest.validate_stretch(value)
+
+
+class VisualImageDerivativeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+    derivative_id: str
+    visual_case_id: str
+    source_asset_id: str
+    derivative_type: str
+    file_uri: str
+    preview_uri: str | None
+    crs: str | None
+    extent_geojson: dict[str, object] | None
+    processing_parameters: dict[str, object]
+    checksum_sha256: str | None
+    is_simulated: bool
+    created_at: datetime
+
+
 class ImageProcessingResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

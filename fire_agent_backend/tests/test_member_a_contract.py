@@ -36,6 +36,13 @@ class MemberAContractTests(unittest.TestCase):
         self.assertIn("/visual-verification/candidates/import", paths)
         self.assertIn("/visual-verification/candidates", paths)
         self.assertIn("/visual-verification/candidates/{visual_case_id}", paths)
+        self.assertIn(
+            "/visual-verification/candidates/{visual_case_id}/assets/{source_asset_id}/derivatives",
+            paths,
+        )
+        self.assertIn("/visual-verification/derivatives/{derivative_id}", paths)
+        self.assertIn("/visual-verification/derivatives/{derivative_id}/image", paths)
+        self.assertIn("/visual-verification/derivatives/{derivative_id}/preview", paths)
 
     def test_http_mqtt_batch_envelope_adapts_without_confirming(self) -> None:
         envelope = HotspotCandidateEnvelope.model_validate(load_json("candidate_input.json"))
