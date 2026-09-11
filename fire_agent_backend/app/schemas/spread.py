@@ -1,13 +1,88 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class SpreadIgnitionPoint(BaseModel):
+    longitude: float
+    latitude: float
+    confidence: float = Field(default=0.95, ge=0, le=1)
+
+
+class SpreadEnvironmentFrame(BaseModel):
+    elapsed_minutes: int = Field(default=0, ge=0, le=1440)
+    temperature_c: float = Field(ge=-30, le=65)
+    humidity_percent: float = Field(ge=0, le=100)
+    wind_speed_m_s: float = Field(ge=0, le=60)
+    wind_direction_deg: float = Field(ge=0, lt=360)
+    fuel_moisture: float = Field(ge=0.01, le=0.8)
+    fire_weather_index: float = Field(ge=0, le=100)
+    precipitation_mm_h: float = Field(default=0, ge=0, le=200)
+    source: str = "agent_environment"
+
+
+class SpreadTerrainContext(BaseModel):
+    mean_slope_deg: float = Field(default=12, ge=0, le=70)
+    aspect_deg: float = Field(default=0, ge=0, lt=360)
+    upslope_direction_deg: float | None = Field(default=None, ge=0, lt=360)
+    fuel_model: str = "mixed_forest"
+    fuel_load_kg_m2: float = Field(default=1.4, ge=0.05, le=8)
+    canopy_cover_percent: float = Field(default=55, ge=0, le=100)
+    suppression_factor: float = Field(default=0, ge=0, le=0.95)
+
+
+class SpreadLandscapeGrid(BaseModel):
+    longitudes: list[float]
+    latitudes: list[float]
+    elevation_m: list[list[float]]
+    landcover_codes: list[list[int]]
+    landcover_labels: dict[str, str] = Field(default_factory=dict)
+    source: str = "agent_landscape_grid"
+    original_source: str | None = None
+    classification_method: str | None = None
+    scene_id: str | None = None
+    is_simulated: bool = False
+
+
 class SpreadRunRequest(BaseModel):
-    horizon_minutes: int = Field(default=120, ge=30, le=720)
-    step_minutes: int = Field(default=30, ge=5, le=120)
-    prefer_forefire: bool = True
+    horizon_minutes: int | None = Field(
+        default=None,
+        ge=1,
+        le=1440,
+        description=(
+            "Optional legacy limit. The final environment frame or the next "
+            "scenario weather update defines the normal forecast horizon."
+        ),
+    )
+    step_minutes: int | None = Field(
+        default=None,
+        ge=1,
+        le=120,
+        description=(
+            "Optional compatibility cadence. Fireline checkpoints follow "
+            "environment-frame valid times."
+        ),
+    )
+    prefer_forefire: bool = Field(
+        default=False,
+        description="Legacy compatibility field. The backend now uses the dynamic agent tool directly.",
+    )
+    ignition_point: SpreadIgnitionPoint | None = None
+    input_source: str = "confirmed_fire_point"
+    environment_timeline: list[SpreadEnvironmentFrame] = Field(default_factory=list)
+    terrain: SpreadTerrainContext = Field(default_factory=SpreadTerrainContext)
+    landscape: SpreadLandscapeGrid | None = None
+    initial_radius_m: float = Field(default=30, ge=5, le=500)
+    initial_fireline_geojson: dict[str, Any] | None = None
+    continue_from_run_id: str | None = None
+    run_mode: Literal[
+        "initial_forecast",
+        "rolling_forecast",
+        "observation_corrected",
+        "what_if",
+    ] = "initial_forecast"
+    initial_fireline_source: str = "ignition"
 
 
 class SimulationRunRead(BaseModel):

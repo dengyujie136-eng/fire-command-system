@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { clockAPI, decisionAPI, eventAPI, observationAPI, recalculationAPI, recommendationAPI, reportAPI, scenarioAPI, spreadAPI } from '../api/modules'
+import { clockAPI, decisionAPI, eventAPI, observationAPI, recalculationAPI, recommendationAPI, reportAPI, scenarioAPI, spatialAnalysisAPI, spreadAPI } from '../api/modules'
 
 export const DEFAULT_MAP_CENTER: [number, number] = [101.269444, 28.530278]
 export const MULI_COUNTY_CENTER: [number, number] = [101.2803, 28.6456]
@@ -82,6 +82,9 @@ export const useFireEventStore = defineStore('fireEvent', () => {
   const forefireResult = ref<any>(saved.forefireResult || null)
   const spreadRun = ref<any>(saved.spreadRun || null)
   const spreadSteps = ref<any[]>(saved.spreadSteps || [])
+  const spatialAnalysisRun = ref<any>(saved.spatialAnalysisRun || null)
+  const spatialImpacts = ref<any[]>(saved.spatialImpacts || [])
+  const emergencyRoutes = ref<any[]>(saved.emergencyRoutes || [])
   const agentResult = ref<any>(saved.agentResult || null)
   const agentMessages = ref<any[]>(saved.agentMessages || [])
   const decisionRun = ref<any>(saved.decisionRun || null)
@@ -489,6 +492,33 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     return result?.data ? applySpreadRun(result) : null
   }
 
+  function applySpatialAnalysis(envelope: any) {
+    const data = envelope?.data || envelope
+    if (!data?.run) return null
+    spatialAnalysisRun.value = data.run
+    spatialImpacts.value = Array.isArray(data.impacts) ? data.impacts : []
+    emergencyRoutes.value = Array.isArray(data.routes) ? data.routes : []
+    updatedAt.value = new Date().toISOString()
+    persist()
+    return data
+  }
+
+  async function createSpatialAnalysis(payload: any = {}, id = eventId.value) {
+    if (!id) throw new Error('No backend fire event is active.')
+    const result = await spatialAnalysisAPI.create(id, {
+      input_source: 'upstream_mock',
+      include_routes: true,
+      ...payload
+    })
+    return applySpatialAnalysis(result)
+  }
+
+  async function loadLatestSpatialAnalysis(id = eventId.value) {
+    if (!id) return null
+    const result = await spatialAnalysisAPI.getLatest(id)
+    return result?.data ? applySpatialAnalysis(result) : null
+  }
+
   function setAgentResult(result: any, messages: any[] = []) {
     agentResult.value = result
     agentMessages.value = messages
@@ -656,6 +686,9 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     forefireResult.value = null
     spreadRun.value = null
     spreadSteps.value = []
+    spatialAnalysisRun.value = null
+    spatialImpacts.value = []
+    emergencyRoutes.value = []
     agentResult.value = null
     agentMessages.value = []
     decisionRun.value = null
@@ -738,6 +771,9 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     forefireResult,
     spreadRun,
     spreadSteps,
+    spatialAnalysisRun,
+    spatialImpacts,
+    emergencyRoutes,
     agentResult,
     agentMessages,
     decisionRun,
@@ -794,6 +830,9 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     applySpreadRun,
     createSpreadRun,
     loadLatestSpreadRun,
+    applySpatialAnalysis,
+    createSpatialAnalysis,
+    loadLatestSpatialAnalysis,
     setAgentResult,
     applyDecisionRun,
     createDecisionRun,

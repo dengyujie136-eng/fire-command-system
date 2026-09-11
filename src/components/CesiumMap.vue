@@ -39,6 +39,7 @@ let fireTimelineFrames: FireFrame[] = []
 let fireHistoryEntities: Array<{ entity: Cesium.Entity, elapsedSeconds: number }> = []
 let fireTimelineOptions: FireTimelineOptions = {}
 let lastFireAnimationTick = 0
+let fireTimelineCompletedNotified = false
 let imageryOverlayLayer: Cesium.ImageryLayer | null = null
 let vectorOverlayLayer: Cesium.ImageryLayer | null = null
 let nirEntities: Cesium.Entity[] = []
@@ -57,8 +58,11 @@ type FireFrame = {
 }
 
 type FireTimelineOptions = {
-  intervalMs?: number
+  durationMs?: number
+  autoPlay?: boolean
   onFrame?: (payload: { index: number, total: number, elapsedSeconds: number, progress: number }) => void
+  onPlaybackState?: (playing: boolean) => void
+  onComplete?: () => void
 }
 
 type WindVector = {
@@ -149,10 +153,7 @@ function clearHotspots() {
 
 function clearFireFronts() {
   if (!viewer) return
-  if (fireAnimationTimer) {
-    clearInterval(fireAnimationTimer)
-    fireAnimationTimer = null
-  }
+  pauseFireTimeline()
   if (fireParticleSystem) {
     viewer.scene.primitives.remove(fireParticleSystem)
     fireParticleSystem = null
@@ -162,6 +163,7 @@ function clearFireFronts() {
   fireTimelineFrames = []
   fireHistoryEntities = []
   fireTimelineOptions = {}
+  fireTimelineCompletedNotified = false
   fireFrontEntities.forEach((entity) => viewer?.entities.remove(entity))
   fireFrontEntities = []
 }
@@ -322,21 +324,38 @@ function addDemoArea(options: { name: string, coordinates: LngLat[], color?: str
     polygon: {
       // ABC 分区贴地显示，避免被三维地形深度测试盖住。
       hierarchy: new Cesium.PolygonHierarchy(ringToGroundPositions(options.coordinates)),
-      material: color.withAlpha(0.16),
+      material: color.withAlpha(0.36),
       outline: true,
-      outlineColor: color.withAlpha(0.8),
+      outlineColor: color.withAlpha(0.98),
       clampToGround: true
     }
   })
   demoEntities.push(entity)
 
-  if (options.label || options.name) {
+  // Ground polygons can lose their outline against Cesium terrain. Keep a
+  // separate bright polyline so risk boundaries remain readable at a glance.
+  const boundaryEntity = viewer.entities.add({
+    name: `${options.name}-boundary`,
+    polyline: {
+      positions: ringToGroundPositions(options.coordinates),
+      width: 4,
+      material: new Cesium.PolylineGlowMaterialProperty({
+        glowPower: 0.12,
+        color: color.withAlpha(1.0)
+      }),
+      clampToGround: true,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY
+    }
+  })
+  demoEntities.push(boundaryEntity)
+
+  if (options.label) {
     const center = polygonCentroid(options.coordinates)
     const labelEntity = viewer.entities.add({
       name: `${options.name}-label`,
       position: Cesium.Cartesian3.fromDegrees(center[0], center[1]),
       label: {
-        text: options.label || options.name,
+        text: options.label,
         font: 'bold 13px sans-serif',
         fillColor: Cesium.Color.WHITE,
         outlineColor: Cesium.Color.BLACK,
@@ -1027,25 +1046,35 @@ function pauseFireTimeline() {
     clearInterval(fireAnimationTimer)
     fireAnimationTimer = null
   }
+  fireTimelineOptions.onPlaybackState?.(false)
+}
+
+function notifyFireTimelineComplete() {
+  if (fireTimelineCompletedNotified) return
+  fireTimelineCompletedNotified = true
+  fireTimelineOptions.onComplete?.()
 }
 
 function playFireTimeline() {
   if (!fireTimelineFrames.length || fireAnimationTimer) return
   const totalSeconds = fireTimelineFrames[fireTimelineFrames.length - 1]?.elapsedSeconds || 0
   if (activeFireElapsedSeconds >= totalSeconds) {
+    fireTimelineCompletedNotified = false
     setFireElapsedSeconds(0)
   }
   lastFireAnimationTick = Date.now()
+  fireTimelineOptions.onPlaybackState?.(true)
   fireAnimationTimer = setInterval(() => {
     const now = Date.now()
     const deltaMs = Math.max(16, now - lastFireAnimationTick)
     lastFireAnimationTick = now
-    // 将整段蔓延动画从原先约 12 秒放慢到约 18 秒，使火线扩散过程更容易被观察。
-    const simulatedSecondsPerMs = totalSeconds / Math.max(18000, (fireTimelineOptions.intervalMs ?? 3600) * Math.max(1, fireTimelineFrames.length - 1))
+    const playbackDurationMs = Math.max(1800, fireTimelineOptions.durationMs ?? 4500)
+    const simulatedSecondsPerMs = totalSeconds / playbackDurationMs
     const nextElapsed = activeFireElapsedSeconds + deltaMs * simulatedSecondsPerMs
     if (nextElapsed >= totalSeconds) {
       setFireElapsedSeconds(totalSeconds)
       pauseFireTimeline()
+      notifyFireTimelineComplete()
       return
     }
     setFireElapsedSeconds(nextElapsed)
@@ -1063,6 +1092,16 @@ function setFireTimelineProgress(progress: number) {
   const totalSeconds = fireTimelineFrames[fireTimelineFrames.length - 1]?.elapsedSeconds || 0
   const targetSeconds = totalSeconds > 0 ? (bounded / 100) * totalSeconds : 0
   setFireElapsedSeconds(targetSeconds)
+  if (bounded >= 100) {
+    pauseFireTimeline()
+    notifyFireTimelineComplete()
+  } else {
+    fireTimelineCompletedNotified = false
+  }
+}
+
+function setFireTimelineDuration(durationMs: number) {
+  fireTimelineOptions.durationMs = Math.max(1800, Number(durationMs) || 4500)
 }
 
 function addFireFrontTimeline(geojson: any, options: FireTimelineOptions = {}) {
@@ -1107,6 +1146,7 @@ function addFireFrontTimeline(geojson: any, options: FireTimelineOptions = {}) {
   }
   fireTimelineFrames = frames[0]?.elapsedSeconds === 0 ? frames : [initialFrame, ...frames]
   fireTimelineOptions = options
+  fireTimelineCompletedNotified = false
   setFireElapsedSeconds(0)
 
   const timelineFrames = fireTimelineFrames
@@ -1274,7 +1314,9 @@ function addFireFrontTimeline(geojson: any, options: FireTimelineOptions = {}) {
     })
   }
 
-  playFireTimeline()
+  if (options.autoPlay !== false) {
+    playFireTimeline()
+  }
 }
 
 function on(eventName: string, callback: (...args: any[]) => void) {
@@ -1312,6 +1354,7 @@ defineExpose({
   pauseFireTimeline,
   resetFireTimeline,
   setFireTimelineProgress,
+  setFireTimelineDuration,
   clearFireFronts,
   on,
   addSource,

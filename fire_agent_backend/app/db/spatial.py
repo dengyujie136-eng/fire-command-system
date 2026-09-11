@@ -47,6 +47,26 @@ SPATIAL_COLUMNS = (
         END
     ) STORED
     """,
+    """
+    ALTER TABLE spatial_impact_records
+    ADD COLUMN IF NOT EXISTS impact_geom geometry(Geometry, 4326)
+    GENERATED ALWAYS AS (
+        CASE
+            WHEN geometry IS NULL OR geometry::text IN ('{}', 'null') THEN NULL
+            ELSE ST_SetSRID(ST_GeomFromGeoJSON(geometry::text), 4326)
+        END
+    ) STORED
+    """,
+    """
+    ALTER TABLE emergency_route_plans
+    ADD COLUMN IF NOT EXISTS route_geom geometry(LineString, 4326)
+    GENERATED ALWAYS AS (
+        CASE
+            WHEN geometry IS NULL OR geometry::text IN ('{}', 'null') THEN NULL
+            ELSE ST_SetSRID(ST_GeomFromGeoJSON((geometry -> 'geojson')::text), 4326)
+        END
+    ) STORED
+    """,
 )
 
 SPATIAL_INDEXES = (
@@ -57,6 +77,8 @@ SPATIAL_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_uav_assets_location_geom ON uav_assets USING GIST (location_geom)",
     "CREATE INDEX IF NOT EXISTS ix_fire_front_steps_fireline_geom ON fire_front_steps USING GIST (fireline_geom)",
     "CREATE INDEX IF NOT EXISTS ix_route_plans_route_geom ON route_plans USING GIST (route_geom)",
+    "CREATE INDEX IF NOT EXISTS ix_spatial_impact_records_impact_geom ON spatial_impact_records USING GIST (impact_geom)",
+    "CREATE INDEX IF NOT EXISTS ix_emergency_route_plans_route_geom ON emergency_route_plans USING GIST (route_geom)",
 )
 
 

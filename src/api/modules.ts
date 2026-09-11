@@ -77,6 +77,14 @@ export const spreadAPI = {
   getSteps: (runId: string) => fireAgentRequest(`/api/spread-runs/${runId}/steps`)
 }
 
+export const spatialAnalysisAPI = {
+  create: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/spatial-analysis`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  getLatest: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/spatial-analysis/latest`)
+}
+
 export const decisionAPI = {
   create: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/decision-runs`, {
     method: 'POST',

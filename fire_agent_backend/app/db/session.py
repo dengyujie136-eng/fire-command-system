@@ -31,6 +31,7 @@ async def init_db() -> None:
     from app.models import report as _report  # noqa: F401
     from app.models import scenario as _scenario  # noqa: F401
     from app.models import spread as _spread  # noqa: F401
+    from app.models import spatial_analysis as _spatial_analysis  # noqa: F401
     from app.models import system as _system  # noqa: F401
 
     async with engine.begin() as conn:
