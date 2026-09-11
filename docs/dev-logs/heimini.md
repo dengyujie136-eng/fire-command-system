@@ -1,3 +1,89 @@
+## 2026-09-11 - TaskPlan-driven dynamic execution and trace
+- Branch: `member/heimini`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Add a TaskPlan-driven execution layer that dynamically runs only selected capabilities, respects blocked and dependency states, records Execution Trace, and preserves legacy Orchestrator behavior when no TaskPlan is provided.
+
+### Completed
+
+- Added independent `app.services.task_execution` package for TaskPlan execution.
+- Added `TaskExecutionContext` as a structured execution input container for `DecisionContext`, `PlanningTask`, `RouteTask`, `ResourceAgentTask`, `force_provider`, and metadata.
+- Added `ExecutionTrace` and `ExecutionTraceStep` models with trace id, task plan id, status, timestamps, per-step status, dependencies, input status, missing inputs, result status, warnings, diagnostics, result refs, and durations.
+- Added `TaskPlanExecutor` with explicit whitelist dispatch for `situation_analysis`, `spread_forecast`, `risk_assessment`, `route_planning`, `resource_dispatch`, `route_resource_planning`, and `command_synthesis`.
+- Executor now runs only selected TaskPlan steps; it does not run fixed Situation -> Spread -> Risk -> Commander for every request.
+- Executor respects TaskPlan blocked steps and runtime missing inputs without calling professional Agents/Services.
+- Executor respects `depends_on`; failed or blocked dependencies cause dependent steps to be blocked instead of running with missing upstream outputs.
+- Added partial execution behavior so independent successful steps remain available when unrelated steps fail.
+- Added standalone RouteAgent execution from explicit `RouteTask` and standalone ResourceAgent execution from explicit `ResourceAgentTask`.
+- Added Planning Service execution from explicit `PlanningTask`, reusing PlanningResult internal ResourceAgent/RouteAgent results without extra route/resource execution.
+- Added Commander execution only when `command_synthesis` is selected by TaskPlan. Commander receives partial dynamic `AgentAnalysisContext` and optional PlanningResult facts.
+- Added Orchestrator compatibility upgrade: `task_plan=None` keeps old behavior; `task_plan` present delegates to `TaskPlanExecutor` without natural-language interpretation.
+- Kept Task Planner independent: Orchestrator accepts TaskPlan, not user query, and does not call NaturalLanguageTaskPlanner internally.
+- Execution Trace does not store private chain-of-thought and does not copy large AgentResult payloads, GeoJSON coordinates, fire fronts, or resource lists.
+- Kept API, database, frontend, decision_service HTTP flow, CommanderAgent core logic, Planning Service algorithms, RouteAgent, ResourceAgent, Routing Unit, Resource Unit, and Agent Output Schema unchanged.
+
+### Main Files
+
+- `fire_agent_backend/app/services/task_execution/models.py`: new structured execution inputs and Execution Trace models.
+- `fire_agent_backend/app/services/task_execution/executor.py`: new TaskPlanExecutor with whitelist dispatch, dependency handling, blocked-step handling, partial execution, and trace generation.
+- `fire_agent_backend/app/services/task_execution/test_task_executor.py`: new tests for dynamic execution, trace, dependency failure, partial execution, planning subsumption, and Orchestrator compatibility.
+- `fire_agent_backend/app/services/task_execution/__init__.py`: package exports.
+- `fire_agent_backend/app/agents/orchestrator.py`: added optional `task_plan` and `execution_inputs` parameters; delegates to TaskPlanExecutor only when TaskPlan is explicitly provided.
+- `docs/dev-logs/heimini.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes. Internal `MultiAgentOrchestrator.run()` now accepts optional `task_plan` and `execution_inputs` for TaskPlan-driven execution.
+- Response fields: no public response schema changes. TaskPlan mode internally returns `task_plan`, `overall_status`, dynamic `agent_results`, partial `analysis_context`, optional `commander_result`, optional `planning_result`, optional `route_result`, optional `resource_result`, dynamic `standard_outputs`, and `execution_trace`.
+- Error and status changes: none for public APIs. Internally, execution status can be `success`, `partial`, `failed`, or `blocked`; trace step status can be `pending`, `running`, `success`, `failed`, `blocked`, or `skipped`.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none.
+- Data source and processing scripts: none. Synthetic fixtures remain test-only and are not used by TaskPlanExecutor production defaults.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.task_execution.test_task_executor` from `fire_agent_backend` ran 17 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.task_planning.test_task_planner` from `fire_agent_backend` ran 22 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.planning.test_coordination` from `fire_agent_backend` ran 18 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_planning_integration` from `fire_agent_backend` ran 7 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_resource_agent` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.resources.test_resource_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_route_agent` from `fire_agent_backend` ran 20 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend/app backend/forefire_api/app`.
+- `[passed]` `docker compose config --quiet` after one permission-review timeout retry.
+- `[passed]` `git diff --check`.
+- `[passed]` `git status` confirmed only Orchestrator, task_execution files, and this log changed before commit.
+- `[not run]` `npm run build`: no frontend files were modified and this stage explicitly does not require rerunning it.
+
+### Impact On Other Modules
+
+- Upstream dependencies: consumes existing TaskPlan, DecisionContext, PlanningTask, RouteTask, ResourceAgentTask, Agents, Planning Service, and standard output adapter.
+- Downstream outputs: future natural-language command pipeline can compose NaturalLanguageTaskPlanner + TaskPlanExecutor and expose TaskPlan plus ExecutionTrace to frontend/API.
+- High-conflict shared files: none from the AGENTS high-conflict list were changed. `fire_agent_backend/app/agents/orchestrator.py` was minimally changed as the requested compatibility integration point.
+
+### Known Issues And Next Steps
+
+- TaskPlanExecutor is internal and not connected to HTTP APIs, database persistence, frontend, or natural-language entrypoint yet.
+- Partial emergency currently follows TaskPlan dependency policy: if Planning is blocked and Commander depends on Planning, Commander is blocked rather than producing partial synthesis.
+- ExecutionTrace currently stores result refs and summaries only, not persistent artifact IDs or database-backed execution sessions.
+- `TraceStepStatus` reserves `pending`, `running`, and `skipped`; current synchronous executor emits `success`, `failed`, and `blocked` in tested paths.
+- Normal sandboxed command execution still fails with `helper_unknown_error: setup refresh had errors`; necessary reads, writes, tests, and checks used elevated execution. `apply_patch` was also unavailable, so targeted edits used temporary Python scripts.
+
+### Merge Notes
+
+- Can merge: yes after review as an internal dynamic TaskPlan execution layer.
+- Project owner should check: TaskPlanExecutor return shape, partial Commander blocking policy, ExecutionTrace fields, and future API/frontend exposure boundary.
+
 ## 2026-09-11 - Natural-language Task Planner and Capability Registry
 - Branch: `member/heimini`
 - Latest commit: final hash is reported in the delivery summary

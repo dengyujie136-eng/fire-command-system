@@ -13,6 +13,8 @@ from app.agents.schema import standardize_agent_results
 from app.agents.situation_agent import SituationAgent
 from app.agents.spread_agent import SpreadAgent
 from app.services.planning import PlanningTask, coordinate_route_resource_planning
+from app.services.task_execution import TaskExecutionContext, TaskPlanExecutor
+from app.services.task_planning import TaskPlan
 
 
 class MultiAgentOrchestrator:
@@ -35,10 +37,26 @@ class MultiAgentOrchestrator:
 
     async def run(
         self,
-        context: DecisionContext,
+        context: DecisionContext | None,
         force_provider: str | None = None,
         planning_task: PlanningTask | None = None,
+        task_plan: TaskPlan | None = None,
+        execution_inputs: TaskExecutionContext | None = None,
     ) -> dict[str, Any]:
+        if task_plan is not None:
+            executor_inputs = execution_inputs or TaskExecutionContext(
+                decision_context=context,
+                planning_task=planning_task,
+                force_provider=force_provider,
+            )
+            executor = TaskPlanExecutor(
+                agents=_capability_agents(self.agents),
+                commander_agent=self.commander_agent,
+            )
+            return await executor.execute(task_plan, executor_inputs)
+        if context is None:
+            raise ValueError("DecisionContext is required when task_plan is not provided.")
+
         result_map: dict[str, AgentResult] = {}
         agent_results: list[AgentResult] = []
 
@@ -92,6 +110,18 @@ class MultiAgentOrchestrator:
             "planning_result": planning_result,
             "standard_outputs": standardize_agent_results(agent_results),
         }
+
+
+def _capability_agents(agents: Sequence[BaseAgent]) -> dict[str, BaseAgent]:
+    by_name = {agent.agent_name: agent for agent in agents}
+    mapped: dict[str, BaseAgent] = {}
+    if "SituationAgent" in by_name:
+        mapped["situation_analysis"] = by_name["SituationAgent"]
+    if "SpreadAgent" in by_name:
+        mapped["spread_forecast"] = by_name["SpreadAgent"]
+    if "RiskAgent" in by_name:
+        mapped["risk_assessment"] = by_name["RiskAgent"]
+    return mapped
 
 
 def _agent_results_from_planning(planning_result: Mapping[str, Any]) -> list[AgentResult]:
