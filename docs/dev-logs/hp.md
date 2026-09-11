@@ -1,3 +1,79 @@
+## 2026-09-11 - Planning integration with Commander and Orchestrator
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Wire the existing internal Planning Service into MultiAgentOrchestrator and CommanderAgent as an optional explicit capability, while preserving the no-planning Situation -> Spread -> Risk -> Commander behavior and preventing synthetic planning data from entering production defaults.
+
+### Completed
+
+- Added optional `planning_task` support to `MultiAgentOrchestrator.run()` without changing the existing `force_provider` keyword path.
+- Kept `planning_task=None` behavior as the original SituationAgent -> SpreadAgent -> RiskAgent -> CommanderAgent chain.
+- When a `PlanningTask` is explicitly supplied, Orchestrator calls `coordinate_route_resource_planning()` once and passes the resulting PlanningResult facts into CommanderAgent.
+- Added Planning failure fallback: CommanderAgent still runs from Situation/Spread/Risk, planning is marked unavailable/error, and no fake routes or resources are generated.
+- Reused real ResourceAgent and RouteAgent AgentResult values already produced inside Planning Service; no duplicate RouteAgent or ResourceAgent execution was added.
+- Added deterministic `build_planning_summary()` for Commander input, including status, selected resources, operational routes, ETA range, route risk range, shortage, warnings, and diagnostics.
+- CommanderAgent now copies PlanningResult facts into existing compatible `recommended_plan`, `plan_packet`, and `recommendation_packet` structures when planning exists.
+- LLM prompt boundary was tightened so LLM can only write human-readable summary text and must not invent/change planning facts.
+- Added Commander + Planning integration tests for no-planning compatibility, planning enabled, fact consistency, blocked-road recalculation, resource-unavailable recalculation, planning failure fallback, and no duplicated planning-agent execution.
+- Kept API, database, frontend, decision_service HTTP flow, recommendation_service, Routing Unit, Resource Unit, and Planning core algorithms unchanged.
+
+### Main Files
+
+- `fire_agent_backend/app/agents/orchestrator.py`: added optional `planning_task`, explicit Planning Service invocation, planning failure result, and reuse of already-executed planning agent results.
+- `fire_agent_backend/app/agents/commander_agent.py`: added deterministic planning summary generation and PlanningResult fact injection into compatible Commander packets.
+- `fire_agent_backend/app/agents/test_planning_integration.py`: added integration tests for optional Planning + Commander behavior and dynamic recalculation propagation.
+- `docs/dev-logs/hp.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes. Internal `MultiAgentOrchestrator.run()` now accepts optional `planning_task` as an explicit programmatic input.
+- Response fields: no public HTTP response schema changes. Internal orchestrator result now includes `planning_result`, which is `None` when planning is not requested and a PlanningResult dict or planning error dict when requested.
+- Error and status changes: Planning failures are represented internally with `planning_result.status="error"` and warnings; Commander still returns a degraded command result without fake route/resource facts.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none; new tests explicitly use existing synthetic mountain fixtures only inside test PlanningTask inputs.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_planning_integration` from `fire_agent_backend` ran 7 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.planning.test_coordination` from `fire_agent_backend` ran 18 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_resource_agent` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.resources.test_resource_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_route_agent` from `fire_agent_backend` ran 20 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend/app backend/forefire_api/app`.
+- `[passed]` `docker compose config --quiet`.
+- `[passed]` `git diff --check`.
+- `[passed]` `git status` confirmed only the intended files were modified before commit.
+- `[not run]` `npm run build`: no frontend files were modified and this stage explicitly does not require rerunning it.
+
+### Impact On Other Modules
+
+- Upstream dependencies: Planning still consumes only explicit PlanningTask fields, including supplied road network, supplied resource inventory, blocked edges, risk overrides, route/resource strategy, and resource requirements.
+- Downstream outputs: Commander can now consume PlanningResult facts through deterministic planning summary and compatible packet fields.
+- High-conflict shared files: none from the AGENTS high-conflict list were changed. `fire_agent_backend/app/agents/orchestrator.py` and `fire_agent_backend/app/agents/commander_agent.py` changed as the requested integration points.
+
+### Known Issues And Next Steps
+
+- No natural-language task planner or tool selection was implemented in this stage.
+- Real Spread/Risk/GIS to road-risk adapter is still future work; tests continue to use explicit synthetic PlanningTask fixtures only.
+- `decision_service.py` still calls Orchestrator without PlanningTask, so the existing HTTP flow remains no-planning compatible.
+- Normal sandboxed command execution still fails with `helper_unknown_error: setup refresh had errors`; necessary local reads, writes, tests, and checks used elevated execution. `apply_patch` was also unavailable because of the same sandbox issue, so targeted file edits used temporary Python scripts.
+
+### Merge Notes
+
+- Can merge: yes after review as an internal optional Planning integration.
+- Project owner should check: Commander planning packet shape, Orchestrator `planning_result` internal return field, and future adapter boundary from Spread/Risk/GIS into PlanningTask.
+
 ## 2026-09-11 - Route-resource planning coordination
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Mapping
 
 from app.agents.base import AgentResult, BaseAgent, agent_result
 from app.agents.commander_agent import CommanderAgent
@@ -12,6 +12,7 @@ from app.agents.risk_agent import RiskAgent
 from app.agents.schema import standardize_agent_results
 from app.agents.situation_agent import SituationAgent
 from app.agents.spread_agent import SpreadAgent
+from app.services.planning import PlanningTask, coordinate_route_resource_planning
 
 
 class MultiAgentOrchestrator:
@@ -32,7 +33,12 @@ class MultiAgentOrchestrator:
         )
         self.commander_agent = commander_agent or CommanderAgent()
 
-    async def run(self, context: DecisionContext, force_provider: str | None = None) -> dict[str, Any]:
+    async def run(
+        self,
+        context: DecisionContext,
+        force_provider: str | None = None,
+        planning_task: PlanningTask | None = None,
+    ) -> dict[str, Any]:
         result_map: dict[str, AgentResult] = {}
         agent_results: list[AgentResult] = []
 
@@ -53,10 +59,20 @@ class MultiAgentOrchestrator:
 
         analysis_context = AgentAnalysisContext.from_agent_results(result_map)
         commander_result: AgentResult | None = None
-        if all(result["status"] == "success" for result in agent_results):
+        planning_result: dict[str, Any] | None = None
+        analysis_success = all(result["status"] == "success" for result in agent_results)
+        if analysis_success and planning_task is not None:
+            try:
+                planning_result = coordinate_route_resource_planning(planning_task).to_dict()
+                agent_results.extend(_agent_results_from_planning(planning_result))
+            except Exception as exc:
+                planning_result = _planning_failure_result(exc)
+
+        if analysis_success:
             try:
                 commander_result = await self.commander_agent.run(
                     analysis_context,
+                    planning_result=planning_result,
                     force_provider=force_provider,
                 )
             except Exception as exc:
@@ -73,5 +89,45 @@ class MultiAgentOrchestrator:
             "agent_results": agent_results,
             "analysis_context": analysis_context.to_dict(),
             "commander_result": commander_result,
+            "planning_result": planning_result,
             "standard_outputs": standardize_agent_results(agent_results),
         }
+
+
+def _agent_results_from_planning(planning_result: Mapping[str, Any]) -> list[AgentResult]:
+    results: list[AgentResult] = []
+    resource_result = planning_result.get("resource_agent_result")
+    if isinstance(resource_result, dict) and resource_result.get("agent_name"):
+        results.append(resource_result)  # type: ignore[arg-type]
+    route_results = planning_result.get("route_agent_results") or {}
+    if isinstance(route_results, Mapping):
+        for route_result in route_results.values():
+            if isinstance(route_result, dict) and route_result.get("agent_name"):
+                results.append(route_result)  # type: ignore[arg-type]
+    return results
+
+
+def _planning_failure_result(exc: Exception) -> dict[str, Any]:
+    warning = f"Planning unavailable: {exc}"
+    return {
+        "success": False,
+        "status": "error",
+        "task": {},
+        "resource_result": {},
+        "route_results": [],
+        "route_agent_results": {},
+        "resource_agent_result": {},
+        "selected_resources": [],
+        "operational_routes": [],
+        "alternative_routes": [],
+        "rejected_resources": [],
+        "resource_shortage": [],
+        "estimated_response": {},
+        "warnings": [warning],
+        "diagnostics": {
+            "coordination_service": "Route-Resource Planning Service",
+            "planning_error": str(exc),
+            "fallback": "CommanderAgent continued with Situation/Spread/Risk only.",
+        },
+        "metadata": {"planning_unit": "Route-Resource Planning Service", "llm_used": False},
+    }
