@@ -1,3 +1,85 @@
+## 2026-09-11 - Natural-language Task Planner and Capability Registry
+- Branch: `member/heimini`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Rename the member branch from `member/hp` to `member/heimini`, then add an independent Natural Language Task Planner and Capability Registry that produces validated TaskPlan objects without executing Orchestrator, agents, planning, routing, or resource calculations.
+
+### Completed
+
+- Renamed the current Git branch directly from `member/hp` to `member/heimini`; existing commits were preserved and no push/remote changes were made.
+- Added a lightweight internal `app.services.task_planning` package.
+- Added `CapabilityRegistry` as a static whitelist for current real capabilities: situation analysis, spread forecast, risk assessment, route planning, resource dispatch, route-resource planning, and command synthesis.
+- Added capability metadata for provider, required inputs, optional inputs, dependencies, subsumed capabilities, output type, execution role, execution type, deterministic/LLM-assisted flags, availability, and selectability.
+- Added `NaturalLanguageTaskRequest`, `TaskStep`, and `TaskPlan` models for natural-language request planning, missing-input reporting, dependency representation, partial executability, warnings, metadata, and deterministic serialization.
+- Added `NaturalLanguageTaskPlanner` that optionally accepts an existing LLM provider for strict JSON intent/capability suggestions, then validates every capability through the registry.
+- Added deterministic fallback for Chinese and basic English task recognition when LLM output is malformed, unavailable, or references unknown capabilities.
+- Added route/resource/planning subsumption so `route_resource_planning` suppresses duplicate `route_planning` and `resource_dispatch` selection.
+- Added explicit missing input checks for route, resource, and planning requests; Planner never auto-loads sample road networks, sample resources, or synthetic risk.
+- Kept Task Planner planning-only: it does not call Main Orchestrator, CommanderAgent, Planning Service, RouteAgent, ResourceAgent, Routing Unit, Resource Unit, API, database, or frontend.
+- Added tests for required Chinese scenarios, English smoke, dependency order, missing inputs, no synthetic fallback, whitelist validation, LLM structured output, LLM malformed fallback, LLM unknown capability fallback, LLM unavailable fallback, no operational fact generation, and deterministic reproducibility.
+
+### Main Files
+
+- `fire_agent_backend/app/services/task_planning/models.py`: new internal models for capabilities, natural-language requests, task steps, and TaskPlan output.
+- `fire_agent_backend/app/services/task_planning/registry.py`: new static Capability Registry / whitelist for current real system capabilities.
+- `fire_agent_backend/app/services/task_planning/planner.py`: new natural-language Task Planner with LLM JSON suggestion support, registry validation, subsumption, dependency building, missing-input checks, and deterministic fallback.
+- `fire_agent_backend/app/services/task_planning/test_task_planner.py`: new test suite for Task Planner behavior and safety boundaries.
+- `fire_agent_backend/app/services/task_planning/__init__.py`: package exports.
+- `docs/dev-logs/heimini.md`: renamed from `docs/dev-logs/hp.md` per AGENTS.md username-log convention and recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes. New internal `NaturalLanguageTaskRequest` supports `query`, `language`, `available_inputs`, and `metadata`.
+- Response fields: no public response schema changes. New internal `TaskPlan` supports `original_query`, `intent`, `requested_outputs`, `selected_capabilities`, `execution_steps`, `dependencies`, `required_inputs`, `missing_inputs`, `executable`, `status`, `warnings`, `planner_source`, `metadata`, `capability_reasons`, `blocked_steps`, and `fallback_used`.
+- Error and status changes: none for public APIs. Internally, unknown LLM capabilities, malformed JSON, and unavailable LLM providers fall back to deterministic planning; missing inputs produce `blocked` or `partial` TaskPlan status.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none.
+- Data source and processing scripts: none. Synthetic fixtures are not imported or used by Task Planner production defaults.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+- Git config: no author name/email changes were made.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.task_planning.test_task_planner` from `fire_agent_backend` ran 22 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.planning.test_coordination` from `fire_agent_backend` ran 18 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_planning_integration` from `fire_agent_backend` ran 7 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_resource_agent` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.resources.test_resource_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.agents.test_route_agent` from `fire_agent_backend` ran 20 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend/app backend/forefire_api/app`.
+- `[passed]` `docker compose config --quiet`.
+- `[passed]` `git diff --check`.
+- `[passed]` `git status` confirmed the branch rename, log migration, and new task_planning files before commit.
+- `[not run]` `npm run build`: no frontend files were modified and this stage explicitly does not require rerunning it.
+
+### Impact On Other Modules
+
+- Upstream dependencies: optional LLM provider can be injected or later resolved from existing provider infrastructure; deterministic fallback has no external dependency.
+- Downstream outputs: future Orchestrator integration can consume TaskPlan to decide which professional capabilities to execute or skip.
+- High-conflict shared files: none changed. Orchestrator, CommanderAgent, API schemas, database models, frontend, Planning Service, RouteAgent, ResourceAgent, Routing Unit, Resource Unit, and Agent Output Schema were not modified in this stage.
+
+### Known Issues And Next Steps
+
+- Task Planner is not connected to Main Orchestrator in this stage by design.
+- Deterministic natural-language fallback is lightweight keyword classification, not full semantic parsing.
+- Real data availability remains simple boolean flags in `available_inputs`; no data catalog, PostGIS discovery, or adapter system was added.
+- AutoGen integration was not added.
+- Normal sandboxed command execution still fails with `helper_unknown_error: setup refresh had errors`; necessary reads, writes, tests, and checks used elevated execution. `apply_patch` was also unavailable, so targeted edits used temporary Python scripts.
+
+### Merge Notes
+
+- Can merge: yes after review as an isolated planning-only Task Planner and Capability Registry capability.
+- Project owner should check: capability metadata, deterministic keyword coverage, dependency model, missing-input naming, and future Orchestrator integration boundary.
+
 ## 2026-09-11 - Planning integration with Commander and Orchestrator
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary
