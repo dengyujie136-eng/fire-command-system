@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image
+from pydantic import SecretStr
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.db.base import Base
+from app.core.config import Settings
 from app.visual_verification.analysis_service import execute_and_persist_visual_analysis
 from app.visual_verification.models import (
     VisualAnalysisRunRecord,
@@ -20,6 +22,10 @@ from app.visual_verification.providers.qwen import (
     QwenVisualProvider,
 )
 from app.visual_verification.qwen_prompt import QWEN_FIRE_PROMPT_VERSION
+from app.visual_verification.provider_factory import (
+    QwenConfigurationError,
+    build_qwen_provider,
+)
 from app.visual_verification.schemas import ImageAnalysisRequest, VisualAnalysisFailure
 
 
@@ -139,6 +145,34 @@ class QwenProviderTests(unittest.IsolatedAsyncioTestCase):
             await self.provider(transport).analyze(request)
         self.assertEqual(context.exception.code, "qwen_image_uri_missing")
         self.assertEqual(transport.calls, 0)
+
+
+class QwenProviderFactoryTests(unittest.TestCase):
+    def test_rejects_missing_api_key_without_exposing_secret(self) -> None:
+        settings = Settings(qwen_vl_api_key=SecretStr(""))
+        with self.assertRaisesRegex(QwenConfigurationError, "not configured"):
+            build_qwen_provider(settings)
+
+    def test_builds_provider_from_dedicated_qwen_settings(self) -> None:
+        settings = Settings(
+            qwen_vl_api_key=SecretStr("test-secret-value"),
+            qwen_vl_base_url="https://example.invalid/compatible-mode/v1",
+            qwen_vl_model="qwen3-vl-flash",
+            qwen_vl_timeout_seconds=15,
+            qwen_vl_max_attempts=1,
+        )
+        provider = build_qwen_provider(settings)
+        self.assertEqual(provider.model_name, "qwen3-vl-flash")
+        self.assertEqual(provider.max_attempts, 1)
+        self.assertNotIn("test-secret-value", repr(settings.qwen_vl_api_key))
+
+    def test_rejects_non_https_base_url(self) -> None:
+        settings = Settings(
+            qwen_vl_api_key=SecretStr("test-secret-value"),
+            qwen_vl_base_url="http://example.invalid/v1",
+        )
+        with self.assertRaisesRegex(QwenConfigurationError, "HTTPS"):
+            build_qwen_provider(settings)
 
 
 class QwenPersistenceTests(unittest.IsolatedAsyncioTestCase):

@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     llm_model: str = "glm-4.6"
     llm_api_key: str = ""
     llm_base_url: str = ""
+
+    qwen_vl_api_key: SecretStr = SecretStr("")
+    qwen_vl_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    qwen_vl_model: str = "qwen3-vl-plus"
+    qwen_vl_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
+    qwen_vl_max_attempts: int = Field(default=2, ge=1, le=3)
+    qwen_vl_max_image_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
     forefire_api_url: str = "http://127.0.0.1:5000"
     forefire_timeout_seconds: float = 300.0
 

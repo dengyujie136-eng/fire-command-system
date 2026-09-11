@@ -53,6 +53,12 @@ services:
       LLM_MODEL: ${LLM_MODEL:-glm-4.6}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
+      QWEN_VL_API_KEY: ${QWEN_VL_API_KEY:-}
+      QWEN_VL_BASE_URL: ${QWEN_VL_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      QWEN_VL_MODEL: ${QWEN_VL_MODEL:-qwen3-vl-plus}
+      QWEN_VL_TIMEOUT_SECONDS: ${QWEN_VL_TIMEOUT_SECONDS:-60}
+      QWEN_VL_MAX_ATTEMPTS: ${QWEN_VL_MAX_ATTEMPTS:-2}
+      QWEN_VL_MAX_IMAGE_BYTES: ${QWEN_VL_MAX_IMAGE_BYTES:-10485760}
     volumes:
       - ./data:/app/data:ro
       - visual-derivatives:/app/visual-output

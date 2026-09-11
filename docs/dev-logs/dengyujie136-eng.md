@@ -373,3 +373,37 @@
 - 组装“派生图查询 → ImageAnalysisRequest → Qwen 运行 → 分析记录”的案例级编排服务。
 - 将 Qwen 视觉结果与独立的专业目标检测结果交给已有保守确认规则。
 - 真实调用前由用户通过环境变量提供 API Key 和工作空间 Base URL，不得写入仓库。
+
+## 2026-09-10｜Qwen-VL运行时接线与分析触发接口
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：本批次尚未提交
+- 任务目标：从独立环境变量安全创建 Qwen-VL 客户端，并将已登记派生影像接入真实分析与持久化流程。
+
+### 已完成
+
+- 新增独立的`QWEN_VL_*`配置：Key、Base URL、模型名、超时、重试次数和图片大小上限。
+- API Key 使用`SecretStr`承载，配置对象输出不会显示明文；未配置 Key 或 Base URL 非 HTTPS 时拒绝创建客户端。
+- 新增 Qwen 提供者工厂，将运行时配置、双根影像目录和 Httpx 传输层集中组装。
+- 新增`POST /api/visual-verification/candidates/{visual_case_id}/analyses`分析接口。
+- 对外请求只接受最多8个派生影像编号；影像 URI 必须由服务端从数据库读取，并校验全部影像属于目标案例。
+- 分析成功或失败均通过既有服务写入运行记录；模型失败不会伪装为成功结果。
+- 将视觉复核路由注册到唯一业务后端，并将视觉复核6张表纳入应用启动建表元数据。
+- 修改高冲突公共文件`compose.yaml`和`app/main.py`，项目负责人合并时需要检查 Qwen 环境变量与路由注册位置。
+
+### API 与配置影响
+
+- 新增请求 Schema：`VisualAnalysisStartRequest { derivative_ids: string[] }`。
+- 成功响应为`VisualAnalysisResult`；模型端失败响应为持久化的`VisualAnalysisFailure`；未配置运行时返回`503 qwen_not_configured`。
+- `fire-agent-api`容器新增`QWEN_VL_API_KEY`、`QWEN_VL_BASE_URL`、`QWEN_VL_MODEL`、`QWEN_VL_TIMEOUT_SECONDS`、`QWEN_VL_MAX_ATTEMPTS`和`QWEN_VL_MAX_IMAGE_BYTES`。
+- 本地凭证文件仍在仓库外，不纳入 Git。
+
+### 验证结果与当前阻塞
+
+- `[通过]` 宿主机全量70项：69项通过，1项因宿主机未安装 Rasterio 跳过。
+- `[通过]` Python 全模块编译、`docker compose config --quiet`和`git diff --check`。
+- `[通过]` 重建`fire-agent-api`镜像并在 Python 3.12 容器中运行全量70项测试，全部通过。
+- `[通过]` 容器内生成 OpenAPI，确认分析接口已注册到`/api`。
+- `[通过]` 新增配置工厂测试：缺少 Key、HTTPS 校验、模型选择与密钥隐藏。
+- `[通过]` `npm run build`；仅保留现有的大体积 chunk 提示。
+- `[待执行]` 真实 Qwen-VL 网络调用。现有 Key 因调试检索输出意外暴露，已停止使用；必须先在平台重置并更新仓库外配置文件。

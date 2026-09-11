@@ -430,6 +430,24 @@ class ImageAnalysisRequest(BaseModel):
         return self
 
 
+class VisualAnalysisStartRequest(BaseModel):
+    """Public request: derivative URIs are always resolved from trusted records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    derivative_ids: list[str] = Field(min_length=1, max_length=8)
+
+    @field_validator("derivative_ids")
+    @classmethod
+    def validate_derivative_ids(cls, value: list[str]) -> list[str]:
+        if any(not item.strip() for item in value):
+            raise ValueError("derivative_ids cannot contain blank values")
+        unique = list(dict.fromkeys(value))
+        if len(unique) != len(value):
+            raise ValueError("derivative_ids cannot contain duplicates")
+        return unique
+
+
 class VisualAnalysisResult(BaseModel):
     """Provider-neutral structured output for Qwen-VL or a deterministic stub."""
 

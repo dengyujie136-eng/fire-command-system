@@ -22,7 +22,17 @@ from app.visual_verification.schemas import (
     VisualCaseAssetRead,
     VisualCaseDetail,
     VisualCaseRead,
+    ImageAnalysisRequest,
+    VisualAnalysisFailure,
+    VisualAnalysisResult,
+    VisualAnalysisStartRequest,
 )
+from app.visual_verification.analysis_service import execute_and_persist_visual_analysis
+from app.visual_verification.provider_factory import (
+    QwenConfigurationError,
+    build_qwen_provider,
+)
+from app.visual_verification.qwen_prompt import QWEN_FIRE_PROMPT_VERSION
 from app.visual_verification.image_processing.errors import (
     DerivativeConflictError,
     ImageProcessingError,
@@ -208,3 +218,51 @@ async def derivative_preview(
         return FileResponse(_derivative_path(record.preview_uri))
     except ImageProcessingError as exc:
         raise _processing_http_error(exc) from exc
+
+
+@router.post(
+    "/candidates/{visual_case_id}/analyses",
+    response_model=VisualAnalysisResult | VisualAnalysisFailure,
+)
+async def run_visual_analysis(
+    visual_case_id: str,
+    payload: VisualAnalysisStartRequest,
+    db: AsyncSession = Depends(get_db),
+) -> VisualAnalysisResult | VisualAnalysisFailure:
+    derivatives = []
+    for derivative_id in payload.derivative_ids:
+        derivative = await get_derivative(db, derivative_id)
+        if derivative is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Visual derivative not found: {derivative_id}",
+            )
+        if derivative.visual_case_id != visual_case_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Derivative does not belong to visual case: {derivative_id}",
+            )
+        derivatives.append(derivative)
+
+    settings = get_settings()
+    try:
+        provider = build_qwen_provider(settings)
+    except QwenConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "qwen_not_configured", "message": str(exc)},
+        ) from exc
+
+    request = ImageAnalysisRequest(
+        visual_case_id=visual_case_id,
+        image_asset_ids=[item.derivative_id for item in derivatives],
+        image_uris={item.derivative_id: item.file_uri for item in derivatives},
+        prompt_version=QWEN_FIRE_PROMPT_VERSION,
+    )
+    result = await execute_and_persist_visual_analysis(
+        db,
+        provider=provider,
+        request=request,
+    )
+    await db.commit()
+    return result

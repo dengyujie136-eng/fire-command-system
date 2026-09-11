@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.session import init_db
+from app.visual_verification.router import router as visual_verification_router
 from app.routers import clock, data_agent, decisions, events, fire_data, health, observations, recalculations, recommendations, reports, scenarios, spread, system, websocket
 
 
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(recommendations.router, prefix=settings.api_prefix)
     app.include_router(recalculations.router, prefix=settings.api_prefix)
     app.include_router(reports.router, prefix=settings.api_prefix)
+    app.include_router(visual_verification_router, prefix=settings.api_prefix)
     app.include_router(websocket.router)
 
     return app
