@@ -1,3 +1,77 @@
+## 2026-09-11 - Natural-language command pipeline
+- Branch: `member/heimini`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Add the final high-level internal Natural Language Command Pipeline for User Query -> NaturalLanguageTaskPlanner -> TaskPlan -> TaskPlanExecutor -> CommandResult, without adding CommandAgent, HTTP APIs, frontend wiring, database changes, or synthetic production fallbacks.
+
+### Completed
+
+- Added independent `app.services.command_pipeline` package as the natural-language total internal entrypoint.
+- Added `CommandRequest` with `user_query`, optional `DecisionContext`, optional `PlanningTask`, optional `RouteTask`, optional `ResourceAgentTask`, `language`, `force_provider`, and metadata.
+- Added deterministic `CommandRequest.derive_available_inputs()` so callers no longer manually construct planner `available_inputs`.
+- Derived availability only from actual typed inputs: `DecisionContext`, `PlanningTask`, `RouteTask`, and `ResourceAgentTask`; no natural-language inference creates missing road networks, resources, route endpoints, or planning tasks.
+- Added `CommandResult` with `query`, `status`, `task_plan`, `execution_trace`, `agent_results`, `standard_outputs`, `analysis_context`, `planning_result`, `commander_result`, `missing_inputs`, `warnings`, and metadata.
+- Added `NaturalLanguageCommandPipeline` as a thin connector from `CommandRequest` to `NaturalLanguageTaskPlanner` and `TaskPlanExecutor`.
+- Kept capability judgment inside Task Planner and agent/service dispatch inside TaskPlanExecutor; the pipeline does not reimplement either layer.
+- Preserved blocked and partial behavior: route/resource/planning requests without real planning/route/resource inputs return missing inputs and do not load sample networks, sample resources, or synthetic risk.
+- Verified full emergency query with `DecisionContext` + `PlanningTask` runs Situation, Spread, Risk, Planning-derived ResourceAgent/RouteAgent results, and Commander only when TaskPlan selects `command_synthesis`.
+- Verified full emergency query without `PlanningTask` still returns Situation/Spread/Risk successes, Planning blocked, Commander blocked by dependency policy, and overall `partial`.
+- Verified planner LLM provider failure stays inside the existing NaturalLanguageTaskPlanner fallback path; no new LLM client, API key, or hardcoded model was added.
+
+### Main Files
+
+- `fire_agent_backend/app/services/command_pipeline/models.py`: new `CommandRequest`, deterministic input availability derivation, execution context conversion, and `CommandResult` serialization.
+- `fire_agent_backend/app/services/command_pipeline/pipeline.py`: new thin natural-language command pipeline connecting planner and executor.
+- `fire_agent_backend/app/services/command_pipeline/test_command_pipeline.py`: new tests for command pipeline success, blocked inputs, partial execution, Commander boundary, LLM fallback, and result contract.
+- `fire_agent_backend/app/services/command_pipeline/__init__.py`: package exports.
+- `docs/dev-logs/heimini.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes. New internal `CommandRequest` accepts `user_query`, optional `decision_context`, optional `planning_task`, optional `route_task`, optional `resource_task`, optional `force_provider`, and metadata.
+- Response fields: no public response schema changes. New internal `CommandResult` returns `query`, `status`, `task_plan`, `execution_trace`, `agent_results`, `standard_outputs`, `analysis_context`, `planning_result`, `commander_result`, `missing_inputs`, `warnings`, and metadata.
+- Error and status changes: none for public APIs. Internally, command status is compatible with `success`, `partial`, `blocked`, and `failed`.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none.
+- Data source and processing scripts: none. No real data adapters were added in this stage.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+- LLM config: unchanged; provider/model/key/base URL continue to come from existing `app.llm.providers.get_llm_provider()` and settings when a real provider is requested.
+
+### Verification Results
+
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.command_pipeline.test_command_pipeline` from `fire_agent_backend` ran 11 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m unittest app.services.command_pipeline.test_command_pipeline app.services.task_planning.test_task_planner app.services.task_execution.test_task_executor app.services.planning.test_coordination app.agents.test_planning_integration app.agents.test_resource_agent app.services.resources.test_resource_calculation app.agents.test_route_agent app.services.routing.test_route_calculation` from `fire_agent_backend` ran 164 tests.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `C:\Users\hp\AppData\Local\Programs\Python\Python310\python.exe -m compileall fire_agent_backend/app backend/forefire_api/app`.
+- `[passed]` `docker compose config --quiet`.
+- `[pending]` `git diff --check` will be run immediately before commit.
+- `[pending]` `git status` will be run immediately before commit.
+- `[not run]` `npm run build`: no frontend files were modified and this stage explicitly does not require rerunning it.
+
+### Impact On Other Modules
+
+- Upstream dependencies: consumes existing `NaturalLanguageTaskPlanner`, `TaskPlanExecutor`, `DecisionContext`, `PlanningTask`, `RouteTask`, and `ResourceAgentTask`.
+- Downstream outputs: future API/frontend can call one internal pipeline and receive TaskPlan, ExecutionTrace, standardized outputs, missing inputs, and optional Commander/Planning results.
+- High-conflict shared files: none changed.
+
+### Known Issues And Next Steps
+
+- Pipeline is internal only; no FastAPI route, database persistence, websocket event, or frontend/Cesium wiring was added.
+- Real road network, resource inventory, target construction, GIS risk-to-edge adapter, and real spread/risk spatial product adapters remain future real-data integration work.
+- Deterministic planner keyword coverage is still lightweight; richer natural-language understanding depends on the existing configurable LLM provider.
+- Normal sandboxed command execution and one `apply_patch` update hit Windows sandbox helper errors; necessary reads, writes, tests, and checks used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes after review as the final internal natural-language command pipeline for the current architecture stage.
+- Project owner should check: `CommandResult` field contract, missing-input naming, dependency-blocked Commander behavior, and the future boundary for formal HTTP/API exposure.
 ## 2026-09-11 - TaskPlan-driven dynamic execution and trace
 - Branch: `member/heimini`
 - Latest commit: final hash is reported in the delivery summary
