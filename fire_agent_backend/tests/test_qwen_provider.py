@@ -105,6 +105,9 @@ class QwenProviderTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(image_url.startswith("data:image/jpeg;base64,"))
         self.assertEqual(result.wildfire_likelihood, 0.91)
         self.assertFalse(result.is_fallback)
+        prompt = payload["messages"][0]["content"][-1]["text"]
+        self.assertIn("alternative_explanations 必须是 JSON 字符串数组", prompt)
+        self.assertIn("空间尺度不足以观察候选点", prompt)
 
     async def test_retries_retryable_transport_error(self) -> None:
         transport = FakeTransport([
