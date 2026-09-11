@@ -1,3 +1,80 @@
+## 2026-09-11 - Route-resource planning coordination
+- Branch: `member/hp`
+- Latest commit: final hash is reported in the delivery summary
+- Task goal: Add an independent RouteAgent + ResourceAgent coordination layer that produces a deterministic PlanningResult without modifying CommanderAgent, the main orchestrator, public APIs, database, frontend, or the existing route/resource calculation units.
+
+### Completed
+
+- Added a lightweight internal `PlanningTask` that carries target, inventory, road network, resource strategy, route objective, blocked roads, risk overrides, resource requirements, incident metadata, and scenario metadata.
+- Added `PlanningResult` as the unified internal coordination result for resource dispatch, route outputs, selected resources, operational routes, alternatives, shortage, warnings, diagnostics, and metadata.
+- Added `coordinate_route_resource_planning()` as an independent planning service.
+- Coordination flow calls `ResourceAgent` first; ResourceAgent/Resource Calculation Unit evaluates resource candidates and calls Routing Unit internally for dispatch routes.
+- For selected ground resources, the coordination service calls `RouteAgent` only to generate explanatory route alternatives and comparisons.
+- Operational routes default to the `ResourceDispatchResult` route used for dispatch ETA/risk, preventing conflicting final routes.
+- Added an explicit `route_preference` operational route policy that can use RouteAgent output while marking the result as `role_differentiated` instead of hiding ETA/risk/geometry differences.
+- Added resource-to-route binding fields for resource id, origin, target, operational route, ETA, risk, distance, geometry, terrain metrics, road metrics, accessibility, and consistency diagnostics.
+- Added alternative route grouping so multiple objectives resolving to the same path are represented as one route with multiple objective labels.
+- Kept UAV resources separated from road RouteAgent calls; UAV operational routes keep the Resource Calculation Unit simplified direct estimate provenance.
+- Added dynamic recalculation tests for road blocked, edge risk changed, and selected resource unavailable scenarios.
+- Kept CommanderAgent, Main Orchestrator, RouteAgent, ResourceAgent, Routing Unit, Resource Unit, API, database, frontend, decision_service, recommendation_service, and Agent Output Schema unchanged.
+
+### Main Files
+
+- `fire_agent_backend/app/services/planning/models.py`: new internal `PlanningTask`, `PlanningResult`, route-objective, and operational-route-source structures.
+- `fire_agent_backend/app/services/planning/coordination.py`: new coordination service that calls ResourceAgent and RouteAgent, binds selected resources to operational routes, groups alternatives, and records consistency diagnostics.
+- `fire_agent_backend/app/services/planning/test_coordination.py`: new coordination tests covering route/resource binding, alternatives, dynamic recalculation, UAV separation, consistency, and no-LLM behavior.
+- `fire_agent_backend/app/services/planning/__init__.py`: public package exports for the internal planning service.
+- `docs/dev-logs/hp.md`: recorded this development task.
+
+### API Changes
+
+- Added/changed/removed: no public HTTP API changes.
+- Request fields: no public request schema changes; new internal `PlanningTask` supports `task_id`, `task_type`, `target_node_id`, `resource_inventory`, `road_network`, `resource_strategy`, `route_objective`, `operational_route_source`, `priority`, `incident_id`, `protection_target`, `deadline_minutes`, `scenario_version`, resource requirements, blocked roads, risk overrides, and metadata.
+- Response fields: no public HTTP response schema changes; new internal `PlanningResult` contains `success`, `status`, `task`, `resource_result`, `route_results`, `route_agent_results`, `resource_agent_result`, `selected_resources`, `operational_routes`, `alternative_routes`, `rejected_resources`, `resource_shortage`, `estimated_response`, `warnings`, `diagnostics`, and `metadata`.
+- Error and status changes: none for public APIs. Internally, planning status is `success`, `partial`, `failed`, or `error` based on ResourceAgent status, selected resources, and shortage.
+
+### Database And Data Changes
+
+- Tables or fields: none.
+- Coordinate system or spatial range: none; tests reuse existing synthetic mountain road network and synthetic resource inventory.
+- Data source and processing scripts: none.
+
+### Config And Dependency Changes
+
+- Environment variables: none.
+- Python/npm/Docker dependencies: none.
+
+### Verification Results
+
+- `[passed]` `python -m unittest app.services.planning.test_coordination` from `fire_agent_backend` ran 18 tests.
+- `[passed]` `python -m unittest app.agents.test_resource_agent` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `python -m unittest app.services.resources.test_resource_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `python -m unittest app.agents.test_route_agent` from `fire_agent_backend` ran 20 tests.
+- `[passed]` `python -m unittest app.services.routing.test_route_calculation` from `fire_agent_backend` ran 23 tests.
+- `[passed]` `python -B -m app.agents.test_agents` from `fire_agent_backend`.
+- `[passed]` `python -m compileall fire_agent_backend/app backend/forefire_api/app`.
+- `[passed]` `docker compose config --quiet`.
+- `[passed]` `git diff --check` before updating this log; final checks will be rerun before commit.
+- `[not run]` `npm run build`: no frontend files were modified in this stage and the task instructions allow skipping it.
+
+### Impact On Other Modules
+
+- Upstream dependencies: consumes existing ResourceAgent, RouteAgent, Resource Calculation Unit, Routing Unit, Resource inventory, and RoadNetwork inputs.
+- Downstream outputs: future Commander/Main Orchestrator integration can consume PlanningResult without requiring frontend, DB, API, or schema changes in this stage.
+- High-conflict shared files: none changed.
+
+### Known Issues And Next Steps
+
+- Planning service is internal and standalone; it is not connected to CommanderAgent, Main Orchestrator, APIs, DB, or frontend yet.
+- Real Risk/ForeFire to road-risk adapter is still future work; this stage validates propagation through `edge_risk_overrides` only.
+- Operational route defaults to dispatch route for consistency; explicit route-preference override is supported but flagged as role-differentiated.
+- UAV route remains a simplified direct estimate, not road routing or 3D flight planning.
+- Normal sandboxed command execution still fails with `helper_unknown_error: setup refresh had errors`; necessary local reads, writes, tests, and checks used elevated execution.
+
+### Merge Notes
+
+- Can merge: yes as an isolated internal planning coordination capability after review.
+- Project owner should check: PlanningResult shape, operational-route source policy, and future Commander/Main Orchestrator integration boundary.
 ## 2026-09-10 - ResourceAgent independent integration
 - Branch: `member/hp`
 - Latest commit: final hash is reported in the delivery summary
