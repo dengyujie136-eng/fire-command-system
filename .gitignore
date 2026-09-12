@@ -45,3 +45,10 @@ forest_fire_B/docs/*.docx
 *.njsproj
 *.sln
 *.sw?
+
+# Local Dixie Fire handoff and GIS data products
+handoff/
+handoff_staging/
+data/raw/
+data/processed/
+data/interim/
