@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     forefire_api_url: str = "http://127.0.0.1:5000"
     forefire_timeout_seconds: float = 300.0
 
+    # Realtime candidate hotspot ingestion. Keep the key in .env only.
+    firms_map_key: str = ""
+    firms_realtime_days: int = 2
+    realtime_retention_count: int = 3
+    realtime_http_timeout_seconds: float = 45.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

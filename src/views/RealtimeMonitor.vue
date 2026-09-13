@@ -61,10 +61,10 @@
           <div><span>数据状态</span><b>{{ selectedRealtimeRegion.supported ? realtimeDataState : '区域暂不支持' }}</b></div>
         </div>
         <div class="realtime-source-list">
-          <div><strong>GOES ABI 热红外波段</strong><span>候选热异常检测</span></div>
-          <div><strong>FIRMS NRT</strong><span>全球火点参考与交叉校验</span></div>
+          <div><strong>FIRMS NRT / VIIRS</strong><span>近实时候选火点</span></div>
+          <div><strong>GOES-18 / Himawari覆盖区</strong><span>区域入口与范围约束</span></div>
           <div><strong>GOES FDCC 产品</strong><span>卫星火点结果校验</span></div>
-          <div><strong>Himawari-8/9</strong><span>亚洲区域实时适配器</span></div>
+          <div><strong>卫星原始影像适配器</strong><span>后续接入</span></div>
         </div>
         <p class="realtime-note">进入实时模式时请求最新观测。后端同步服务负责下载原始卫星数据、执行热异常检测，并清理过期影像，仅保留最近可用时相。</p>
       </section>
@@ -194,10 +194,10 @@ const realtimeDetectionStatus = ref('未启动')
 const selectedRegionId = ref('goes18_north_america_west')
 let realtimeTimer: ReturnType<typeof setInterval> | null = null
 const realtimeRegions: RealtimeRegion[] = [
-  { id: 'goes18_north_america_west', label: '美国西部及北美西部', satellite: 'GOES-18 ABI', coverage: '北美西部', refresh: '约 5–10 分钟', supported: true, bbox: [-140, 15, -80, 60] },
-  { id: 'himawari_asia_pacific', label: '亚洲、澳大利亚及太平洋', satellite: 'Himawari-8/9', coverage: '亚洲及太平洋', refresh: '约 10 分钟', supported: true, bbox: [80, -20, 180, 60] },
-  { id: 'meteosat_europe_africa', label: '欧洲及非洲', satellite: 'Meteosat', coverage: '欧洲及非洲', refresh: '后续适配', supported: false, bbox: [-60, -45, 60, 70] },
-  { id: 'fy4_china', label: '中国及西北太平洋', satellite: 'FY-4A/4B', coverage: '中国及邻近区域', refresh: '后续适配', supported: false, bbox: [70, -10, 180, 60] },
+  { id: 'goes18_north_america_west', label: '美国西部及北美西部', satellite: 'FIRMS NRT / VIIRS', coverage: 'GOES-18覆盖区：北美西部', refresh: '约 5–10 分钟', supported: true, bbox: [-140, 15, -80, 60] },
+  { id: 'himawari_asia_pacific', label: '亚洲、澳大利亚及太平洋', satellite: 'FIRMS NRT / VIIRS', coverage: 'Himawari覆盖区：亚洲及太平洋', refresh: '约 10 分钟', supported: true, bbox: [80, -20, 180, 60] },
+  { id: 'meteosat_europe_africa', label: '欧洲及非洲', satellite: 'FIRMS NRT / VIIRS', coverage: 'Meteosat覆盖区：欧洲及非洲', refresh: '后续适配', supported: false, bbox: [-60, -45, 60, 70] },
+  { id: 'fy4_china', label: '中国及西北太平洋', satellite: 'FIRMS NRT / VIIRS', coverage: 'FY-4覆盖区：中国及邻近区域', refresh: '后续适配', supported: false, bbox: [70, -10, 180, 60] },
 ]
 const supportedRealtimeRegions = computed(() => realtimeRegions.filter((region) => region.supported))
 const selectedRealtimeRegion = computed(() => realtimeRegions.find((region) => region.id === selectedRegionId.value) || realtimeRegions[0])
