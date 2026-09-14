@@ -1,0 +1,11 @@
+services:
+  visual-detector-api:
+    build:
+      context: .
+    environment:
+      MODEL_PATH: /models/best.pt
+      MODEL_NAME: wildfire-detection-yolov8m
+    volumes:
+      - ${WILDFIRE_MODEL_PATH:?Set WILDFIRE_MODEL_PATH to the evaluated checkpoint}:/models/best.pt:ro
+    ports:
+      - "8300:8300"

@@ -17,6 +17,11 @@ const routes = [
     component: () => import('../views/RealtimeMonitor.vue')
   },
   {
+    path: '/visual-verification',
+    name: 'VisualVerification',
+    component: () => import('../views/VisualVerification.vue')
+  },
+  {
     path: '/emergency-route',
     name: 'EmergencyRoute',
     component: () => import('../views/EmergencyRoute.vue')

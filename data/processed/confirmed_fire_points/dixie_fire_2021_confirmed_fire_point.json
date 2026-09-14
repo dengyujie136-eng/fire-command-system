@@ -1,0 +1,56 @@
+{
+  "schema_version": "fire.confirmed-point.course-demo.v1",
+  "event_id": "dixie_fire_2021",
+  "event_name": "Dixie Fire",
+  "study_area_name": "Cresta Dam",
+  "handoff_status": "confirmed",
+  "validation_scope": "course_demo",
+  "confirmation_id": "cfp-dixie-cresta-20210714T091100Z-course-v1",
+  "source_candidate_id": "dixie_fire_2021-firms-viirs_snpp-20210714T091100Z-39.871940--121.382410",
+  "confirmed_at": "2021-07-14T09:11:00Z",
+  "ignition_point": {
+    "type": "Point",
+    "coordinates": [
+      -121.38241,
+      39.87194
+    ]
+  },
+  "crs": "EPSG:4326",
+  "coordinate_order": "longitude, latitude",
+  "confidence": 0.7,
+  "confirmation_method": "course_demo_qwen_assisted_v1",
+  "is_simulated": false,
+  "evidence_ids": [
+    "dixie_fire_2021-firms-viirs_snpp-20210714T091100Z-39.871940--121.382410",
+    "dixie_fire_2021-cluster-20210714T0910Z--6070-1993",
+    "dixie-s2-during-r01c01",
+    "vfc_71d6ea94e3264698acddb82cecc6144e",
+    "dixie_fire_2021_mtbs_boundary_wgs84"
+  ],
+  "evidence_summary": {
+    "first_window_point_count": 5,
+    "first_window_high_confidence_point_count": 2,
+    "main_cluster_point_count": 4,
+    "main_cluster_mean_confidence": 0.7,
+    "main_cluster_max_frp_mw": 19.34,
+    "sentinel2_spatial_match": true,
+    "qwen_visual_analysis": {
+      "model": "qwen3-vl-plus",
+      "image_quality": "usable",
+      "fire_detected": false,
+      "flame_detected": false,
+      "smoke_detected": false,
+      "wildfire_likelihood": 0.0,
+      "reasoning_summary": "No obvious flame, smoke plume or burn scar was visible in the stage-mosaic optical crop; the model assessment is retained as supporting context and does not veto the pre-screened course-demo hotspot."
+    },
+    "inside_historical_mtbs_perimeter": true
+  },
+  "course_demo_rule": "Run Qwen-VL and preserve its structured visual assessment, then treat the earliest representative FIRMS point in the hotspot cluster as confirmed for the course demo. Qwen evidence may raise confidence but does not veto a pre-screened candidate.",
+  "forefire_input": {
+    "longitude": -121.38241,
+    "latitude": 39.87194,
+    "start_time": "2021-07-14T09:11:00Z",
+    "confidence": 0.7,
+    "status": "confirmed"
+  }
+}

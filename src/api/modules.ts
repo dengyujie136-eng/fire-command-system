@@ -68,6 +68,26 @@ export const observationAPI = {
   getTrustedFirePoint: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/trusted-fire-point`)
 }
 
+export const visualVerificationAPI = {
+  getCandidates: (eventId?: string) => fireAgentRequest(
+    `/api/visual-verification/candidates${eventId ? `?event_id=${encodeURIComponent(eventId)}` : ''}`
+  ),
+  getCandidate: (visualCaseId: string) => fireAgentRequest(
+    `/api/visual-verification/candidates/${encodeURIComponent(visualCaseId)}`
+  ),
+  prepareDerivative: (visualCaseId: string, sourceAssetId: string, data: any = {}) => fireAgentRequest(
+    `/api/visual-verification/candidates/${encodeURIComponent(visualCaseId)}/assets/${encodeURIComponent(sourceAssetId)}/derivatives`,
+    { method: 'POST', body: JSON.stringify(data) }
+  ),
+  analyze: (visualCaseId: string, derivativeIds: string[]) => fireAgentRequest(
+    `/api/visual-verification/candidates/${encodeURIComponent(visualCaseId)}/analyses`,
+    { method: 'POST', body: JSON.stringify({ derivative_ids: derivativeIds }) }
+  ),
+  derivativeImageUrl: (derivativeId: string) => (
+    `${FIRE_AGENT_API_BASE_URL}/api/visual-verification/derivatives/${encodeURIComponent(derivativeId)}/image`
+  ),
+}
+
 export const spreadAPI = {
   create: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/spread-runs`, {
     method: 'POST',

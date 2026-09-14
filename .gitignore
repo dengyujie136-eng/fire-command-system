@@ -7,16 +7,24 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+.env
 .env.*
 !.env.example
 node_modules
 .npm-cache
 .venv
+__pycache__/
+*.py[cod]
 backend/forefire_api/.venv
 forefire-output
 dist
 dist-ssr
 *.local
+
+# Local handoff packages and database seeds are transferred outside Git.
+handoff/
+dixie_fire_2021_database_seed.sql
+handoff_dixie_*.sql
 
 # Local GIS datasets, generated simulation state, and databases
 environment/

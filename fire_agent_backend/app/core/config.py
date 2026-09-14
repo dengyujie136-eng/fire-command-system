@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     project_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[2])
     data_dir: Path | None = None
+    visual_output_dir: Path | None = None
     database_url: str | None = None
     database_echo: bool = False
 
@@ -26,6 +27,18 @@ class Settings(BaseSettings):
     llm_model: str = "glm-4.6"
     llm_api_key: str = ""
     llm_base_url: str = ""
+
+    qwen_vl_api_key: SecretStr = SecretStr("")
+    qwen_vl_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    qwen_vl_model: str = "qwen3-vl-plus"
+    qwen_vl_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
+    qwen_vl_max_attempts: int = Field(default=2, ge=1, le=3)
+    qwen_vl_max_image_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
+    visual_auto_confirm_screened_candidates: bool = True
+    visual_auto_confirm_min_confidence: float = Field(default=0.70, ge=0, le=1)
+    professional_detector_api_url: str = "http://visual-detector-api:8300"
+    professional_detector_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
+    professional_detector_default_confidence: float = Field(default=0.40, ge=0.05, le=0.95)
     forefire_api_url: str = "http://127.0.0.1:5000"
     forefire_timeout_seconds: float = 300.0
 
@@ -48,6 +61,12 @@ class Settings(BaseSettings):
     @property
     def resolved_data_dir(self) -> Path:
         return self.data_dir or (self.project_root / "data")
+
+    @property
+    def resolved_visual_output_dir(self) -> Path:
+        return self.visual_output_dir or (
+            self.resolved_data_dir / "processed" / "visual_verification"
+        )
 
     @property
     def resolved_database_url(self) -> str:

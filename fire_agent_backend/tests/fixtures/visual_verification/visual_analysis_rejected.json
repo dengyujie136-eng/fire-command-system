@@ -1,0 +1,20 @@
+{
+  "analysis_run_id": "run-rejected-001",
+  "visual_case_id": "visual-case-bare-001",
+  "run_status": "succeeded",
+  "fire_detected": false,
+  "flame_detected": false,
+  "smoke_detected": false,
+  "burn_scar_detected": false,
+  "wildfire_likelihood": 0.08,
+  "image_quality": "usable",
+  "scene_type": "bare_ground",
+  "alternative_explanations": ["sun-heated bare ground", "low vegetation cover"],
+  "decision": "rejected",
+  "reasoning_summary": "The scene contains exposed terrain without visible flame, smoke plume, or burn scar.",
+  "used_evidence_ids": ["asset-bare-ground"],
+  "model_name": "deterministic-fixture",
+  "model_version": "day2-v1",
+  "prompt_version": "visual-fire-v1",
+  "is_fallback": true
+}
