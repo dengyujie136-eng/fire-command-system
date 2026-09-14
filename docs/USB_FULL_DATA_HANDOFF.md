@@ -66,9 +66,11 @@ docker compose up -d --build
 
 powershell -ExecutionPolicy Bypass -File scripts\restore-dixie-data-docker.ps1 `
   -SeedPath "data\local\database\dixie_fire_2021_database_seed.sql"
+
+powershell -ExecutionPolicy Bypass -File scripts\run-dixie-visual-confirmation.ps1
 ```
 
-数据库恢复只替换 `dixie_fire_2021` 事件的数据，不删除其他火灾事件。
+数据库恢复只替换 `dixie_fire_2021` 事件的数据，不删除其他火灾事件。最后一条命令登记甲的四个最早聚类候选与真实 Sentinel-2 影像，执行裁剪、Qwen/专业检测、课程演示自动确认和真实火点入库。结果同时写到 `data/local/results/dixie_fire_2021_visual_confirmation_latest.json`。
 
 ## 交接验收
 
@@ -79,4 +81,3 @@ powershell -ExecutionPolicy Bypass -File scripts\restore-dixie-data-docker.ps1 `
 3. 数据库中可以查询 Dixie Fire 事件、FIRMS 原始观测、合并后候选点、聚类、气象和过火范围。
 4. 乙的视觉复核服务能读取 `/app/data/raw/sentinel2/dixie_fire_2021/gee/` 下影像，并输出确认火点。
 5. 丙使用确认火点作为 ForeFire 起火输入，且仍保留自己的成员分支开发历史。
-
