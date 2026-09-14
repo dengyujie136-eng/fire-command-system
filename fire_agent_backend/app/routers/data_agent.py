@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.services.realtime_service import list_regions
 
 
 router = APIRouter(prefix="/data-agent", tags=["data-agent"])
@@ -18,6 +19,7 @@ DATASET_ALIASES: dict[str, list[str]] = {
     "weather": ["nasa_power_daily"],
     "weather_hourly": ["nasa_power_hourly"],
     "realtime_replay": ["firms"],
+    "realtime_hotspots": ["realtime_firms"],
     "forefire_input": ["forefire_input_manifest"],
     "terrain": ["copernicus_dem"],
     "slope": ["copernicus_dem"],
@@ -51,6 +53,13 @@ DATASET_ENDPOINTS: dict[str, dict[str, Any]] = {
         "role": "Ten-minute historical replay products derived from FIRMS hotspot clusters",
         "endpoint": "/api/data/events/{event_id}/realtime-replay?start_at={start_at}&end_at={end_at}",
         "consumer": ["member_a", "member_d"],
+    },
+    "realtime_hotspots": {
+        "role": "Latest FIRMS NRT/VIIRS realtime candidate hotspots for a supported region",
+        "endpoint": "/api/realtime/hotspots?region_id={region_id}",
+        "status_endpoint": "/api/realtime/status?region_id={region_id}",
+        "catalog_endpoint": "/api/data-agent/realtime-catalog",
+        "consumer": ["member_a", "member_b", "member_d"],
     },
     "forefire_input": {
         "role": "Dixie Fire ForeFire input preparation manifest with deterministic ignition rule, raster paths and hourly weather",
@@ -87,6 +96,7 @@ DATASET_ENDPOINTS: dict[str, dict[str, Any]] = {
 
 class DataResolveRequest(BaseModel):
     event_id: str = Field(default="dixie_fire_2021", min_length=1, max_length=80)
+    region_id: str | None = Field(default=None, min_length=1, max_length=80)
     needs: list[str] = Field(default_factory=lambda: ["hotspots", "burned_area", "weather", "terrain", "fuel"])
 
 
@@ -111,6 +121,27 @@ async def _manifest_rows(db: AsyncSession, event_id: str) -> list[dict[str, Any]
     return [dict(row) for row in result.mappings().all()]
 
 
+async def _latest_realtime_row(db: AsyncSession, region_id: str) -> dict[str, Any] | None:
+    result = await db.execute(
+        text(
+            """
+            SELECT ro.observation_id, ro.region_id, ro.source, ro.product,
+                   ro.observed_at, ro.fetched_at, ro.source_file,
+                   ro.metadata_json, COUNT(rh.id) AS hotspot_count
+            FROM realtime_observations ro
+            LEFT JOIN realtime_hotspots rh ON rh.observation_id = ro.observation_id
+            WHERE ro.region_id = :region_id
+            GROUP BY ro.id
+            ORDER BY ro.fetched_at DESC
+            LIMIT 1
+            """
+        ),
+        {"region_id": region_id},
+    )
+    row = result.mappings().first()
+    return dict(row) if row else None
+
+
 @router.get("/catalog/{event_id}")
 async def data_catalog(event_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     manifests = await _manifest_rows(db, event_id)
@@ -127,14 +158,37 @@ async def data_catalog(event_id: str, db: AsyncSession = Depends(get_db)) -> dic
     }
 
 
+@router.get("/realtime-catalog")
+async def realtime_data_catalog(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Expose realtime regions and the latest locally persisted observation batch."""
+    items = []
+    for region in list_regions():
+        latest = await _latest_realtime_row(db, region["id"])
+        items.append(
+            {
+                **region,
+                "available": latest is not None,
+                "latest_observation": latest,
+                "hotspots_endpoint": f"/api/realtime/hotspots?region_id={region['id']}",
+                "status_endpoint": f"/api/realtime/status?region_id={region['id']}",
+                "sync_endpoint": "/api/realtime/sync",
+            }
+        )
+    return {
+        "schema_version": "fire.data-agent.realtime-catalog.v0.1",
+        "retrieval_mode": "deterministic_local_observation",
+        "llm_required": False,
+        "items": items,
+        "note": "The realtime catalog describes locally persisted FIRMS NRT/VIIRS candidate observations; it does not mark candidates as confirmed fires.",
+    }
+
+
 @router.post("/resolve")
 async def resolve_data_requirements(
     request: DataResolveRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     manifests = await _manifest_rows(db, request.event_id)
-    if not manifests:
-        raise HTTPException(status_code=404, detail=f"No data manifest found: {request.event_id}")
 
     normalized_needs = []
     unknown_needs = []
@@ -149,9 +203,37 @@ async def resolve_data_requirements(
             status_code=422,
             detail={"unknown_needs": unknown_needs, "supported_needs": sorted(DATASET_ENDPOINTS)},
         )
+    if not manifests and any(need != "realtime_hotspots" for need in normalized_needs):
+        raise HTTPException(status_code=404, detail=f"No data manifest found: {request.event_id}")
 
     selected = []
     for need in normalized_needs:
+        if need == "realtime_hotspots":
+            if not request.region_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail="region_id is required when needs contains realtime_hotspots",
+                )
+            try:
+                region = next(item for item in list_regions() if item["id"] == request.region_id)
+            except StopIteration as exc:
+                raise HTTPException(status_code=422, detail=f"Unsupported realtime region: {request.region_id}") from exc
+            latest = await _latest_realtime_row(db, request.region_id)
+            descriptor = dict(DATASET_ENDPOINTS[need])
+            descriptor.update(
+                {
+                    "need": need,
+                    "region_id": request.region_id,
+                    "region": region,
+                    "available": latest is not None,
+                    "latest_observation": latest,
+                    "manifests": [],
+                    "endpoint": descriptor["endpoint"].format(region_id=request.region_id),
+                    "status_endpoint": descriptor["status_endpoint"].format(region_id=request.region_id),
+                }
+            )
+            selected.append(descriptor)
+            continue
         aliases = _aliases_for_need(need)
         matched = [
             manifest

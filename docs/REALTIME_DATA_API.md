@@ -79,6 +79,28 @@ GET /api/realtime/hotspots?region_id=goes18_north_america_west&observation_id=..
 GET /api/realtime/observations?region_id=goes18_north_america_west
 ```
 
+## 数据智能体检索
+
+查询所有实时区域及各区域最新本地观测：
+
+```http
+GET /api/data-agent/realtime-catalog
+```
+
+按任务解析实时候选火点：
+
+```http
+POST /api/data-agent/resolve
+Content-Type: application/json
+
+{
+  "needs": ["realtime_hotspots"],
+  "region_id": "goes18_north_america_west"
+}
+```
+
+该解析接口返回候选点接口、状态接口、区域覆盖范围和最新观测批次。实时检索采用确定性目录，不要求语言大模型；语言大模型后续可以负责把自然语言任务转换为上述结构化请求。
+
 ## 返回字段约定
 
 候选点至少包含：
