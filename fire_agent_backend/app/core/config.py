@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     qwen_vl_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
     qwen_vl_max_attempts: int = Field(default=2, ge=1, le=3)
     qwen_vl_max_image_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
+    visual_auto_confirm_screened_candidates: bool = True
+    visual_auto_confirm_min_confidence: float = Field(default=0.70, ge=0, le=1)
+    professional_detector_api_url: str = "http://visual-detector-api:8300"
+    professional_detector_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
+    professional_detector_default_confidence: float = Field(default=0.40, ge=0.05, le=0.95)
     forefire_api_url: str = "http://127.0.0.1:5000"
     forefire_timeout_seconds: float = 300.0
 

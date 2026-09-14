@@ -474,3 +474,376 @@
 - `[通过]` Docker前端镜像构建，`/visual-verification`返回HTTP 200。
 - `[通过]` 浏览器实际加载3个候选、空间位置、2项山火影像资产和可用分析按钮。
 - `[已知环境提示]` 本机未配置Cesium在线地形能力，组件回退到椭球地形；不影响视觉复核业务链路。
+## 2026-09-11｜预训练火焰/烟羽检测器验证与后端封装
+
+- 分支：`member/dengyujie136-eng`
+- 本批次未提交、未推送。
+- 任务目标：补充清晰火焰和无人机小火点样例，验证预训练专业目标检测器，并在达到最低可用标准后接入乙模块后端。
+
+### 样例与模型验证
+
+- 从官方 D-Fire、FASDD、FLAME 和 FLAME 2 仓库下载展示资产，全部保存在仓库外的`个人工作/第三方模型`目录。
+- 采用本地评估的`tarunnn12/wildfire-detection` YOLOv8m 权重；权重 SHA-256 为`fe2bdd32dc92c06ef2006e87718b6cbec9a4537a01cff79cf445737c83ee4fd7`，权重未加入 Git。
+- 清晰火焰得到`fire=0.663054/0.771022`，FASDD 无人机小火点得到`fire=0.688766`。
+- FLAME 更小目标在`conf=0.25`得到`fire=0.326596`或`smoke=0.328451`，在`conf=0.40`漏检；但云图在0.25出现`smoke=0.283800`误报。因此全局默认保持0.40，仅对已知无人机小目标显式使用0.25，并记录实际阈值。
+- 热成像、近红外样例不计入普通RGB能力结论；FASDD展示拼图裁片仅作冒烟测试，不冒充独立精度评估。
+
+### 后端实现
+
+- 新增`backend/visual_detector_api`独立CPU推理服务，接受最多由业务层限制的标准派生图片，输出fire/smoke边界框、类别、置信度、模型版本和权重SHA-256。
+- 权重通过只读卷挂载，未复制到镜像；业务后端通过内部HTTP调用检测服务，前端不直接访问8300端口。
+- 新增`POST /api/visual-verification/candidates/{visual_case_id}/professional-detections`，请求字段为`derivative_ids`、可选`confidence_threshold`及`image_size`。
+- 服务端只从数据库解析属于目标案例的`visual-output://`派生图，拒绝由客户端提交任意文件路径。
+- 检测运行复用既有`visual_analysis_runs`，每个目标框写入`visual_findings`，没有新增数据库表。
+- 无目标框只表示“在当前阈值下未发现”，结果和阈值一并保存；最终确认仍由Qwen-VL、专业检测和影像质量保守融合。
+- 修改高冲突公共配置`fire_agent_backend/app/core/config.py`和公共Schema/路由；负责人合并时需检查新增`PROFESSIONAL_DETECTOR_*`配置与接口命名。
+- 本机部署覆盖文件仍在仓库外`个人工作/compose.dixie-local.yaml`，包含本机权重路径；仓库内只提供不含权重的示例Compose。
+
+### 验证结果
+
+- `[通过]` 独立评估脚本三档阈值运行，输出9张样例的JSON和标注图。
+- `[通过]` 检测服务镜像构建、健康检查及真实multipart请求；同批返回FASDD小火点0.688766、FLAME小火点0.326596。
+- `[通过]` 业务8200接口端到端调用，现有山火派生图返回两处smoke（0.529986、0.444282），运行与发现记录均已写入PostGIS。
+- `[通过]` 宿主机73项测试，72项通过，1项因宿主机无Rasterio跳过。
+- `[通过]` Python 3.12 Docker全量73项测试。
+- `[通过]` Python编译、Compose配置、`git diff --check`。
+
+### 已知边界
+
+- 上游模型仓库未发现清晰的整体许可证；当前仅用于本地课程原型验证，不能提交或向团队重新分发权重，正式发布前需确认授权或替换为许可明确的模型。
+- 当前仅证明若干公开样例可以检测，不代表在Dixie Fire、卫星宽幅图或所有无人机场景上的统计精度。
+- 尚未把专业检测结果展示到前端，也尚未增加自动调用Qwen+YOLO+确认规则的一键编排接口。
+
+## 2026-09-11｜模拟多源影像与一键复核后端闭环
+
+- 分支：`member/dengyujie136-eng`
+- 本批次只实现后端，不修改前端，不提交、不推送。
+- 模拟影像、来源清单和本机部署配置保存在仓库外`个人工作`目录；团队仓库不包含样例图片、模型权重或密钥。
+
+### 后端实现
+
+- 新增`POST /api/visual-verification/candidates/{visual_case_id}/review`，一次调用完成专业目标检测、Qwen-VL结构化分析、保守融合和最终确认记录写入。
+- 新增案例状态写入流程：`imagery_ready -> analyzing -> confirmed/rejected/uncertain/failed`；已确认或已排除版本保持不可变，重新复核使用新的候选版本。
+- 专业检测服务失败时降级为`unavailable`并保留警告；Qwen失败则写入`failed`，任何单模型结果都不能越过融合规则自动确认。
+- 最终记录包含Qwen证据ID、目标框证据ID、规则版本、模型信息、实际阈值与`is_simulated`标记。
+- 本机只读数据挂载改为`/app/data-sources`下的并列来源，解决在只读父目录中创建嵌套挂载点失败的问题；派生图继续写入独立Docker卷。
+
+### 模拟影像数据
+
+- 建立仓库外`个人工作/模拟影像数据/visual-demo-v1`：无人机火焰/烟羽、固定瞭望相机火灾前后、裸地干扰和云层低质量影像。
+- `manifest.json`记录真实来源、许可提示、尺寸和SHA-256；`candidate_import.json`记录模拟候选关联，全部强制`is_simulated=true`。
+- 原图来源真实，但候选坐标、采集时间、设备和事件对应关系均为模拟；这些确认结果不得作为成员丙的真实起火点输入。
+- 初始低分辨率裸地与夜间瞭望图都被Qwen保守判为`poor + uncertain`，没有为了演示强行排除；随后补充一张CC0白天裸地样例用于验证明确误报分支。
+
+### 实际端到端结果
+
+- 模拟无人机双图：Qwen判定`forest_wildfire/confirmed`、概率0.95；YOLO在0.25阈值检出smoke 0.36469；融合结果`confirmed`、置信度0.6866。
+- 清晰白天裸地：Qwen判定`bare_ground/rejected`、概率0；YOLO在0.40阈值无目标；融合结果`rejected`、置信度0.73。
+- GOES大区域云图：Qwen判定`cloud_or_fog/poor/uncertain`、概率0；YOLO在0.40阈值无目标；融合结果`uncertain`，要求获取更合适影像。
+- 三类结果均成功写入PostGIS，确认记录保持`is_simulated=true`；检测服务和业务服务健康检查通过。
+
+### 验证与边界
+
+- `[通过]` 新增融合与持久化单元测试；专业检测相关7项测试通过。
+- `[通过]` 宿主机全量77项：76项通过，1项因宿主机无Rasterio跳过。
+- `[通过]` Python 3.12临时测试容器全量77项通过；仅有3条Rasterio上游弃用提示。
+- `[通过]` 模拟候选Schema校验：3个候选、7份资产，所有文件SHA-256与清单一致。
+- `[通过]` 实际HTTP链路：候选导入、派生处理、YOLO、Qwen、融合、确认落库。
+- `[边界]` YOLO权重来源仓库许可不清晰，当前只能本地课程原型使用，不能随代码分发；正式发布需换成许可明确权重或完成授权确认。
+- `[待甲]` 甲提供候选点对应的可见光/假彩色卫星裁片及时间、范围、波段信息后，再以真实资产替换模拟关联进行联调。
+## 2026-09-12｜通用遥感分析任务契约与统一入口
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：尚未提交
+- 任务目标：将乙模块从写死候选点流程扩展为可由多智能体按`event_id`调用的通用遥感分析计算单元，不修改前端。
+
+### 已完成
+
+- 新增事件无关的遥感分析请求契约，支持`fire_confirmation`、`temporal_change`和`burned_area`三种分析类型。
+- 明确单景确认必须提供UTC目标时间，多时相变化和过火范围必须提供前后时间范围及至少两项影像资产。
+- 新增Agent能力发现接口，向丁提供`analyze_fire_imagery`和`analyze_temporal_change`两个稳定工具名称。
+- 新增统一分析入口；单景火情确认可以复用现有Qwen-VL、专业检测和保守融合链路。
+- 统一入口校验`event_id`、视觉案例、源影像资产和模型派生图之间的归属关系，未准备影像返回稳定错误码。
+- 多时相变化和过火范围只冻结契约，真实栅格计算留到第2天；当前明确返回501，不使用虚假计算结果。
+
+### 主要文件
+
+- `fire_agent_backend/app/visual_verification/schemas.py`：新增通用遥感任务、时间范围、能力和结果Schema。
+- `fire_agent_backend/app/visual_verification/router.py`：新增能力发现与统一运行入口，并复用现有完整复核服务。
+- `fire_agent_backend/tests/test_remote_sensing_contract.py`：新增事件无关、任务约束、接口暴露和调度测试。
+- `docs/dev-logs/dengyujie136-eng.md`：记录公共接口变化和后续边界。
+
+### 接口变化
+
+- 新增`GET /api/visual-verification/analyses/capabilities`。
+- 新增`POST /api/visual-verification/analyses/run`。
+- 请求字段：`event_id`、`analysis_type`、`target_time`或`time_range`、`target_geometry`、`asset_ids`、`hotspot_ids`、可选`visual_case_id`和`prepared_image_ids`。
+- 响应字段：通用Schema版本、事件、分析类型、Agent工具名、源资产、热点及现有视觉复核结果。
+- 错误和状态变化：未准备影像返回`imagery_not_prepared`；第2天计算尚未实现时返回`analysis_stage_not_available`；不产生伪结果。
+
+### 数据库与数据变化
+
+- 表或字段：无新增数据库表或字段，继续复用现有视觉案例、资产、派生图、运行、发现和确认记录。
+- 坐标系或空间范围：请求空间范围使用GeoJSON Point、Polygon或MultiPolygon；时间统一要求UTC。
+- 数据来源与处理脚本：本批次不新增数据文件。
+
+### 配置与依赖变化
+
+- 环境变量：无新增。
+- Python/npm/Docker依赖：无新增。
+
+### 验证结果
+
+- `[通过]` 新增通用遥感契约测试：11项全部通过。
+- `[通过]` 乙模块回归测试：86项通过，1项因环境条件跳过。
+- `[通过]` `python -m compileall -q fire_agent_backend/app`。
+- `[通过]` FastAPI接口级检查：能力接口HTTP 200，缺少模型派生图HTTP 409且错误码为`imagery_not_prepared`。
+- `[通过]` `git diff --check`，仅出现既有Windows行尾提示。
+
+### 对其他模块的影响
+
+- 依赖的上游输出：甲的数据Agent后续提供事件编号、影像资产编号、时间和空间范围。
+- 提供给下游的输出：丁可读取能力接口并调用通用运行入口；丙仍使用确认火点交接结果。
+- 高冲突公共文件：`fire_agent_backend/app/visual_verification/schemas.py`和`router.py`，负责人合并时需检查命名。
+
+### 已知问题与下一步
+
+- 第2天完成真实GeoTIFF多时相处理、NBR/dNBR和过火区GeoJSON计算。
+- 当前真实候选点仍缺少可读取遥感影像，无法完成真实数据端到端验收。
+
+### 合并提示
+
+- 暂时不要合并；本批次与此前未提交的专业检测和一键复核代码共处同一工作区，待第2天计算完成后整体检查。
+- 项目负责人需要重点检查通用任务字段是否与丁的Agent工具注册方式一致。
+
+## 2026-09-12｜通用遥感分析第二天栅格计算
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：尚未提交
+- 任务目标：在不使用甲新交付真实影像的前提下，用可重复的合成GeoTIFF完成多时相变化和过火区域计算，并接入第1天冻结的统一分析入口。
+
+### 已完成
+
+- 新增灾前/灾后GeoTIFF配对分析，自动将后一时相重投影并对齐到前一时相网格。
+- 必需波段为B2、B3、B4、B8；两景都有B12时计算dNBR，否则计算dNDVI并明确标记为植被变化代理，避免把当前无短波红外的结果冒充标准过火强度产品。
+- 新增可调变化阈值与最小连通区域像素数，使用8邻域剔除零散噪声。
+- 计算变化像素数、有效像素数和公顷面积，将变化区域矢量化并转换为WGS84 MultiPolygon。
+- 生成灾前/灾后RGB、近红外合成预览图，预览最长边限制为2048像素；同时输出前后指数、变化指数、掩膜GeoTIFF和GeoJSON。
+- 将`temporal_change`与`burned_area`由计划状态改为可用，并通过统一`POST /api/visual-verification/analyses/run`执行。
+- 统一入口只读取已登记且属于同一事件视觉案例的两项资产，缺失资产返回稳定错误码`imagery_asset_not_found`。
+
+### 主要文件
+
+- `fire_agent_backend/app/visual_verification/raster_change.py`：GeoTIFF波段校验、对齐、指数、过滤、面积、矢量化和成果输出。
+- `fire_agent_backend/app/visual_verification/schemas.py`：新增变化参数与结构化计算结果。
+- `fire_agent_backend/app/visual_verification/router.py`：接入统一分析入口并发布可用能力。
+- `fire_agent_backend/tests/test_raster_change.py`：合成栅格计算测试。
+- `fire_agent_backend/tests/test_remote_sensing_contract.py`：统一接口变化任务调度测试。
+
+### 接口变化
+
+- `RemoteSensingAnalysisRequest`新增可选`change_threshold`和`minimum_region_pixels`。
+- `temporal_change`及`burned_area`严格要求两个资产，顺序为before、after。
+- 新增`RemoteSensingChangeResult`，返回方法、阈值、像素统计、面积、WGS84几何、源坐标系、分辨率、成果URI、警告及模拟标记。
+- 能力发现接口中三类分析均为`available`。
+
+### 数据库与数据变化
+
+- 无新增表和数据库迁移；本日成果暂以结构化响应和文件URI返回。
+- 所有输入仍必须通过已有视觉案例资产登记，不允许客户端直接提交任意本机路径。
+- 本日只使用测试临时目录中的合成EPSG:32610、10米GeoTIFF；甲通过U盘交付的18幅真实影像未读取、未复制进仓库、未参与验收。
+
+### 验证结果
+
+- `[通过]` 宿主机目标测试：12项通过，3项因宿主机未安装Rasterio跳过。
+- `[通过]` 宿主机乙模块完整回归：88项通过，4项因宿主机未安装Rasterio跳过。
+- `[通过]` 现有Docker环境完整回归：92项全部通过；其中Rasterio真实执行覆盖dNBR、dNDVI降级、缺失波段拒绝与统一接口调度。
+- `[通过]` `python -m compileall -q fire_agent_backend/app fire_agent_backend/tests`。
+- `[通过]` `git diff --check`，仅出现既有Windows行尾转换提示。
+
+### 已知边界与下一步
+
+- 当前按完整已登记影像范围计算，尚未用请求中的`target_geometry`再次裁剪。
+- 当前变化成果尚未单独持久化到数据库；第3天再统一分析历史与结果查询。
+- dNDVI只能支持植被显著下降筛选；待甲补充B11/B12后才使用dNBR进行更可靠的火烧迹地分析。
+- 真实18幅影像后续需要先完成资产登记和阶段配对，再执行真实数据验收。
+
+## 2026-09-12｜通用遥感分析第三天运行闭环
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：尚未提交
+- 任务目标：把火情确认、时相变化和过火范围任务统一纳入可追溯运行记录，允许多智能体按事件查询历史与成果，并补齐空间分析范围约束。
+
+### 已完成
+
+- 新增`remote_sensing_analyses`表，统一记录三类遥感任务的请求、状态、源资产、结果、错误、耗时和模拟标记。
+- 每次合法运行先写入`running`；正常结束写入`succeeded`及完整结构化结果；栅格、模型或调用异常写入`failed`及稳定错误信息。
+- 为火情确认结果补充统一`analysis_id`，使Qwen-VL/目标检测复核与多时相计算都能通过同一编号追踪。
+- 新增按事件、视觉案例、分析类型和状态筛选的历史接口，以及按分析编号读取详情的接口。
+- 新增受控成果下载接口；只允许下载数据库结果中登记的`output_uris`，继续限制在乙模块派生目录内。
+- 多时相任务的`target_geometry`限制为Polygon或MultiPolygon；计算时转换到源影像投影并生成掩膜，面积和像素统计只覆盖指定区域。
+- 完成结果一致性门禁：分析编号、事件、分析类型和资产顺序必须与运行记录一致，防止错误结果写入其他事件的历史。
+
+### 主要文件
+
+- `fire_agent_backend/app/visual_verification/models.py`：新增统一遥感分析运行表。
+- `fire_agent_backend/app/visual_verification/remote_analysis_service.py`：运行创建、成功、失败、详情和历史查询。
+- `fire_agent_backend/app/visual_verification/router.py`：运行留痕、历史、详情和成果下载接口。
+- `fire_agent_backend/app/visual_verification/raster_change.py`：目标范围投影与掩膜计算。
+- `fire_agent_backend/app/visual_verification/schemas.py`：运行详情Schema、统一分析编号与空间类型约束。
+- `fire_agent_backend/tests/test_remote_analysis_persistence.py`：数据库与统一入口闭环测试。
+
+### 接口变化
+
+- 新增`GET /api/visual-verification/analyses`，支持`event_id`、`visual_case_id`、`analysis_type`、`run_status`和`limit`筛选。
+- 新增`GET /api/visual-verification/analyses/{analysis_id}`。
+- 新增`GET /api/visual-verification/analyses/{analysis_id}/artifacts/{artifact_name}`。
+- `POST /api/visual-verification/analyses/run`的火情确认结果新增`analysis_id`；变化任务的现有`analysis_id`改为与数据库运行编号一致。
+- 无对应运行或成果时分别返回`remote_analysis_not_found`和`remote_analysis_artifact_not_found`。
+
+### 数据库与数据变化
+
+- 乙模块自有表由6张增加为7张；应用现有`create_all`初始化会创建新表，不修改甲、丙、丁的表。
+- `request_payload`和`result_payload`保留完整JSON快照，源影像仍只保存资产编号，不复制大型原始数据进数据库或仓库。
+- 本日开发和自动验收继续使用合成栅格；甲通过U盘交付的18幅真实影像未写入仓库，也未被当作已完成真实事件结论。
+
+### 验证结果
+
+- `[通过]` 第三天目标测试：17项全部通过。
+- `[通过]` 第二、三天组合目标测试：20项通过，4项因宿主机没有Rasterio跳过。
+- `[通过]` 宿主机乙模块完整回归：93项通过，5项因宿主机没有Rasterio跳过。
+- `[通过]` Docker完整回归：98项全部通过，包含Rasterio实际计算和目标Polygon范围限制。
+- `[通过]` Python编译、Compose配置和`git diff --check`；只有既有Windows行尾转换提示。
+- `[通过]` 重建业务后端后健康检查正常，PostGIS已实际创建`remote_sensing_analyses`表。
+- `[通过]` 8200端口能力接口HTTP 200；空历史查询HTTP 200并返回`[]`；不存在详情HTTP 404并返回`remote_analysis_not_found`。
+- `[通过]` 运行中OpenAPI包含运行、历史、详情和成果下载四个通用遥感分析路径。
+
+### 已知边界与下一步
+
+- 当前没有数据库迁移框架，项目启动时沿用SQLAlchemy`create_all`创建新增表。
+- 运行接口仍要求影像先登记到视觉案例；甲的真实18幅影像需要建立正式资产清单与阶段配对后才能调用。
+- 当前影像只有B2/B3/B4/B8，真实事件只能生成dNDVI变化代理；标准dNBR仍依赖后续B12。
+- 本批次不包含前端、真实Dixie结论、代码提交或远程推送。
+
+### 合并提示
+
+- 高冲突公共文件为`models.py`、`schemas.py`和`router.py`，负责人应重点检查统一分析编号、结果查询路径及新表命名。
+- 新表只引用乙模块的`visual_verification_cases`，不建立跨成员数据库外键。
+
+## 2026-09-12｜Cresta Dam起火候选筛选与真实影像首次复核
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：尚未提交
+- 任务目标：从甲的Dixie Fire数据中筛选Cresta Dam起火输入，接入U盘交付的Sentinel-2影像并尽快向丙提供不夸大状态的交接文件。
+
+### 数据筛选结果
+
+- PostGIS实际读取到`dixie_fire_2021`候选热点60,013条、10分钟聚类11,704条。
+- `Cresta Dam`是研究区名称，数据库中的正式事件编号和名称为`dixie_fire_2021 / Dixie Fire`。
+- 沿用甲方ForeFire输入清单选择的候选：`2021-07-14T09:11:00Z`、经度`-121.38241`、纬度`39.87194`、EPSG:4326。
+- 该点为FIRMS VIIRS热异常：置信度原值`n`、标准化0.5、FRP 5.61 MW、亮温I4 349.87 K、I5 293.96 K。
+- 同一最早观测时刻、参考点5公里内共有5个热点，其中2个高置信度；最大FRP 19.34 MW、平均置信度0.66。
+- 支撑主聚类包含4个点，中心`(-121.383205, 39.8747475)`，距候选319米，平均置信度0.7，代表点为高置信度且FRP 19.34 MW。
+
+### 真实影像接入与复核
+
+- 本机覆盖配置新增只读挂载`../data-sources/real -> /app/data-sources/real`，没有把3.18 GB影像复制进仓库。
+- 六幅灾中瓦片中仅`dixie_fire_2021_s2_10m_during_r01c01.tif`覆盖候选坐标；实际验证为EPSG:32610、10米、B2/B3/B4/B8、3952×5198、int16。
+- 阶段镶嵌产品没有单一拍摄时间，因此将影像引用`acquired_at`改为可空，采集区间保存在`product_fields.imagery`，不伪造精确时刻。
+- 真实案例`visual-case-404da7bb3322b8e9b0d67839-v1`及影像资产已写入乙库，`is_simulated=false`。
+- 生成1.5公里RGB与B8/B4/B3近红外裁片，源文件SHA-256为`0563a4c9efdf64e0e685678a5b971e25251fba1d65c3fef37a365c33ab80f9b5`。
+- 首轮RGB复核：Qwen判未发现火焰、烟雾或火烧迹地，YOLO无目标框；保守融合为`uncertain`、置信度0.27。
+- 双图复核：Qwen输出未通过结构一致性规则，YOLO仍无目标框；本轮保存为`failed`。因此没有生成`ConfirmedFirePoint`，不能宣称视觉确认成功。
+
+### 真实数据暴露并修复的问题
+
+- Sentinel-2 int16掩膜数组原先不能直接以NaN填充，真实裁剪首次返回500。
+- 已在`image_processing/service.py`中先转float64再填充NaN，并将GeoTIFF回归样例改为int16；修复后真实影像裁剪成功。
+
+### 向丙交付
+
+- 交接文件保存在仓库外`个人工作/成员乙-交付丙/`，未推送到团队仓库。
+- JSON：`dixie_cresta_forefire_ignition_provisional_v0.1.json`，SHA-256 `9D07322B234505F26DACEBCC2A3145AEA2F6E35A17ABA972C98BF305FC0AEF4F`。
+- CSV：`dixie_cresta_forefire_ignition_provisional_v0.1.csv`，SHA-256 `CF4D98B046CAA14986FDE25C49673C9358047DCA004548A09722B6F03EA15423`。
+- 两个文件均明确标记`provisional_not_visually_confirmed`，可供丙启动ForeFire临时调试，但不得当作乙确认后的真实火点。
+
+### 验证结果
+
+- `[通过]` 真实影像只读挂载、覆盖范围、波段、CRS、分辨率与数据类型检查。
+- `[通过]` 候选登记、RGB/近红外裁剪、Qwen-VL、YOLO和融合结果实际写入PostGIS。
+- `[通过]` 相关宿主机测试33项通过、1项因宿主机无Rasterio跳过。
+- `[通过]` Docker完整回归99项全部通过。
+- `[通过]` 交接JSON语法、CSV读取和两个文件SHA-256检查。
+- `[通过]` 业务后端、专业检测和ForeFire服务均处于运行状态。
+
+### 仍需甲补充
+
+- 当前灾中影像只有阶段区间，没有具体场景拍摄时间，无法证明影像与09:11 UTC热异常同步。
+- 当前没有B11/B12或热红外波段，不能用dNBR或热信号补强该点确认。
+- 若要形成可正式交丙的`ConfirmedFirePoint`，需提供更接近候选观测时刻且能看到火焰/烟羽的影像，或可追溯的无人机、瞭望塔、现场图片。
+
+## 2026-09-14｜Qwen辅助的课程演示自动确认
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：尚未提交
+- 任务目标：保留Qwen-VL真实分析效果，但不让单张阶段镶嵌影像的负面结果阻断课程演示全链路；系统默认将上游已筛选候选点自动确认并交给丙。
+
+### 已完成
+
+- `POST /api/visual-verification/candidates/{visual_case_id}/review`仍依次执行专业目标检测和Qwen-VL，完整保留火焰、烟雾、场景类型、置信度与判断依据。
+- 新增默认开启的`visual_auto_confirm_screened_candidates`课程演示规则；Qwen和目标检测结果可提高确认置信度，但不再否决上游已筛选热异常点。
+- 自动确认最低置信度为`0.70`，直接落库为`confirmed`，坐标和确认时间同时写入`fire_confirmations`。
+- 自动规则使用独立标识`course_demo_qwen_assisted_v1`，与严格的`qwen_yolo_fusion_v1`区分，不伪造Qwen原始判断。
+- 不新增前端人工确认页面或确认按钮。
+- 更新仓库外向丙交接文件，增加Qwen分析摘要和证据编号，最终状态保持`confirmed`。
+
+### 配置与接口影响
+
+- 新增配置`VISUAL_AUTO_CONFIRM_SCREENED_CANDIDATES`，默认`true`。
+- 新增配置`VISUAL_AUTO_CONFIRM_MIN_CONFIDENCE`，默认`0.70`。
+- 现有复核接口的请求字段不变；返回中的`visual`为Qwen原始结构化结果，`confirmation`为课程演示自动确认结果。
+
+### 验证
+
+- `[pass]` Qwen不支持火灾时，其结果和证据仍被保留，候选点自动确认为`confirmed`。
+- `[pass]` 课程自动确认使用独立的`confirmation_method`和`rule_version`。
+- `[pass]` 视觉复核、专业检测和遥感合同相关测试32项全部通过。
+
+## 2026-09-14｜全球历史火灾通用火点筛选与入库
+
+- 分支：`member/dengyujie136-eng`
+- 最新提交：尚未提交
+- 任务目标：将Dixie Fire的实验流程封装为由`event_id`驱动的通用能力，支持全球历史火灾数据库中任意事件。
+
+### 通用处理链路
+
+1. 数据Agent根据用户问题解析并返回`event_id`。
+2. 甲的通用`fire.hotspot.candidate.v0.1`候选点通过现有导入接口入库。
+3. 乙的筛选服务按时间窗口和地理距离形成时空聚类，优先选择最早达到最小点数的稳定聚类；若事件只有单点，可降级为最早单点。
+4. 一键接口自动选择主影像、裁剪候选点范围、调用Qwen-VL和专业目标检测，并根据课程演示规则自动确认。
+5. 结果写入通用`fire_confirmations`表，通过事件关联查询返回给ForeFire或多智能体编排层。
+
+### 新增接口
+
+- `POST /api/visual-verification/events/{event_id}/select-fire-points`：仅执行可解释的通用时空候选点筛选。
+- `POST /api/visual-verification/events/{event_id}/auto-confirm-fire-points`：一次完成筛选、影像处理、Qwen分析、目标检测、自动确认和入库。
+- `GET /api/visual-verification/events/{event_id}/confirmed-fire-points`：返回任意事件已入库的标准真实火点，供丙和丁调用。
+
+### 数据和算法边界
+
+- 筛选算法不包含`dixie_fire_2021`、`Cresta Dam`或固定经纬度。
+- 默认参数为10分钟时间窗、2公里空间半径、最少2个热点；调用方可按事件调整。
+- 只查询指定`event_id`的最新候选版本，排除上游已驳回或已过期数据，不会把不同火灾的火点混合。
+- 确认结果保留`event_id`、`source_candidate_id`、坐标、置信度、证据编号、Qwen分析方法和`is_simulated`。
+
+### 验证
+
+- `[pass]` 使用`event-alpha`与`event-beta`两个不同地区、不同坐标的事件验证独立筛选。
+- `[pass]` 时间范围筛选、单点降级和事件隔离查询。
+- `[pass]` 三个通用API已进入FastAPI OpenAPI路由。
+
+### 提交安全处理
+
+- 发现根目录`.env`早期已被Git跟踪，其中包含已配置的Cesium令牌。
+- 本次将`.env`从Git跟踪中移除并加入`.gitignore`，本机文件和配置值保持不变。
+- `.env.example`继续作为不含真实API Key的共享配置模板。

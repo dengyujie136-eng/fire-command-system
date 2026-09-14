@@ -62,6 +62,14 @@ class FindingSupport(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
+class RemoteSensingAnalysisType(str, Enum):
+    """Stable task names exposed to the multi-agent orchestration layer."""
+
+    FIRE_CONFIRMATION = "fire_confirmation"
+    TEMPORAL_CHANGE = "temporal_change"
+    BURNED_AREA = "burned_area"
+
+
 class UpstreamCandidateStatus(str, Enum):
     CANDIDATE = "candidate"
     UNDER_REVIEW = "under_review"
@@ -138,7 +146,7 @@ class HotspotImageryReference(BaseModel):
     uri: str = Field(min_length=1, max_length=1000)
     source: str = Field(min_length=1, max_length=160)
     mime_type: str = Field(min_length=1, max_length=120)
-    acquired_at: datetime
+    acquired_at: datetime | None = None
 
     @field_validator("uri")
     @classmethod
@@ -150,7 +158,9 @@ class HotspotImageryReference(BaseModel):
 
     @field_validator("acquired_at")
     @classmethod
-    def require_imagery_timezone(cls, value: datetime) -> datetime:
+    def require_imagery_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
         return _require_utc(value, "imagery acquired_at")
 
 
@@ -391,6 +401,83 @@ class CandidateIngestBatchResult(BaseModel):
     items: list[CandidateIngestItem]
 
 
+class FirePointSelectionRequest(BaseModel):
+    """Event-neutral controls for selecting representative hotspot candidates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    time_window_minutes: int = Field(default=10, ge=1, le=1440)
+    spatial_radius_km: float = Field(default=2.0, gt=0, le=100)
+    minimum_cluster_points: int = Field(default=2, ge=1, le=1000)
+    max_results: int = Field(default=1, ge=1, le=20)
+    candidate_limit: int = Field(default=50_000, ge=1, le=100_000)
+    require_imagery: bool = True
+
+    @field_validator("start_at", "end_at")
+    @classmethod
+    def require_selection_time_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return _require_utc(value, "selection time")
+
+    @model_validator(mode="after")
+    def validate_selection_range(self) -> "FirePointSelectionRequest":
+        if self.start_at is not None and self.end_at is not None and self.end_at < self.start_at:
+            raise ValueError("end_at must be greater than or equal to start_at")
+        return self
+
+
+class SelectedFirePointCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    visual_case_id: str
+    source_candidate_id: str
+    observed_at: datetime
+    ignition_point: GeoJsonPoint
+    cluster_start_at: datetime
+    cluster_end_at: datetime
+    cluster_point_count: int = Field(ge=1)
+    cluster_mean_confidence: float | None = Field(default=None, ge=0, le=1)
+    cluster_max_frp_mw: float | None = Field(default=None, ge=0)
+    imagery_status: UpstreamImageryStatus
+    selection_rank: int = Field(ge=1)
+    selection_reason: str
+    is_simulated: bool
+
+
+class FirePointSelectionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["fire.point.selection.v1"] = "fire.point.selection.v1"
+    event_id: str = Field(min_length=1, max_length=160)
+    selection_method: Literal["earliest_spatiotemporal_cluster_v1"] = (
+        "earliest_spatiotemporal_cluster_v1"
+    )
+    evaluated_candidate_count: int = Field(ge=0)
+    eligible_cluster_count: int = Field(ge=0)
+    used_singleton_fallback: bool
+    selected: list[SelectedFirePointCandidate]
+
+
+class ConfirmedFirePointRead(BaseModel):
+    """Stable event-neutral record returned to spread and orchestration modules."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirmation_id: str
+    event_id: str
+    source_candidate_id: str
+    confirmed_at: datetime
+    ignition_point: GeoJsonPoint
+    confidence: float = Field(ge=0, le=1)
+    evidence_ids: list[str]
+    confirmation_method: str
+    rule_version: str
+    is_simulated: bool
+
+
 class ImageryMatchResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -446,6 +533,37 @@ class VisualAnalysisStartRequest(BaseModel):
         if len(unique) != len(value):
             raise ValueError("derivative_ids cannot contain duplicates")
         return unique
+
+
+class ProfessionalDetectionStartRequest(BaseModel):
+    """Run the independently deployed fire/smoke detector on trusted derivatives."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    derivative_ids: list[str] = Field(min_length=1, max_length=8)
+    confidence_threshold: float | None = Field(default=None, ge=0.05, le=0.95)
+    image_size: int = Field(default=640, ge=320, le=1280)
+
+    @field_validator("derivative_ids")
+    @classmethod
+    def validate_professional_derivative_ids(cls, value: list[str]) -> list[str]:
+        if any(not item.strip() for item in value):
+            raise ValueError("derivative_ids cannot contain blank values")
+        unique = list(dict.fromkeys(value))
+        if len(unique) != len(value):
+            raise ValueError("derivative_ids cannot contain duplicates")
+        return unique
+
+
+class ObjectDetectionBox(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evidence_id: str = Field(min_length=1, max_length=120)
+    image_id: str = Field(min_length=1, max_length=120)
+    class_id: int = Field(ge=0)
+    class_name: Literal["fire", "smoke"]
+    confidence: float = Field(ge=0, le=1)
+    bbox_xyxy: tuple[float, float, float, float]
 
 
 class VisualAnalysisResult(BaseModel):
@@ -526,6 +644,23 @@ class ProfessionalDetection(BaseModel):
         return self
 
 
+class ProfessionalDetectionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    detection_run_id: str = Field(min_length=1, max_length=100)
+    visual_case_id: str = Field(min_length=1, max_length=180)
+    run_status: Literal["succeeded"] = "succeeded"
+    model_name: str = Field(min_length=1, max_length=120)
+    model_version: str = Field(min_length=1, max_length=120)
+    model_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    confidence_threshold: float = Field(ge=0.05, le=0.95)
+    image_size: int = Field(ge=320, le=1280)
+    detections: list[ObjectDetectionBox] = Field(default_factory=list)
+    professional: ProfessionalDetection
+    duration_ms: int = Field(ge=0)
+    is_simulated: bool
+
+
 class ConfirmationDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -545,6 +680,250 @@ class ConfirmationDecision(BaseModel):
         if self.status not in allowed:
             raise ValueError("confirmation decision must be a terminal analysis outcome")
         return self
+
+
+class VisualReviewStartRequest(BaseModel):
+    """One-click orchestration request using only registered derivative IDs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    derivative_ids: list[str] = Field(min_length=1, max_length=8)
+    detector_confidence_threshold: float | None = Field(default=None, ge=0.05, le=0.95)
+    detector_image_size: int = Field(default=640, ge=320, le=1280)
+
+    @field_validator("derivative_ids")
+    @classmethod
+    def validate_review_derivative_ids(cls, value: list[str]) -> list[str]:
+        if any(not item.strip() for item in value):
+            raise ValueError("derivative_ids cannot contain blank values")
+        unique = list(dict.fromkeys(value))
+        if len(unique) != len(value):
+            raise ValueError("derivative_ids cannot contain duplicates")
+        return unique
+
+
+class VisualReviewResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    visual_case_id: str = Field(min_length=1, max_length=180)
+    visual: VisualAnalysisResult | VisualAnalysisFailure
+    professional_run: ProfessionalDetectionResult | None
+    professional: ProfessionalDetection
+    confirmation: ConfirmationDecision
+    confirmation_id: str = Field(min_length=1, max_length=100)
+    warnings: list[str] = Field(default_factory=list)
+    is_simulated: bool
+
+
+class AutoConfirmFirePointsRequest(BaseModel):
+    """One-call event-neutral selection, image preparation and Qwen review."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    selection: FirePointSelectionRequest = Field(default_factory=FirePointSelectionRequest)
+    crop_radius_m: float = Field(default=1500.0, gt=0, le=50_000)
+    band_indexes: list[int] | None = None
+    detector_confidence_threshold: float | None = Field(default=None, ge=0.05, le=0.95)
+    detector_image_size: int = Field(default=640, ge=320, le=1280)
+
+    @field_validator("band_indexes")
+    @classmethod
+    def validate_pipeline_band_indexes(cls, value: list[int] | None) -> list[int] | None:
+        if value is None:
+            return None
+        if len(value) not in (1, 3) or len(value) != len(set(value)):
+            raise ValueError("band_indexes must contain one or three unique band numbers")
+        if any(item < 1 for item in value):
+            raise ValueError("band_indexes must use one-based positive values")
+        return value
+
+
+class AutoConfirmFirePointsResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["fire.point.auto-confirmation.v1"] = (
+        "fire.point.auto-confirmation.v1"
+    )
+    event_id: str
+    selection: FirePointSelectionResult
+    reviews: list[VisualReviewResult]
+    confirmed_fire_points: list[ConfirmedFirePointRead]
+
+
+class GeoJsonAnalysisGeometry(BaseModel):
+    """Small GeoJSON geometry contract used to locate an analysis request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["Point", "Polygon", "MultiPolygon"]
+    coordinates: list[object] = Field(min_length=1)
+
+
+class RemoteSensingTimeRange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    start_at: datetime
+    end_at: datetime
+
+    @field_validator("start_at", "end_at")
+    @classmethod
+    def require_utc_time(cls, value: datetime) -> datetime:
+        return _require_utc(value, "remote-sensing time range")
+
+    @model_validator(mode="after")
+    def require_positive_range(self) -> "RemoteSensingTimeRange":
+        if self.end_at <= self.start_at:
+            raise ValueError("time_range end_at must be later than start_at")
+        return self
+
+
+class RemoteSensingAnalysisRequest(BaseModel):
+    """Event-neutral request accepted from the orchestration or data agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["fire.remote_sensing.request.v1"] = (
+        "fire.remote_sensing.request.v1"
+    )
+    event_id: str = Field(min_length=1, max_length=160)
+    analysis_type: RemoteSensingAnalysisType
+    target_time: datetime | None = None
+    time_range: RemoteSensingTimeRange | None = None
+    target_geometry: GeoJsonAnalysisGeometry | None = None
+    asset_ids: list[str] = Field(min_length=1, max_length=8)
+    hotspot_ids: list[str] = Field(default_factory=list, max_length=100)
+    visual_case_id: str | None = Field(default=None, min_length=1, max_length=180)
+    prepared_image_ids: list[str] = Field(default_factory=list, max_length=8)
+    change_threshold: float | None = Field(default=None, ge=-1, le=2)
+    minimum_region_pixels: int = Field(default=9, ge=1, le=100_000)
+
+    @field_validator("target_time")
+    @classmethod
+    def require_target_time_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return _require_utc(value, "target_time")
+
+    @field_validator("asset_ids", "hotspot_ids", "prepared_image_ids")
+    @classmethod
+    def require_unique_nonblank_ids(cls, value: list[str]) -> list[str]:
+        if any(not item.strip() for item in value):
+            raise ValueError("identifier lists cannot contain blank values")
+        if len(value) != len(set(value)):
+            raise ValueError("identifier lists cannot contain duplicates")
+        return value
+
+    @model_validator(mode="after")
+    def validate_task_inputs(self) -> "RemoteSensingAnalysisRequest":
+        if self.analysis_type == RemoteSensingAnalysisType.FIRE_CONFIRMATION:
+            if self.target_time is None:
+                raise ValueError("fire_confirmation requires target_time")
+        else:
+            if self.time_range is None:
+                raise ValueError(
+                    f"{self.analysis_type.value} requires a before/after time_range"
+                )
+            if len(self.asset_ids) != 2:
+                raise ValueError(
+                    f"{self.analysis_type.value} requires exactly two imagery assets "
+                    "ordered as before and after"
+                )
+            if self.target_geometry is not None and self.target_geometry.type == "Point":
+                raise ValueError(
+                    f"{self.analysis_type.value} target_geometry must be a Polygon "
+                    "or MultiPolygon"
+                )
+        return self
+
+
+class RemoteSensingCapability(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    analysis_type: RemoteSensingAnalysisType
+    tool_name: Literal["analyze_fire_imagery", "analyze_temporal_change"]
+    minimum_asset_count: int = Field(ge=1)
+    execution_status: Literal["available", "planned_day_2"]
+    output_summary: str
+
+
+class RemoteSensingCapabilities(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["fire.remote_sensing.capabilities.v1"] = (
+        "fire.remote_sensing.capabilities.v1"
+    )
+    capabilities: list[RemoteSensingCapability]
+
+
+class RemoteSensingFireConfirmationResult(BaseModel):
+    """Generic agent-facing wrapper around the existing one-click review."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["fire.remote_sensing.analysis.v1"] = (
+        "fire.remote_sensing.analysis.v1"
+    )
+    analysis_id: str = Field(min_length=1, max_length=120)
+    event_id: str
+    analysis_type: Literal[RemoteSensingAnalysisType.FIRE_CONFIRMATION]
+    tool_name: Literal["analyze_fire_imagery"] = "analyze_fire_imagery"
+    source_asset_ids: list[str]
+    hotspot_ids: list[str]
+    review: VisualReviewResult
+
+
+class RemoteSensingChangeResult(BaseModel):
+    """Georeferenced before/after change product returned to the agent layer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["fire.remote_sensing.analysis.v1"] = (
+        "fire.remote_sensing.analysis.v1"
+    )
+    analysis_id: str = Field(min_length=1, max_length=120)
+    event_id: str = Field(min_length=1, max_length=160)
+    analysis_type: Literal[
+        RemoteSensingAnalysisType.TEMPORAL_CHANGE,
+        RemoteSensingAnalysisType.BURNED_AREA,
+    ]
+    tool_name: Literal["analyze_temporal_change"] = "analyze_temporal_change"
+    before_asset_id: str
+    after_asset_id: str
+    method: Literal["dnbr_threshold_v1", "dndvi_threshold_v1"]
+    threshold: float = Field(ge=-1, le=2)
+    minimum_region_pixels: int = Field(ge=1)
+    changed_pixel_count: int = Field(ge=0)
+    valid_pixel_count: int = Field(ge=0)
+    area_hectares: float = Field(ge=0)
+    area_geometry_wgs84: dict[str, object]
+    source_crs: str
+    resolution_m: tuple[float, float]
+    output_uris: dict[str, str]
+    warnings: list[str] = Field(default_factory=list)
+    is_simulated: bool
+
+
+class RemoteSensingAnalysisRunRead(BaseModel):
+    """Stable persisted run metadata used by the orchestration agent."""
+
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    analysis_id: str
+    visual_case_id: str
+    event_id: str
+    analysis_type: RemoteSensingAnalysisType
+    tool_name: Literal["analyze_fire_imagery", "analyze_temporal_change"]
+    run_status: Literal["running", "succeeded", "failed"]
+    source_asset_ids: list[str]
+    request_payload: dict[str, object]
+    result_payload: dict[str, object] | None
+    error_code: str | None
+    error_message: str | None
+    started_at: datetime
+    finished_at: datetime | None
+    duration_ms: int | None = Field(default=None, ge=0)
+    is_simulated: bool
+    created_at: datetime
 
 
 class VisualVerificationOutcome(BaseModel):

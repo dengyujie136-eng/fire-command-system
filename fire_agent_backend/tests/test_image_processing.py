@@ -142,7 +142,7 @@ class ImageProcessingTests(unittest.TestCase):
         from rasterio.transform import from_origin
 
         raster_path = self.source_directory / "test.tif"
-        values = np.arange(3 * 200 * 200, dtype=np.float32).reshape(3, 200, 200)
+        values = np.arange(3 * 200 * 200, dtype=np.int16).reshape(3, 200, 200)
         with rasterio.open(
             raster_path,
             "w",
@@ -150,7 +150,7 @@ class ImageProcessingTests(unittest.TestCase):
             width=200,
             height=200,
             count=3,
-            dtype="float32",
+            dtype="int16",
             crs="EPSG:32610",
             transform=from_origin(620000, 4420000, 30, 30),
         ) as dataset:

@@ -168,7 +168,10 @@ def _stretch_to_uint8(
     output_bands: list[np.ndarray] = []
     low_percentile, high_percentile = percentiles
     for band_index in range(data.shape[0]):
-        band = np.asarray(data[band_index].filled(np.nan), dtype=np.float64)
+        band = np.asarray(
+            data[band_index].astype(np.float64).filled(np.nan),
+            dtype=np.float64,
+        )
         values = band[valid_pixels]
         values = values[np.isfinite(values)]
         if values.size == 0:
@@ -257,7 +260,7 @@ def _geotiff_image(
             raster_data,
             request.stretch_percentiles,
         )
-        image = Image.fromarray(rgb, mode="RGB")
+        image = Image.fromarray(rgb)
         source_size = ImageSize(width=dataset.width, height=dataset.height)
         output = _resize_down(image, request.max_dimension)
 

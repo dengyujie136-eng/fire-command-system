@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.visual_verification.models import (
     FireConfirmationRecord,
+    RemoteSensingAnalysisRecord,
     VisualAnalysisRunRecord,
     VisualCaseAssetRecord,
     VisualFindingRecord,
@@ -23,6 +24,7 @@ VISUAL_TABLES = [
     VisualAnalysisRunRecord.__table__,
     VisualFindingRecord.__table__,
     FireConfirmationRecord.__table__,
+    RemoteSensingAnalysisRecord.__table__,
 ]
 
 
@@ -66,7 +68,7 @@ class VisualPersistenceTests(unittest.TestCase):
             is_simulated=True,
         )
 
-    def test_only_six_owned_tables_are_created(self) -> None:
+    def test_only_seven_owned_tables_are_created(self) -> None:
         self.assertEqual(
             set(inspect(self.engine).get_table_names()),
             {
@@ -76,6 +78,7 @@ class VisualPersistenceTests(unittest.TestCase):
                 "visual_analysis_runs",
                 "visual_findings",
                 "fire_confirmations",
+                "remote_sensing_analyses",
             },
         )
 

@@ -29,6 +29,26 @@ def load_json(name: str) -> dict:
 
 
 class MemberAContractTests(unittest.TestCase):
+    def test_stage_mosaic_can_omit_single_acquisition_time(self) -> None:
+        payload = load_json("member_a_historical_candidate.json")
+        payload["imagery_status"] = "available"
+        payload["imagery_refs"] = [{
+            "asset_id": "dixie-s2-during-r01c01",
+            "uri": "data://real/dixie_fire_2021_s2_10m_during_r01c01.tif",
+            "source": "Sentinel-2 stage mosaic 2021-07-13/2021-07-21",
+            "mime_type": "image/tiff",
+            "acquired_at": None,
+        }]
+        payload["product_fields"]["imagery_acquisition_window"] = {
+            "start_at": "2021-07-13T00:00:00Z",
+            "end_at": "2021-07-21T23:59:59Z",
+        }
+
+        candidate = HotspotCandidate.model_validate(payload)
+
+        self.assertIsNone(candidate.imagery_refs[0].acquired_at)
+        self.assertIn("imagery_acquisition_window", candidate.product_fields)
+
     def test_unregistered_router_contract_builds(self) -> None:
         app = FastAPI()
         app.include_router(router)
@@ -43,6 +63,14 @@ class MemberAContractTests(unittest.TestCase):
         self.assertIn("/visual-verification/derivatives/{derivative_id}", paths)
         self.assertIn("/visual-verification/derivatives/{derivative_id}/image", paths)
         self.assertIn("/visual-verification/derivatives/{derivative_id}/preview", paths)
+        self.assertIn(
+            "/visual-verification/candidates/{visual_case_id}/professional-detections",
+            paths,
+        )
+        self.assertIn(
+            "/visual-verification/candidates/{visual_case_id}/review",
+            paths,
+        )
 
     def test_http_mqtt_batch_envelope_adapts_without_confirming(self) -> None:
         envelope = HotspotCandidateEnvelope.model_validate(load_json("candidate_input.json"))

@@ -12,6 +12,8 @@ RUN_STATUSES = ("queued", "running", "succeeded", "timeout", "invalid_output", "
 TERMINAL_STATUSES = ("confirmed", "rejected", "uncertain", "failed")
 UPSTREAM_STATUSES = ("candidate", "under_review", "confirmed", "rejected", "expired")
 UPSTREAM_IMAGERY_STATUSES = ("pending", "available", "unavailable")
+REMOTE_ANALYSIS_TYPES = ("fire_confirmation", "temporal_change", "burned_area")
+REMOTE_ANALYSIS_STATUSES = ("running", "succeeded", "failed")
 
 
 def _allowed_values(column: str, values: tuple[str, ...]) -> str:
@@ -172,3 +174,48 @@ class FireConfirmationRecord(Base):
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class RemoteSensingAnalysisRecord(Base):
+    """Agent-facing analysis history across visual and raster calculation tools."""
+
+    __tablename__ = "remote_sensing_analyses"
+    __table_args__ = (
+        CheckConstraint(
+            _allowed_values("analysis_type", REMOTE_ANALYSIS_TYPES),
+            name="ck_remote_sensing_analysis_type",
+        ),
+        CheckConstraint(
+            _allowed_values("run_status", REMOTE_ANALYSIS_STATUSES),
+            name="ck_remote_sensing_run_status",
+        ),
+        CheckConstraint(
+            "duration_ms IS NULL OR duration_ms >= 0",
+            name="ck_remote_sensing_duration",
+        ),
+        Index("ix_remote_sensing_event_created", "event_id", "created_at"),
+        Index("ix_remote_sensing_case_type", "visual_case_id", "analysis_type"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    analysis_id: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    visual_case_id: Mapped[str] = mapped_column(
+        ForeignKey("visual_verification_cases.visual_case_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    event_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    analysis_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    tool_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    run_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_asset_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    request_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    result_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    is_simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
