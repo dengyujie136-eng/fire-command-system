@@ -847,3 +847,4 @@
 - 发现根目录`.env`早期已被Git跟踪，其中包含已配置的Cesium令牌。
 - 本次将`.env`从Git跟踪中移除并加入`.gitignore`，本机文件和配置值保持不变。
 - `.env.example`继续作为不含真实API Key的共享配置模板。
+- 为丙的ForeFire开发新增仓库内小型交接件`data/processed/confirmed_fire_points/dixie_fire_2021_confirmed_fire_point.json`；该文件是实际项目输入，不是个人文档，不包含原始影像或密钥。
