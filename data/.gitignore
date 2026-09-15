@@ -19,6 +19,10 @@ processed/**/*
 samples/*
 !samples/.gitkeep
 
+# Local pipeline runs and acceptance outputs stay on the executing machine.
+local/*
+local/**/*
+
 # Keep manifests and metadata under version control.
 manifests/*
 !manifests/.gitkeep
