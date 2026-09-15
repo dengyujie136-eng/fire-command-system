@@ -848,3 +848,68 @@
 - 本次将`.env`从Git跟踪中移除并加入`.gitignore`，本机文件和配置值保持不变。
 - `.env.example`继续作为不含真实API Key的共享配置模板。
 - 为丙的ForeFire开发新增仓库内小型交接件`data/processed/confirmed_fire_points/dixie_fire_2021_confirmed_fire_point.json`；该文件是实际项目输入，不是个人文档，不包含原始影像或密钥。
+
+## 2026-09-15｜候选火点视觉证据链五项优化与真实验收
+
+- 分支：`main`
+- 核心功能提交：`0aab1d2 Optimize visual fire evidence pipeline`
+- 本地结果忽略提交：`9781e89 Ignore local visual pipeline results`
+- 任务目标：复用甲的聚类成果，完善候选点与影像的自动匹配、多证据融合、PostGIS空间能力，并使用Dixie Fire灾前/灾中/灾后三时相真实影像完成Qwen-VL在线验收。
+
+### 1. 复用甲的上游聚类
+
+- 候选点契约新增`source_cluster_id`、`cluster_point_count`、`cluster_mean_confidence`和`cluster_max_frp_mw`。
+- 当甲提供`source_cluster_id`时，乙直接按该编号组织候选组，不再执行第二次时空聚类。
+- 仅对没有上游聚类编号的旧数据保留本地聚类兼容路径。
+- Dixie Fire四条候选记录均复用聚类`dixie_fire_2021-cluster-20210714T0910Z--6070-1993`，筛选方法为`upstream_cluster_v1`。
+
+### 2. 影像目录和候选点自动匹配
+
+- 本机正式目录`data/raw/sentinel2/dixie_fire_2021/gee/`已放置18幅真实GeoTIFF，灾前、灾中、灾后各6幅，总计约3.181 GB；大影像继续由Git忽略。
+- 新增`imagery_catalog`影像目录表和`candidate_imagery_matches`候选—影像匹配表。
+- 候选导入时自动登记其影像引用，并按空间覆盖、时间接近度、云量、有效像元比例和空间分辨率计算匹配分数。
+- 实际选中案例`visual-case-404da7bb3322b8e9b0d67839-v2`已匹配灾前、灾中、灾后三项代表影像，得分分别为`0.8462`、`0.85`和`0.55`。
+- 新增事件影像目录与候选匹配查询接口，供遥感Agent和后续页面读取。
+
+### 3. 多证据评分融合与持久化
+
+- 新增`evidence_fusion_runs`表，保存各分量得分、权重、最终得分、决策、规则版本和证据编号。
+- 融合权重固定为：热异常30%、上游聚类20%、Qwen视觉20%、专业检测10%、时相变化10%、影像质量10%。
+- 真实端到端运行生成融合记录`fusion_8c57ce6ac04a42e19a89d27a57151001`，最终分数`0.6877`，规则版本`multi-evidence-fusion-v1`。
+- 课程演示自动确认规则与严格融合判断继续分开保存，不篡改Qwen原始结论或融合分数。
+
+### 4. PostGIS空间字段
+
+- 为`visual_verification_cases.location_geom`和`fire_confirmations.location_geom`增加`POINT, SRID 4326`生成列。
+- 为`imagery_catalog.footprint_geom`、`visual_image_derivatives.extent_geom`和`visual_findings.finding_geom`增加`GEOMETRY, SRID 4326`生成列。
+- 五个空间字段均建立GiST索引，并由启动时幂等空间Schema安装逻辑兼容既有数据库。
+- PostGIS实测可将Dixie候选点正确回读为`POINT(-121.38241 39.87194)`。
+
+### 5. 灾前、灾中、灾后三时相Qwen联合分析
+
+- Qwen提示词升级为`qwen-fire-multitemporal-v3`，明确要求分别识别灾前背景、灾中火焰/烟羽/异常和灾后火烧迹地，再给出联合结论。
+- 模型请求为三幅图片附加`pre`、`during`、`post`时相标签；自动复核接口最多选择三个不同时相的可信派生图。
+- 三幅真实GeoTIFF均完成候选点周边1.5公里裁剪，结果为`301×296`、源CRS `EPSG:32610`、`is_simulated=false`。
+- 使用`qwen3-vl-flash`完成真实在线分析，模型返回`confirmed`、`wildfire_likelihood=0.95`、`image_quality=good`，并识别灾后大范围连续火烧迹地。
+- 最终课程演示确认火点为经度`-121.38241`、纬度`39.87194`，确认方法`course_demo_qwen_assisted_v1`，结果已写入数据库。
+
+### 新增查询接口
+
+- `GET /api/visual-verification/events/{event_id}/imagery-catalog`
+- `GET /api/visual-verification/candidates/{visual_case_id}/imagery-matches`
+- `GET /api/visual-verification/candidates/{visual_case_id}/fusion-runs`
+
+### 验证结果
+
+- `[通过]` 五项优化按“代码检查—自动测试—Docker运行态—PostGIS数据”顺序逐项验收。
+- `[通过]` 真实Dixie三时相一键流程：导入4条候选，复用甲的聚类，裁剪3幅影像，调用Qwen，融合入库并输出1个确认火点。
+- `[通过]` 宿主机完整回归：108项测试全部通过，5项因宿主机未安装Rasterio而按条件跳过；Docker中的真实Rasterio裁剪已单独通过。
+- `[通过]` `fire-agent-api`、`forefire-api`和PostGIS容器健康，前端容器正常运行。
+- 本地完整结果：`data/local/results/dixie_fire_2021_visual_confirmation_latest.json`；`data/local/`已加入Git忽略规则，不作为团队源码或个人文档提交。
+
+### 当前边界与提交状态
+
+- 当前Sentinel-2仍只有B2、B3、B4、B8，三时相视觉判断可用，但标准NBR/dNBR仍需甲补充B11或B12。
+- 本次专业目标检测服务不可用，结果中明确记录`professional_detector_unavailable`；Qwen三时相分析和课程演示确认不受影响。
+- Qwen配置继续保存在仓库外个人配置文件中，未把密钥写入日志或Git。
+- 核心五项优化提交`0aab1d2`已经进入远程`main`；提交`9781e89`因GitHub网络连接失败暂留本地，待网络恢复后推送。
