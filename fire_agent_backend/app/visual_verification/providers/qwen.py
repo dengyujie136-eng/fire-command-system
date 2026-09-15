@@ -165,6 +165,9 @@ class QwenVisualProvider:
         content: list[dict[str, Any]] = []
         for evidence_id in request.image_asset_ids:
             path = self.paths.resolve_output(request.image_uris[evidence_id])
+            label = request.image_labels.get(evidence_id)
+            if label:
+                content.append({"type": "text", "text": f"影像证据：{label}"})
             content.append({
                 "type": "image_url",
                 "image_url": {"url": _image_data_url(path, max_bytes=self.max_image_bytes)},

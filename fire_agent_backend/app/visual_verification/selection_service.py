@@ -66,6 +66,7 @@ def _number(product_fields: dict[str, Any], *names: str) -> float | None:
 
 @dataclass
 class _Cluster:
+    source_cluster_id: str | None = None
     members: list[VisualVerificationCaseRecord] = field(default_factory=list)
     longitude_sum: float = 0.0
     latitude_sum: float = 0.0
@@ -133,7 +134,46 @@ def _cluster_candidates(
     return clusters
 
 
+def _clusters_from_upstream(
+    records: list[VisualVerificationCaseRecord],
+    *,
+    time_window: timedelta,
+    spatial_radius_km: float,
+) -> tuple[list[_Cluster], bool]:
+    supplied: dict[str, _Cluster] = {}
+    fallback_records: list[VisualVerificationCaseRecord] = []
+    for record in records:
+        if record.source_cluster_id:
+            cluster = supplied.setdefault(
+                record.source_cluster_id,
+                _Cluster(source_cluster_id=record.source_cluster_id),
+            )
+            cluster.add(record)
+        else:
+            fallback_records.append(record)
+    return (
+        [*supplied.values(), *_cluster_candidates(
+            fallback_records,
+            time_window=time_window,
+            spatial_radius_km=spatial_radius_km,
+        )],
+        bool(supplied),
+    )
+
+
+def _cluster_point_count(cluster: _Cluster) -> int:
+    supplied = [item.cluster_point_count for item in cluster.members if item.cluster_point_count]
+    return max(supplied) if supplied else len(cluster.members)
+
+
 def _cluster_confidence(cluster: _Cluster) -> float | None:
+    supplied = [
+        item.cluster_mean_confidence
+        for item in cluster.members
+        if item.cluster_mean_confidence is not None
+    ]
+    if supplied:
+        return round(sum(supplied) / len(supplied), 4)
     values = [
         value
         for item in cluster.members
@@ -144,6 +184,13 @@ def _cluster_confidence(cluster: _Cluster) -> float | None:
 
 
 def _cluster_max_frp(cluster: _Cluster) -> float | None:
+    supplied = [
+        item.cluster_max_frp_mw
+        for item in cluster.members
+        if item.cluster_max_frp_mw is not None
+    ]
+    if supplied:
+        return max(supplied)
     values = [
         value
         for item in cluster.members
@@ -157,20 +204,20 @@ def select_representative_candidates(
     records: list[VisualVerificationCaseRecord],
     request: FirePointSelectionRequest,
 ) -> FirePointSelectionResult:
-    clusters = _cluster_candidates(
+    clusters, used_upstream_clusters = _clusters_from_upstream(
         records,
         time_window=timedelta(minutes=request.time_window_minutes),
         spatial_radius_km=request.spatial_radius_km,
     )
     eligible = [
-        cluster for cluster in clusters if len(cluster.members) >= request.minimum_cluster_points
+        cluster for cluster in clusters if _cluster_point_count(cluster) >= request.minimum_cluster_points
     ]
     used_singleton_fallback = not eligible and bool(clusters)
     ranked_pool = eligible or clusters
     ranked_pool.sort(
         key=lambda cluster: (
             cluster.start_at or datetime.max.replace(tzinfo=UTC),
-            -len(cluster.members),
+            -_cluster_point_count(cluster),
             -(_cluster_confidence(cluster) or 0.0),
             -(_cluster_max_frp(cluster) or 0.0),
         )
@@ -192,7 +239,7 @@ def select_representative_candidates(
                 ),
                 cluster_start_at=cluster.start_at,
                 cluster_end_at=cluster.end_at,
-                cluster_point_count=len(cluster.members),
+                cluster_point_count=_cluster_point_count(cluster),
                 cluster_mean_confidence=_cluster_confidence(cluster),
                 cluster_max_frp_mw=_cluster_max_frp(cluster),
                 imagery_status=representative.imagery_status,
@@ -207,6 +254,11 @@ def select_representative_candidates(
         )
     return FirePointSelectionResult(
         event_id=event_id,
+        selection_method=(
+            "upstream_cluster_v1"
+            if used_upstream_clusters
+            else "earliest_spatiotemporal_cluster_v1"
+        ),
         evaluated_candidate_count=len(records),
         eligible_cluster_count=len(eligible),
         used_singleton_fallback=used_singleton_fallback,

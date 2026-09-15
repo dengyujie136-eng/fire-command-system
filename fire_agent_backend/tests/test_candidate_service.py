@@ -15,7 +15,9 @@ from app.visual_verification.candidate_service import (
     list_visual_cases,
 )
 from app.visual_verification.models import (
+    CandidateImageryMatchRecord,
     FireConfirmationRecord,
+    ImageryAssetCatalogRecord,
     VisualAnalysisRunRecord,
     VisualCaseAssetRecord,
     VisualFindingRecord,
@@ -28,6 +30,8 @@ from app.visual_verification.schemas import HotspotCandidate, HotspotCandidateEn
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "visual_verification"
 VISUAL_TABLES = [
     VisualVerificationCaseRecord.__table__,
+    ImageryAssetCatalogRecord.__table__,
+    CandidateImageryMatchRecord.__table__,
     VisualCaseAssetRecord.__table__,
     VisualImageDerivativeRecord.__table__,
     VisualAnalysisRunRecord.__table__,

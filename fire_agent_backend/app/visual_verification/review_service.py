@@ -39,6 +39,8 @@ def review_decision(
     *,
     assume_screened_candidate_is_fire: bool = False,
     minimum_confirmation_confidence: float = 0.70,
+    fusion_score: float | None = None,
+    fusion_run_id: str | None = None,
 ) -> ConfirmationDecision:
     if isinstance(visual, VisualAnalysisFailure):
         strict_decision = ConfirmationDecision(
@@ -67,9 +69,17 @@ def review_decision(
         else 0.0
     )
     confidence = round(
-        max(minimum_confirmation_confidence, qwen_confidence, supporting_detector_confidence),
+        max(
+            minimum_confirmation_confidence,
+            qwen_confidence,
+            supporting_detector_confidence,
+            fusion_score or 0.0,
+        ),
         4,
     )
+    evidence_ids = _unique_evidence_ids(visual, professional)
+    if fusion_run_id:
+        evidence_ids.append(fusion_run_id)
     return ConfirmationDecision(
         status=VisualCaseStatus.CONFIRMED,
         confidence=confidence,
@@ -79,7 +89,7 @@ def review_decision(
             qwen_reason,
             detector_reason,
         ],
-        evidence_ids=_unique_evidence_ids(visual, professional),
+        evidence_ids=list(dict.fromkeys(evidence_ids)),
     )
 
 

@@ -27,9 +27,21 @@ def _asset_score(
     max_time_delta: timedelta,
 ) -> tuple[float, list[str]]:
     reference = next(item for item in candidate.imagery_refs if item.asset_id == asset.asset_id)
-    delta_seconds = abs((reference.acquired_at - candidate.observed_at).total_seconds())
     allowed_seconds = max(max_time_delta.total_seconds(), 1)
-    temporal_score = max(0.0, 1.0 - delta_seconds / allowed_seconds)
+    reference_time = reference.acquired_at or asset.acquired_at
+    if reference_time is not None:
+        delta_seconds = abs((reference_time - candidate.observed_at).total_seconds())
+        temporal_score = max(0.0, 1.0 - delta_seconds / allowed_seconds)
+    elif reference.time_start is not None and reference.time_end is not None:
+        in_window = reference.time_start <= candidate.observed_at <= reference.time_end
+        delta_seconds = 0.0 if in_window else min(
+            abs((candidate.observed_at - reference.time_start).total_seconds()),
+            abs((candidate.observed_at - reference.time_end).total_seconds()),
+        )
+        temporal_score = max(0.0, 1.0 - delta_seconds / allowed_seconds)
+    else:
+        delta_seconds = 0.0
+        temporal_score = 0.5
     score = (
         0.55 * QUALITY_SCORE[asset.quality]
         + 0.30 * temporal_score

@@ -7,13 +7,17 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path -LiteralPath $RepoRoot).Path
 $candidateManifest = Join-Path $repo 'data\manifests\dixie_fire_2021_visual_candidates.json'
-$sentinelImage = Join-Path $repo 'data\raw\sentinel2\dixie_fire_2021\gee\dixie_fire_2021_s2_10m_during_r01c01.tif'
+$sentinelImages = @('pre', 'during', 'post') | ForEach-Object {
+    Join-Path $repo "data\raw\sentinel2\dixie_fire_2021\gee\dixie_fire_2021_s2_10m_${_}_r01c01.tif"
+}
 
 if (-not (Test-Path -LiteralPath $candidateManifest -PathType Leaf)) {
     throw "Candidate manifest not found: $candidateManifest"
 }
-if (-not (Test-Path -LiteralPath $sentinelImage -PathType Leaf)) {
-    throw "Sentinel image not found: $sentinelImage"
+foreach ($sentinelImage in $sentinelImages) {
+    if (-not (Test-Path -LiteralPath $sentinelImage -PathType Leaf)) {
+        throw "Sentinel image not found: $sentinelImage"
+    }
 }
 
 try {
@@ -68,4 +72,3 @@ Write-Host "Candidate records imported: $(@($ingest.items).Count)"
 Write-Host "Confirmed fire point: $($point.ignition_point.coordinates -join ', ')"
 Write-Host "Confirmation method: $($point.confirmation_method)"
 Write-Host "Full result: $resultPath"
-

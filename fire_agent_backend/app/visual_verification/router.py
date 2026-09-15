@@ -46,6 +46,9 @@ from app.visual_verification.schemas import (
     FirePointSelectionResult,
     AutoConfirmFirePointsRequest,
     AutoConfirmFirePointsResult,
+    ImageryCatalogRead,
+    CandidateImageryMatchRead,
+    EvidenceFusionRunRead,
 )
 from app.visual_verification.analysis_service import execute_and_persist_visual_analysis
 from app.visual_verification.provider_factory import (
@@ -93,9 +96,41 @@ from app.visual_verification.selection_service import (
     list_confirmed_fire_points,
     select_event_fire_points,
 )
+from app.visual_verification.imagery_catalog_service import (
+    list_catalog_assets,
+    list_candidate_matches,
+)
+from app.visual_verification.evidence_fusion_service import (
+    list_evidence_fusions,
+    persist_evidence_fusion,
+)
 
 
 router = APIRouter(prefix="/visual-verification", tags=["visual-verification"])
+
+
+def _asset_phase_label(asset) -> str:
+    phase = {
+        "comparison_pre": "灾前背景影像",
+        "primary": "灾中候选火点影像",
+        "comparison_post": "灾后变化影像",
+        "context": "上下文影像",
+    }.get(asset.asset_role, asset.asset_role)
+    return f"{phase}；资产={asset.source_asset_id}；来源={asset.source_name or 'unknown'}"
+
+
+def _asset_phase_order(asset) -> tuple[int, str]:
+    return ({"comparison_pre": 0, "primary": 1, "comparison_post": 2}.get(asset.asset_role, 3), asset.source_asset_id)
+
+
+def _derivative_labels(derivatives, assets) -> dict[str, str]:
+    assets_by_id = {asset.source_asset_id: asset for asset in assets}
+    return {
+        item.derivative_id: _asset_phase_label(assets_by_id[item.source_asset_id])
+        if item.source_asset_id in assets_by_id
+        else f"遥感影像；资产={item.source_asset_id}"
+        for item in derivatives
+    }
 
 
 def _processing_http_error(exc: ImageProcessingError) -> HTTPException:
@@ -472,6 +507,39 @@ async def candidates(
     return [VisualCaseRead.model_validate(record) for record in records]
 
 
+@router.get("/events/{event_id}/imagery-catalog", response_model=list[ImageryCatalogRead])
+async def imagery_catalog(
+    event_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> list[ImageryCatalogRead]:
+    records = await list_catalog_assets(db, event_id=event_id)
+    return [ImageryCatalogRead.model_validate(record) for record in records]
+
+
+@router.get(
+    "/candidates/{visual_case_id}/imagery-matches",
+    response_model=list[CandidateImageryMatchRead],
+)
+async def candidate_imagery_matches(
+    visual_case_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> list[CandidateImageryMatchRead]:
+    records = await list_candidate_matches(db, visual_case_id=visual_case_id)
+    return [CandidateImageryMatchRead.model_validate(record) for record in records]
+
+
+@router.get(
+    "/candidates/{visual_case_id}/fusion-runs",
+    response_model=list[EvidenceFusionRunRead],
+)
+async def candidate_fusion_runs(
+    visual_case_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> list[EvidenceFusionRunRead]:
+    records = await list_evidence_fusions(db, visual_case_id=visual_case_id)
+    return [EvidenceFusionRunRead.model_validate(record) for record in records]
+
+
 @router.get(
     "/candidates/source/{event_id}/{source_candidate_id}/history",
     response_model=list[VisualCaseRead],
@@ -599,6 +667,7 @@ async def run_visual_analysis(
             )
         derivatives.append(derivative)
 
+    assets = await list_case_assets(db, visual_case_id)
     settings = get_settings()
     try:
         provider = build_qwen_provider(settings)
@@ -612,6 +681,7 @@ async def run_visual_analysis(
         visual_case_id=visual_case_id,
         image_asset_ids=[item.derivative_id for item in derivatives],
         image_uris={item.derivative_id: item.file_uri for item in derivatives},
+        image_labels=_derivative_labels(derivatives, assets),
         prompt_version=QWEN_FIRE_PROMPT_VERSION,
     )
     result = await execute_and_persist_visual_analysis(
@@ -682,6 +752,7 @@ async def _execute_complete_review(
     case = await get_visual_case(db, visual_case_id)
     if case is None:
         raise HTTPException(status_code=404, detail="Visual case not found")
+    assets = await list_case_assets(db, visual_case_id)
     derivatives = []
     for derivative_id in payload.derivative_ids:
         derivative = await get_derivative(db, derivative_id)
@@ -745,14 +816,23 @@ async def _execute_complete_review(
             visual_case_id=visual_case_id,
             image_asset_ids=payload.derivative_ids,
             image_uris={item.derivative_id: item.file_uri for item in derivatives},
+            image_labels=_derivative_labels(derivatives, assets),
             prompt_version=QWEN_FIRE_PROMPT_VERSION,
         ),
+    )
+    fusion = await persist_evidence_fusion(
+        db,
+        case=case,
+        visual=visual,
+        professional=professional,
     )
     decision = review_decision(
         visual,
         professional,
         assume_screened_candidate_is_fire=settings.visual_auto_confirm_screened_candidates,
         minimum_confirmation_confidence=settings.visual_auto_confirm_min_confidence,
+        fusion_score=fusion.final_score,
+        fusion_run_id=fusion.fusion_run_id,
     )
     is_simulated = case.is_simulated or any(item.is_simulated for item in derivatives)
     confirmation = await persist_review_decision(
@@ -769,6 +849,8 @@ async def _execute_complete_review(
         professional=professional,
         confirmation=decision,
         confirmation_id=confirmation.confirmation_id,
+        fusion_run_id=fusion.fusion_run_id,
+        fusion_score=fusion.final_score,
         warnings=warnings,
         is_simulated=is_simulated,
     )
@@ -813,26 +895,38 @@ async def auto_confirm_fire_points(
                 code="selected_candidate_imagery_missing",
                 status_code=status.HTTP_409_CONFLICT,
             )
-        asset = next((item for item in assets if item.asset_role == "primary"), assets[0])
+        ordered_assets = sorted(assets, key=_asset_phase_order)
+        selected_assets = []
+        seen_roles: set[str] = set()
+        for asset in ordered_assets:
+            if asset.asset_role in seen_roles:
+                continue
+            selected_assets.append(asset)
+            seen_roles.add(asset.asset_role)
+            if len(selected_assets) == 3:
+                break
+        derivatives = []
         try:
-            _prepared, derivative, _created = await prepare_case_asset_derivative(
-                db,
-                visual_case_id=selected.visual_case_id,
-                source_asset_id=asset.source_asset_id,
-                options=DerivativePreparationOptions(
-                    crop_radius_m=payload.crop_radius_m,
-                    band_indexes=payload.band_indexes,
-                ),
-                source_root=settings.resolved_data_dir,
-                output_root=settings.resolved_visual_output_dir,
-            )
+            for asset in selected_assets:
+                _prepared, derivative, _created = await prepare_case_asset_derivative(
+                    db,
+                    visual_case_id=selected.visual_case_id,
+                    source_asset_id=asset.source_asset_id,
+                    options=DerivativePreparationOptions(
+                        crop_radius_m=payload.crop_radius_m,
+                        band_indexes=payload.band_indexes,
+                    ),
+                    source_root=settings.resolved_data_dir,
+                    output_root=settings.resolved_visual_output_dir,
+                )
+                derivatives.append(derivative)
         except ImageProcessingError as exc:
             await db.rollback()
             raise _processing_http_error(exc) from exc
         review = await _execute_complete_review(
             selected.visual_case_id,
             VisualReviewStartRequest(
-                derivative_ids=[derivative.derivative_id],
+                derivative_ids=[item.derivative_id for item in derivatives],
                 detector_confidence_threshold=payload.detector_confidence_threshold,
                 detector_image_size=payload.detector_image_size,
             ),

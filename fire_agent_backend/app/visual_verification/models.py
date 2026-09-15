@@ -44,6 +44,10 @@ class VisualVerificationCaseRecord(Base):
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    source_cluster_id: Mapped[str | None] = mapped_column(String(180))
+    cluster_point_count: Mapped[int | None] = mapped_column(Integer)
+    cluster_mean_confidence: Mapped[float | None] = mapped_column(Float)
+    cluster_max_frp_mw: Mapped[float | None] = mapped_column(Float)
     imagery_status: Mapped[str] = mapped_column(String(32), nullable=False)
     data_owner: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     replay_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
@@ -76,6 +80,61 @@ class VisualCaseAssetRecord(Base):
     quality_status: Mapped[str] = mapped_column(String(32), nullable=False)
     checksum_sha256: Mapped[str | None] = mapped_column(String(64))
     is_simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ImageryAssetCatalogRecord(Base):
+    """Reusable event imagery metadata; binary data remains in controlled storage."""
+
+    __tablename__ = "imagery_catalog"
+    __table_args__ = (
+        Index("ix_imagery_catalog_event_time", "event_id", "time_start", "time_end"),
+        Index("ix_imagery_catalog_event_phase", "event_id", "analysis_phase"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    asset_id: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
+    event_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    analysis_phase: Mapped[str] = mapped_column(String(24), nullable=False, default="context")
+    mime_type: Mapped[str | None] = mapped_column(String(120))
+    time_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    time_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    content_uri: Mapped[str] = mapped_column(String(1000), nullable=False)
+    footprint_geojson: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    crs: Mapped[str | None] = mapped_column(String(64))
+    resolution_m: Mapped[float | None] = mapped_column(Float)
+    bands: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    cloud_cover: Mapped[float | None] = mapped_column(Float)
+    valid_pixel_ratio: Mapped[float | None] = mapped_column(Float)
+    quality_status: Mapped[str] = mapped_column(String(32), nullable=False, default="unassessed")
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    is_simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class CandidateImageryMatchRecord(Base):
+    __tablename__ = "candidate_imagery_matches"
+    __table_args__ = (
+        UniqueConstraint("visual_case_id", "asset_id", name="uq_candidate_imagery_match"),
+        Index("ix_candidate_imagery_match_case_score", "visual_case_id", "matching_score"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    match_id: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    visual_case_id: Mapped[str] = mapped_column(ForeignKey("visual_verification_cases.visual_case_id", ondelete="CASCADE"), nullable=False)
+    asset_id: Mapped[str] = mapped_column(ForeignKey("imagery_catalog.asset_id", ondelete="CASCADE"), nullable=False)
+    spatial_score: Mapped[float] = mapped_column(Float, nullable=False)
+    temporal_score: Mapped[float] = mapped_column(Float, nullable=False)
+    cloud_score: Mapped[float] = mapped_column(Float, nullable=False)
+    valid_pixel_score: Mapped[float] = mapped_column(Float, nullable=False)
+    resolution_score: Mapped[float] = mapped_column(Float, nullable=False)
+    matching_score: Mapped[float] = mapped_column(Float, nullable=False)
+    match_reason: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    is_selected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
@@ -173,6 +232,25 @@ class FireConfirmationRecord(Base):
     rule_version: Mapped[str] = mapped_column(String(80), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class EvidenceFusionRunRecord(Base):
+    __tablename__ = "evidence_fusion_runs"
+    __table_args__ = (
+        CheckConstraint("final_score BETWEEN 0 AND 1", name="ck_evidence_fusion_score"),
+        Index("ix_evidence_fusion_case_created", "visual_case_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    fusion_run_id: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    visual_case_id: Mapped[str] = mapped_column(ForeignKey("visual_verification_cases.visual_case_id", ondelete="CASCADE"), nullable=False)
+    component_scores: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    weights: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    final_score: Mapped[float] = mapped_column(Float, nullable=False)
+    decision: Mapped[str] = mapped_column(String(40), nullable=False)
+    rule_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    evidence_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 

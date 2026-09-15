@@ -8,6 +8,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.visual_verification.member_a_adapter import build_visual_case_id
+from app.visual_verification.imagery_catalog_service import register_catalog_and_matches
 from app.visual_verification.models import (
     VisualCaseAssetRecord,
     VisualVerificationCaseRecord,
@@ -88,6 +89,10 @@ def _new_case_record(
         observed_at=candidate.observed_at,
         longitude=candidate.location.longitude,
         latitude=candidate.location.latitude,
+        source_cluster_id=candidate.source_cluster_id,
+        cluster_point_count=candidate.cluster_point_count,
+        cluster_mean_confidence=candidate.cluster_mean_confidence,
+        cluster_max_frp_mw=candidate.cluster_max_frp_mw,
         imagery_status=candidate.imagery_status.value,
         data_owner=candidate.data_owner.model_dump(mode="json"),
         replay_metadata=candidate.replay.model_dump(mode="json"),
@@ -105,17 +110,24 @@ def _new_asset_records(
 ) -> list[VisualCaseAssetRecord]:
     records: list[VisualCaseAssetRecord] = []
     for index, reference in enumerate(candidate.imagery_refs):
+        role = {
+            "pre": "comparison_pre",
+            "during": "primary",
+            "post": "comparison_post",
+            "context": "primary" if index == 0 else "context",
+        }[reference.analysis_phase.value]
         records.append(
             VisualCaseAssetRecord(
                 visual_case_id=visual_case_id,
                 source_asset_id=reference.asset_id,
-                asset_role="primary" if index == 0 else "context",
+                asset_role=role,
                 source_type="upstream_imagery_reference",
                 source_name=reference.source,
                 mime_type=reference.mime_type,
                 acquired_at=reference.acquired_at,
                 content_uri=reference.uri,
-                quality_status="unassessed",
+                quality_status=(reference.quality_status.value if reference.quality_status else "unassessed"),
+                checksum_sha256=reference.checksum_sha256,
                 is_simulated=candidate.is_simulated,
             )
         )
@@ -163,6 +175,11 @@ async def ingest_candidate(
     assets = _new_asset_records(candidate, record.visual_case_id)
     db.add_all(assets)
     await db.flush()
+    await register_catalog_and_matches(
+        db,
+        candidate=candidate,
+        visual_case_id=record.visual_case_id,
+    )
 
     return CandidateIngestItem(
         action=(

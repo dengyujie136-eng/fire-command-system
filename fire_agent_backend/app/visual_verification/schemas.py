@@ -98,6 +98,13 @@ class ImageryMatchStatus(str, Enum):
     INVALID_REFERENCE = "invalid_reference"
 
 
+class AnalysisPhase(str, Enum):
+    PRE = "pre"
+    DURING = "during"
+    POST = "post"
+    CONTEXT = "context"
+
+
 class GeoJsonPoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -147,6 +154,17 @@ class HotspotImageryReference(BaseModel):
     source: str = Field(min_length=1, max_length=160)
     mime_type: str = Field(min_length=1, max_length=120)
     acquired_at: datetime | None = None
+    time_start: datetime | None = None
+    time_end: datetime | None = None
+    analysis_phase: AnalysisPhase = AnalysisPhase.CONTEXT
+    footprint_geojson: dict[str, object] | None = None
+    crs: str | None = Field(default=None, max_length=64)
+    resolution_m: float | None = Field(default=None, gt=0)
+    bands: list[str] = Field(default_factory=list)
+    cloud_cover: float | None = Field(default=None, ge=0, le=100)
+    valid_pixel_ratio: float | None = Field(default=None, ge=0, le=1)
+    quality_status: ImageQuality | None = None
+    checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @field_validator("uri")
     @classmethod
@@ -156,12 +174,18 @@ class HotspotImageryReference(BaseModel):
             raise ValueError("imagery_refs must use an asset, path, or API reference, not data URI")
         return value
 
-    @field_validator("acquired_at")
+    @field_validator("acquired_at", "time_start", "time_end")
     @classmethod
     def require_imagery_timezone(cls, value: datetime | None) -> datetime | None:
         if value is None:
             return None
         return _require_utc(value, "imagery acquired_at")
+
+    @model_validator(mode="after")
+    def validate_time_range(self) -> "HotspotImageryReference":
+        if self.time_start is not None and self.time_end is not None and self.time_end < self.time_start:
+            raise ValueError("imagery time_end must be greater than or equal to time_start")
+        return self
 
 
 class HotspotReplayMetadata(BaseModel):
@@ -193,6 +217,10 @@ class HotspotCandidate(BaseModel):
     event_name: str = Field(min_length=1, max_length=240)
     location: HotspotLocation
     observed_at: datetime
+    source_cluster_id: str | None = Field(default=None, min_length=1, max_length=180)
+    cluster_point_count: int | None = Field(default=None, ge=1)
+    cluster_mean_confidence: float | None = Field(default=None, ge=0, le=1)
+    cluster_max_frp_mw: float | None = Field(default=None, ge=0)
     status: UpstreamCandidateStatus
     data_owner: HotspotDataOwner
     imagery_status: UpstreamImageryStatus
@@ -356,6 +384,10 @@ class VisualCaseRead(BaseModel):
     observed_at: datetime
     longitude: float
     latitude: float
+    source_cluster_id: str | None
+    cluster_point_count: int | None
+    cluster_mean_confidence: float | None
+    cluster_max_frp_mw: float | None
     imagery_status: UpstreamImageryStatus
     status: VisualCaseStatus
     version: int
@@ -383,6 +415,45 @@ class VisualCaseDetail(BaseModel):
 
     case: VisualCaseRead
     assets: list[VisualCaseAssetRead]
+
+
+class ImageryCatalogRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    asset_id: str
+    event_id: str
+    source_name: str
+    source_type: str
+    analysis_phase: AnalysisPhase
+    mime_type: str | None
+    time_start: datetime | None
+    time_end: datetime | None
+    content_uri: str
+    footprint_geojson: dict[str, object] | None
+    crs: str | None
+    resolution_m: float | None
+    bands: list[str]
+    cloud_cover: float | None
+    valid_pixel_ratio: float | None
+    quality_status: str
+    checksum_sha256: str | None
+    is_simulated: bool
+
+
+class CandidateImageryMatchRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    match_id: str
+    visual_case_id: str
+    asset_id: str
+    spatial_score: float
+    temporal_score: float
+    cloud_score: float
+    valid_pixel_score: float
+    resolution_score: float
+    matching_score: float
+    match_reason: list[str]
+    is_selected: bool
 
 
 class CandidateIngestItem(BaseModel):
@@ -452,9 +523,10 @@ class FirePointSelectionResult(BaseModel):
 
     schema_version: Literal["fire.point.selection.v1"] = "fire.point.selection.v1"
     event_id: str = Field(min_length=1, max_length=160)
-    selection_method: Literal["earliest_spatiotemporal_cluster_v1"] = (
-        "earliest_spatiotemporal_cluster_v1"
-    )
+    selection_method: Literal[
+        "upstream_cluster_v1",
+        "earliest_spatiotemporal_cluster_v1",
+    ] = "earliest_spatiotemporal_cluster_v1"
     evaluated_candidate_count: int = Field(ge=0)
     eligible_cluster_count: int = Field(ge=0)
     used_singleton_fallback: bool
@@ -487,7 +559,7 @@ class ImageryMatchResult(BaseModel):
     context_asset_ids: list[str] = Field(default_factory=list)
     comparison_asset_ids: list[str] = Field(default_factory=list)
     rejected_asset_ids: list[str] = Field(default_factory=list)
-    matching_method: Literal["explicit_reference"] = "explicit_reference"
+    matching_method: Literal["catalog_spatiotemporal_v1", "explicit_reference"] = "catalog_spatiotemporal_v1"
     matching_score: float = Field(ge=0, le=1)
     warnings: list[str] = Field(default_factory=list)
     is_simulated: bool
@@ -499,6 +571,7 @@ class ImageAnalysisRequest(BaseModel):
     visual_case_id: str = Field(min_length=1, max_length=100)
     image_asset_ids: list[str] = Field(min_length=1)
     image_uris: dict[str, str] = Field(default_factory=dict)
+    image_labels: dict[str, str] = Field(default_factory=dict)
     prompt_version: str = Field(default="visual-fire-v1", min_length=1, max_length=80)
 
     @field_validator("image_asset_ids")
@@ -514,6 +587,8 @@ class ImageAnalysisRequest(BaseModel):
             raise ValueError("image_uris keys must exactly match image_asset_ids")
         if any(not uri.startswith("visual-output://") for uri in self.image_uris.values()):
             raise ValueError("model image URIs must use visual-output://")
+        if self.image_labels and set(self.image_labels) != set(self.image_asset_ids):
+            raise ValueError("image_labels keys must exactly match image_asset_ids")
         return self
 
 
@@ -711,8 +786,24 @@ class VisualReviewResult(BaseModel):
     professional: ProfessionalDetection
     confirmation: ConfirmationDecision
     confirmation_id: str = Field(min_length=1, max_length=100)
+    fusion_run_id: str | None = Field(default=None, min_length=1, max_length=120)
+    fusion_score: float | None = Field(default=None, ge=0, le=1)
     warnings: list[str] = Field(default_factory=list)
     is_simulated: bool
+
+
+class EvidenceFusionRunRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    fusion_run_id: str
+    visual_case_id: str
+    component_scores: dict[str, float]
+    weights: dict[str, float]
+    final_score: float
+    decision: str
+    rule_version: str
+    evidence_ids: list[str]
+    created_at: datetime
 
 
 class AutoConfirmFirePointsRequest(BaseModel):
