@@ -10,6 +10,8 @@
 
 ## 2. 交付物
 
+线下交接时另有一个共享配置文件：`FIRMS_MAP_KEY.txt`。组员只把其中的值写入自己仓库根目录的 `.env`；该文件不上传 GitHub、不放入 ZIP、不加入 SHA 校验文件，也不复制甲的 `.env`。
+
 Git 分支提供代码、接口、脚本和文档。大型数据通过 U 盘或共享存储传递：
 
 ```text
@@ -268,3 +270,14 @@ Invoke-RestMethod http://localhost:8200/api/realtime-demo/firms-archive/manifest
 ### 10.9 清理临时文件
 
 确认验收完成后，才可以删除 `<仓库根目录>\handoff_temp` 和外部交接目录中的临时副本。不要删除仓库的 `data`，不要删除 Docker volume，不要执行 `docker compose down -v`。
+
+## 11. 交给组员的关键提醒
+
+- 不要把甲分支直接合并到自己的开发分支；如需集成，交给汇总成员在 integration 分支处理。
+- 不要把自己的分支切换成 `member/qingzhe_ivory`，也不要用甲分支覆盖自己的分支。
+- 不要执行 `docker compose down -v`，该命令可能删除本机 PostgreSQL Docker 数据卷。
+- 不要删除现有 `data`，不要将 ZIP 直接解压到仓库根目录或 `data` 目录造成 `data\data` 嵌套。
+- 不要复制、打印、提交或传播甲的 `.env`、FIRMS MAP KEY、Cesium Token、LLM Key 或密码。
+- 四台电脑的 Docker PostgreSQL 数据库彼此独立，必须每台分别导入 SQL；Git 不会自动同步数据库。
+- Sentinel-2 影像已单独交给乙、丙，不属于本通用交接包的必需文件。
+- 甲的代码只能通过 `git fetch origin member/qingzhe_ivory` 查看；最终由汇总成员在集成分支合并，不要直接修改 `main`。

@@ -21,6 +21,21 @@
 
 完整规则与目录说明见 `docs/MEMBER_A_FINAL_HANDOFF.md`。
 
+## Shared FIRMS Key handoff
+
+The shared FIRMS key is provided in `<handoff root>\\FINAL\\FIRMS_MAP_KEY.txt`. Configure that value in the local repository `.env` as `FIRMS_MAP_KEY`. Do not copy the member A `.env`. Do not print, commit, put the key in code, SQL, ZIP files, logs, or public documents. Do not push this key to GitHub.
+
+## 必须额外提醒
+
+- 不要把甲分支直接合并到自己的开发分支，除非用户明确要求；需要集成时交给汇总成员在 integration 分支处理。
+- 不要把当前分支切换成 `member/qingzhe_ivory`，也不要用甲分支覆盖自己的分支。
+- 不要执行 `docker compose down -v`，这会删除本机 Docker PostgreSQL 数据卷。
+- 不要删除现有 `data` 目录，不要把两个 ZIP 直接解压到仓库根目录或 `data` 目录造成错误嵌套。
+- 不要复制、打印、提交或传播甲的 `.env`、FIRMS MAP KEY、Cesium Token、LLM Key 或任何密码。
+- 每台电脑的 Docker PostgreSQL 数据库都是独立的，必须分别导入 SQL 种子；复制仓库代码不会自动同步数据库。
+- Sentinel-2 影像已单独交给乙、丙，不属于本通用交接包的必需文件。
+- 甲的代码可通过 `git fetch origin member/qingzhe_ivory` 查看；最终由汇总成员在集成分支合并，不要直接修改 `main`。
+
 ## 交接目录的具体约定
 
 用户会把甲发送的文件放到任意位置。先要求用户提供交接目录，记为 `<交接根目录>`；不要假定是 E 盘。文件应直接位于 `<交接根目录>\FINAL`：
