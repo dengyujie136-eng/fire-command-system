@@ -6,6 +6,6 @@ services:
       MODEL_PATH: /models/best.pt
       MODEL_NAME: wildfire-detection-yolov8m
     volumes:
-      - ${WILDFIRE_MODEL_PATH:?Set WILDFIRE_MODEL_PATH to the evaluated checkpoint}:/models/best.pt:ro
+      - ${WILDFIRE_MODEL_PATH:-../../third_party/wildfire-detection/weights/best.pt}:/models/best.pt:ro
     ports:
       - "8300:8300"

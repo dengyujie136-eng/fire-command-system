@@ -1,0 +1,3 @@
+[submodule "third_party/wildfire-detection"]
+	path = third_party/wildfire-detection
+	url = https://github.com/tarunnn12/wildfire-detection.git

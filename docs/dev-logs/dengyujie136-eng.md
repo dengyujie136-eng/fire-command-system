@@ -913,3 +913,11 @@
 - 本次专业目标检测服务不可用，结果中明确记录`professional_detector_unavailable`；Qwen三时相分析和课程演示确认不受影响。
 - Qwen配置继续保存在仓库外个人配置文件中，未把密钥写入日志或Git。
 - 核心五项优化提交`0aab1d2`已经进入远程`main`；提交`9781e89`因GitHub网络连接失败暂留本地，待网络恢复后推送。
+
+## 2026-09-17：第三方YOLO模型可复现接入
+
+- 将`tarunnn12/wildfire-detection`以Git子模块接入`third_party/wildfire-detection`，固定到已验证提交`c5b9bbc41e4806d521dd4f4d2f22b791914a7ab1`。
+- 运行权重仍由原作者仓库的Git LFS提供，预期`weights/best.pt` SHA-256为`fe2bdd32dc92c06ef2006e87718b6cbec9a4537a01cff79cf445737c83ee4fd7`。
+- `backend/visual_detector_api/compose.example.yaml`默认挂载子模块中的模型，仍允许通过`WILDFIRE_MODEL_PATH`覆盖。
+- 新增`docs/THIRD_PARTY_WILDFIRE_MODEL.md`，记录克隆、LFS下载、校验、启动和许可边界。
+- 上游目前没有LICENSE，因此主仓库不复制第三方源码或权重，只保存指向原始来源的固定Git链接；真实Qwen API Key继续保留在仓库外。
