@@ -1,0 +1,156 @@
+﻿{
+    "api_key_required":  false,
+    "source":  "Microsoft Planetary Computer STAC",
+    "schema_version":  "fire.imagery.asset-manifest.v0.1",
+    "event_id":  "dixie_fire_2021",
+    "collection":  "sentinel-2-l2a",
+    "assets":  [
+                   {
+                       "phase":  "pre",
+                       "asset_id":  "S2A_MSIL2A_20210708T184921_R113_T10TFK_20210709T151429",
+                       "acquired_at":  "2021-07-08T18:49:21.024000Z",
+                       "cloud_cover":  0.11802,
+                       "preview_path":  "data/raw/sentinel2/dixie_fire_2021/dixie_fire_2021_sentinel2_pre_S2A_MSIL2A_20210708T184921_R113_T10TFK_20210709T151429.png",
+                       "metadata_path":  "data/raw/sentinel2/dixie_fire_2021/dixie_fire_2021_sentinel2_pre_S2A_MSIL2A_20210708T184921_R113_T10TFK_20210709T151429.json",
+                       "source_uri":  "https://planetarycomputer.microsoft.com/api/data/v1/item/preview.png?collection=sentinel-2-l2a\u0026item=S2A_MSIL2A_20210708T184921_R113_T10TFK_20210709T151429\u0026assets=visual\u0026asset_bidx=visual%7C1%2C2%2C3\u0026nodata=0\u0026format=png",
+                       "geometry":  {
+                                        "type":  "Polygon",
+                                        "coordinates":  [
+                                                            [
+                                                                [
+                                                                    -121.81731,
+                                                                    40.6447996
+                                                                ],
+                                                                [
+                                                                    -120.51955,
+                                                                    40.6242099
+                                                                ],
+                                                                [
+                                                                    -120.55524,
+                                                                    39.6358715
+                                                                ],
+                                                                [
+                                                                    -121.834335,
+                                                                    39.6557573
+                                                                ],
+                                                                [
+                                                                    -121.81731,
+                                                                    40.6447996
+                                                                ]
+                                                            ]
+                                                        ]
+                                    },
+                       "bbox":  [
+                                    -121.834335,
+                                    39.6358715,
+                                    -120.51955,
+                                    40.6447996
+                                ],
+                       "crs":  null,
+                       "gsd":  null,
+                       "center_candidate":  {
+                                                "latitude":  39.87194,
+                                                "crs":  "EPSG:4326",
+                                                "longitude":  -121.38241
+                                            }
+                   },
+                   {
+                       "phase":  "during",
+                       "asset_id":  "S2A_MSIL2A_20210718T184921_R113_T10TFK_20210719T082337",
+                       "acquired_at":  "2021-07-18T18:49:21.024000Z",
+                       "cloud_cover":  2.036832,
+                       "preview_path":  "data/raw/sentinel2/dixie_fire_2021/dixie_fire_2021_sentinel2_during_S2A_MSIL2A_20210718T184921_R113_T10TFK_20210719T082337.png",
+                       "metadata_path":  "data/raw/sentinel2/dixie_fire_2021/dixie_fire_2021_sentinel2_during_S2A_MSIL2A_20210718T184921_R113_T10TFK_20210719T082337.json",
+                       "source_uri":  "https://planetarycomputer.microsoft.com/api/data/v1/item/preview.png?collection=sentinel-2-l2a\u0026item=S2A_MSIL2A_20210718T184921_R113_T10TFK_20210719T082337\u0026assets=visual\u0026asset_bidx=visual%7C1%2C2%2C3\u0026nodata=0\u0026format=png",
+                       "geometry":  {
+                                        "type":  "Polygon",
+                                        "coordinates":  [
+                                                            [
+                                                                [
+                                                                    -121.81731,
+                                                                    40.6447996
+                                                                ],
+                                                                [
+                                                                    -120.51955,
+                                                                    40.6242099
+                                                                ],
+                                                                [
+                                                                    -120.55524,
+                                                                    39.6358715
+                                                                ],
+                                                                [
+                                                                    -121.834335,
+                                                                    39.6557573
+                                                                ],
+                                                                [
+                                                                    -121.81731,
+                                                                    40.6447996
+                                                                ]
+                                                            ]
+                                                        ]
+                                    },
+                       "bbox":  [
+                                    -121.834335,
+                                    39.6358715,
+                                    -120.51955,
+                                    40.6447996
+                                ],
+                       "crs":  null,
+                       "gsd":  null,
+                       "center_candidate":  {
+                                                "latitude":  39.87194,
+                                                "crs":  "EPSG:4326",
+                                                "longitude":  -121.38241
+                                            }
+                   },
+                   {
+                       "phase":  "post",
+                       "asset_id":  "S2A_MSIL2A_20211016T185401_R113_T10TFK_20211017T050457",
+                       "acquired_at":  "2021-10-16T18:54:01.024000Z",
+                       "cloud_cover":  0.03141,
+                       "preview_path":  "data/raw/sentinel2/dixie_fire_2021/dixie_fire_2021_sentinel2_post_S2A_MSIL2A_20211016T185401_R113_T10TFK_20211017T050457.png",
+                       "metadata_path":  "data/raw/sentinel2/dixie_fire_2021/dixie_fire_2021_sentinel2_post_S2A_MSIL2A_20211016T185401_R113_T10TFK_20211017T050457.json",
+                       "source_uri":  "https://planetarycomputer.microsoft.com/api/data/v1/item/preview.png?collection=sentinel-2-l2a\u0026item=S2A_MSIL2A_20211016T185401_R113_T10TFK_20211017T050457\u0026assets=visual\u0026asset_bidx=visual%7C1%2C2%2C3\u0026nodata=0\u0026format=png",
+                       "geometry":  {
+                                        "type":  "Polygon",
+                                        "coordinates":  [
+                                                            [
+                                                                [
+                                                                    -121.81731,
+                                                                    40.6447996
+                                                                ],
+                                                                [
+                                                                    -120.51955,
+                                                                    40.6242099
+                                                                ],
+                                                                [
+                                                                    -120.55524,
+                                                                    39.6358715
+                                                                ],
+                                                                [
+                                                                    -121.834335,
+                                                                    39.6557573
+                                                                ],
+                                                                [
+                                                                    -121.81731,
+                                                                    40.6447996
+                                                                ]
+                                                            ]
+                                                        ]
+                                    },
+                       "bbox":  [
+                                    -121.834335,
+                                    39.6358715,
+                                    -120.51955,
+                                    40.6447996
+                                ],
+                       "crs":  null,
+                       "gsd":  null,
+                       "center_candidate":  {
+                                                "latitude":  39.87194,
+                                                "crs":  "EPSG:4326",
+                                                "longitude":  -121.38241
+                                            }
+                   }
+               ]
+}

@@ -84,6 +84,11 @@ SPATIAL_COLUMNS = (
         ELSE ST_SetSRID(ST_GeomFromGeoJSON(geometry_geojson::text), 4326) END
     ) STORED
     """,
+    """
+    ALTER TABLE realtime_hotspots
+    ADD COLUMN IF NOT EXISTS location_geom geometry(Point, 4326)
+    GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)) STORED
+    """,
 )
 
 SPATIAL_INDEXES = (
@@ -99,6 +104,7 @@ SPATIAL_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_imagery_catalog_footprint_geom ON imagery_catalog USING GIST (footprint_geom)",
     "CREATE INDEX IF NOT EXISTS ix_visual_derivatives_extent_geom ON visual_image_derivatives USING GIST (extent_geom)",
     "CREATE INDEX IF NOT EXISTS ix_visual_findings_finding_geom ON visual_findings USING GIST (finding_geom)",
+    "CREATE INDEX IF NOT EXISTS ix_realtime_hotspots_location_geom ON realtime_hotspots USING GIST (location_geom)",
 )
 
 SCALAR_SCHEMA_UPGRADES = (
