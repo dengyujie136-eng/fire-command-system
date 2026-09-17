@@ -45,3 +45,9 @@ forest_fire_B/docs/*.docx
 *.njsproj
 *.sln
 *.sw?
+
+# Large pre-downloaded realtime satellite demo assets
+data/raw/realtime_demo/goes18/**/*.nc
+data/raw/realtime_demo/goes18/**/*.part
+**/__pycache__/
+*.pyc

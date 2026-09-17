@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import csv
+import asyncio
 import hashlib
 import io
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,8 @@ REGIONS: dict[str, dict[str, Any]] = {
         "supported": False,
     },
 }
+
+_SYNC_LOCKS: dict[str, asyncio.Lock] = {}
 
 
 def list_regions() -> list[dict[str, Any]]:
@@ -143,15 +146,89 @@ def _prune_files(directory: Path, suffix: str, keep: int) -> None:
         path.unlink(missing_ok=True)
 
 
+def _sync_lock(region_id: str) -> asyncio.Lock:
+    lock = _SYNC_LOCKS.get(region_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _SYNC_LOCKS[region_id] = lock
+    return lock
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+async def _cached_response(db: AsyncSession, region: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    latest = await db.scalar(
+        select(RealtimeObservation)
+        .where(RealtimeObservation.region_id == region["id"])
+        .order_by(RealtimeObservation.fetched_at.desc())
+    )
+    if latest is None:
+        return None
+    fetched_at = _as_utc(latest.fetched_at)
+    refresh_at = fetched_at + timedelta(minutes=int(region["refresh_minutes"]))
+    if now >= refresh_at:
+        return None
+    hotspots = (
+        await db.scalars(
+            select(RealtimeHotspot)
+            .where(RealtimeHotspot.observation_id == latest.observation_id)
+            .order_by(RealtimeHotspot.observed_at, RealtimeHotspot.detection_id)
+        )
+    ).all()
+    return {
+        "ready": True,
+        "region_id": region["id"],
+        "source": latest.source,
+        "observed_at": latest.observed_at,
+        "fetched_at": latest.fetched_at,
+        "detection_status": "已复用缓存候选火点",
+        "hotspots": [
+            {
+                "detection_id": item.detection_id,
+                "source_record_id": item.source_record_id,
+                "source": item.source,
+                "observed_at": item.observed_at,
+                "detected_at": item.detected_at,
+                "longitude": item.longitude,
+                "latitude": item.latitude,
+                "confidence": item.confidence,
+                "status": item.status,
+                "source_asset_id": (item.attributes or {}).get("source_asset_id", ""),
+                "algorithm": (item.attributes or {}).get("algorithm", "firms_nrt_product_v0.1"),
+                "attributes": item.attributes or {},
+            }
+            for item in hotspots
+        ],
+        "total": len(hotspots),
+        "data_source_mode": "realtime_candidate_cache",
+        "cache_hit": True,
+        "next_refresh_at": refresh_at,
+        "source_file": latest.source_file,
+    }
+
+
 async def sync_region(db: AsyncSession, region_id: str) -> dict[str, Any]:
+    async with _sync_lock(region_id):
+        return await _sync_region_unlocked(db, region_id)
+
+
+async def _sync_region_unlocked(db: AsyncSession, region_id: str) -> dict[str, Any]:
     settings = get_settings()
     region = get_region(region_id)
-    fetched_at = _utc_now()
     if not region["supported"]:
         raise ValueError("该区域当前暂不支持实时火点监测")
     if not settings.firms_map_key:
         raise RuntimeError("FIRMS_MAP_KEY 未配置，请在仓库根目录 .env 中配置 NASA FIRMS MAP KEY")
 
+    now = _utc_now()
+    cached = await _cached_response(db, region, now)
+    if cached is not None:
+        return cached
+    fetched_at = now
     west, south, east, north = region["bbox"]
     days = max(1, min(settings.firms_realtime_days, 10))
     endpoint = (
@@ -231,6 +308,21 @@ async def sync_region(db: AsyncSession, region_id: str) -> dict[str, Any]:
                 },
             )
         )
+    else:
+        # Refresh the acquisition timestamp for an unchanged upstream batch so
+        # the TTL cache reflects the latest successful API check.
+        existing_observation.fetched_at = fetched_at
+        existing_observation.observed_at = latest_observed_at or fetched_at
+        existing_observation.source_file = str(raw_path.relative_to(settings.resolved_data_dir))
+        existing_observation.metadata_json = {
+            "region": region,
+            "endpoint": endpoint.replace(settings.firms_map_key, "<MAP_KEY>"),
+            "sha256": content_hash,
+            "row_count": len(rows),
+            "valid_hotspot_count": len(parsed),
+            "duplicate_hotspot_count": max(0, len(rows) - len(parsed)),
+            "data_source_mode": "realtime_candidate",
+        }
     for item in parsed:
         existing = await db.scalar(
             select(RealtimeHotspot).where(RealtimeHotspot.detection_id == item["detection_id"])
@@ -325,6 +417,8 @@ async def sync_region(db: AsyncSession, region_id: str) -> dict[str, Any]:
         "hotspots": parsed,
         "total": len(parsed),
         "data_source_mode": "realtime_candidate",
+        "cache_hit": False,
+        "next_refresh_at": fetched_at + timedelta(minutes=int(region["refresh_minutes"])),
         "source_file": str(raw_path.relative_to(settings.resolved_data_dir)),
         "processed_file": str(processed_path.relative_to(settings.resolved_data_dir)),
     }

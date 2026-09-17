@@ -20,6 +20,8 @@ DATASET_ALIASES: dict[str, list[str]] = {
     "weather_hourly": ["nasa_power_hourly"],
     "realtime_replay": ["firms"],
     "realtime_hotspots": ["realtime_firms"],
+    "realtime_image_demo": [],
+    "realtime_firms_archive": [],
     "forefire_input": ["forefire_input_manifest"],
     "terrain": ["copernicus_dem"],
     "slope": ["copernicus_dem"],
@@ -59,6 +61,19 @@ DATASET_ENDPOINTS: dict[str, dict[str, Any]] = {
         "endpoint": "/api/realtime/hotspots?region_id={region_id}",
         "status_endpoint": "/api/realtime/status?region_id={region_id}",
         "catalog_endpoint": "/api/data-agent/realtime-catalog",
+        "consumer": ["member_a", "member_b", "member_d"],
+    },
+    "realtime_image_demo": {
+        "role": "Pre-downloaded GOES-18 C07/C14 imagery processed as simulated ten-minute reception, with FDCC validation",
+        "endpoint": "/api/realtime-demo/manifest",
+        "detect_endpoint": "/api/realtime-demo/detect?slot_index={slot_index}",
+        "preview_endpoint": "/api/realtime-demo/preview/{slot_index}",
+        "consumer": ["member_a", "member_b", "member_d"],
+    },
+    "realtime_firms_archive": {
+        "role": "Three-month FIRMS VIIRS historical hotspot archive used as simulated near-realtime daily reception",
+        "endpoint": "/api/realtime-demo/firms-archive/manifest",
+        "hotspots_endpoint": "/api/realtime-demo/firms-archive/hotspots?observed_on={date}",
         "consumer": ["member_a", "member_b", "member_d"],
     },
     "forefire_input": {
@@ -174,6 +189,31 @@ async def realtime_data_catalog(db: AsyncSession = Depends(get_db)) -> dict[str,
                 "sync_endpoint": "/api/realtime/sync",
             }
         )
+    items.extend(
+        [
+            {
+                "id": "park_fire_2024_goes18_demo",
+                "label": "Park Fire 2024 GOES-18 影像检测演示",
+                "source": "GOES-18 ABI C07/C14 + FDCC",
+                "source_mode": "pre_downloaded_real_satellite_simulated_reception",
+                "available": True,
+                "manifest_endpoint": "/api/realtime-demo/manifest",
+                "detect_endpoint": "/api/realtime-demo/detect?slot_index={slot_index}",
+                "preview_endpoint": "/api/realtime-demo/preview/{slot_index}",
+                "consumer": ["member_a", "member_b", "member_d"],
+            },
+            {
+                "id": "firms_archive_california_nevada_2025",
+                "label": "加州北部及内华达西部 FIRMS 三个月演示",
+                "source": "FIRMS VIIRS_SNPP_SP",
+                "source_mode": "pre_downloaded_historical_simulated_reception",
+                "available": True,
+                "manifest_endpoint": "/api/realtime-demo/firms-archive/manifest",
+                "hotspots_endpoint": "/api/realtime-demo/firms-archive/hotspots?observed_on={date}",
+                "consumer": ["member_a", "member_b", "member_d"],
+            },
+        ]
+    )
     return {
         "schema_version": "fire.data-agent.realtime-catalog.v0.1",
         "retrieval_mode": "deterministic_local_observation",
@@ -203,11 +243,29 @@ async def resolve_data_requirements(
             status_code=422,
             detail={"unknown_needs": unknown_needs, "supported_needs": sorted(DATASET_ENDPOINTS)},
         )
-    if not manifests and any(need != "realtime_hotspots" for need in normalized_needs):
+    if not manifests and any(need not in {"realtime_hotspots", "realtime_image_demo", "realtime_firms_archive"} for need in normalized_needs):
         raise HTTPException(status_code=404, detail=f"No data manifest found: {request.event_id}")
 
     selected = []
     for need in normalized_needs:
+        if need == "realtime_image_demo":
+            descriptor = dict(DATASET_ENDPOINTS[need])
+            descriptor.update(
+                {
+                    "need": need,
+                    "available": True,
+                    "event_id": "park_fire_2024_demo",
+                    "data_source_mode": "pre_downloaded_real_satellite_simulated_reception",
+                    "manifests": [],
+                }
+            )
+            selected.append(descriptor)
+            continue
+        if need == "realtime_firms_archive":
+            descriptor = dict(DATASET_ENDPOINTS[need])
+            descriptor.update({"need": need, "available": True, "manifests": []})
+            selected.append(descriptor)
+            continue
         if need == "realtime_hotspots":
             if not request.region_id:
                 raise HTTPException(
