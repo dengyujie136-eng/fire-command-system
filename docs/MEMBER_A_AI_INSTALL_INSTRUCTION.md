@@ -20,3 +20,32 @@
 10. 最后报告当前分支、恢复文件、数据库记录数、容器状态、接口状态和任何冲突。不要自动提交或推送当前成员分支。
 
 完整规则与目录说明见 `docs/MEMBER_A_FINAL_HANDOFF.md`。
+
+## 交接目录的具体约定
+
+用户会把甲发送的文件放到任意位置。先要求用户提供交接目录，记为 `<交接根目录>`；不要假定是 E 盘。文件应直接位于 `<交接根目录>\FINAL`：
+
+```text
+<交接根目录>\FINAL\qingzhe_ivory_dixie_fire_2021_data_bundle.zip
+<交接根目录>\FINAL\dixie_fire_2021_database_seed.sql
+<交接根目录>\FINAL\member_a_realtime_demo_data_20260917.zip
+<交接根目录>\FINAL\member_a_realtime_database_seed_20260917.sql
+<交接根目录>\FINAL\SHA256SUMS_20260917.txt
+```
+
+`<仓库根目录>` 是当前 Git 仓库实际位置，也不要假定为 E 盘。先校验 Hash，再将两个 ZIP 解压到 `<仓库根目录>\handoff_temp`。确认包内是 `data` 目录后，把其中的内容合并到 `<仓库根目录>\data`，不能形成 `data\data`，不能清空或全部覆盖已有数据。
+
+在 `<仓库根目录>` 启动 Docker：
+
+```powershell
+docker compose up -d postgis fire-agent-api
+```
+
+然后恢复数据库：
+
+```powershell
+./scripts/restore-dixie-data-docker.ps1 -SeedPath '<交接根目录>\FINAL\dixie_fire_2021_database_seed.sql'
+./scripts/restore-member-a-realtime-docker.ps1 -SeedPath '<交接根目录>\FINAL\member_a_realtime_database_seed_20260917.sql'
+```
+
+最后运行校验和接口检查。遇到工作区未提交修改、同名文件、Hash 不一致或数据库恢复错误时，停止操作并报告，不能使用强制覆盖命令。整个过程不得读取、复制或提交甲的 `.env`；FIRMS NRT 需要由本机用户自己配置个人 `FIRMS_MAP_KEY`。
