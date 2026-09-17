@@ -75,6 +75,7 @@ const wsStatusText = computed(() => {
 const navItems = [
   { path: '/', label: '首页', icon: '首' },
   { path: '/realtime-monitor', label: '监测', icon: '测' },
+  { path: '/visual-verification', label: '复核', icon: '核' },
   { path: '/fire-predict', label: '推演', icon: '火' },
   { path: '/multi-source-fusion', label: '融合', icon: '融' },
   { path: '/uav-dispatch', label: '无人机', icon: '空' },

@@ -44,16 +44,27 @@ services:
       - "8200:8200"
     environment:
       ENVIRONMENT: production
+      DATA_DIR: /app/data
+      VISUAL_OUTPUT_DIR: /app/visual-output
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xinghuo}:${POSTGRES_PASSWORD:-xinghuo_dev}@postgis:5432/${POSTGRES_DB:-xinghuo}
       LANDSCAPE_DATA_DIR: /app/environment
       CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
+      FOREFIRE_API_URL: http://forefire-api:8080
       LLM_PROVIDER: ${LLM_PROVIDER:-zhipu}
       LLM_MODEL: ${LLM_MODEL:-glm-4.6}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
+      QWEN_VL_API_KEY: ${QWEN_VL_API_KEY:-}
+      QWEN_VL_BASE_URL: ${QWEN_VL_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      QWEN_VL_MODEL: ${QWEN_VL_MODEL:-qwen3-vl-plus}
+      QWEN_VL_TIMEOUT_SECONDS: ${QWEN_VL_TIMEOUT_SECONDS:-60}
+      QWEN_VL_MAX_ATTEMPTS: ${QWEN_VL_MAX_ATTEMPTS:-2}
+      QWEN_VL_MAX_IMAGE_BYTES: ${QWEN_VL_MAX_IMAGE_BYTES:-10485760}
+      FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
     volumes:
       - ./environment:/app/environment:ro
-      - ./data:/app/data:ro
+      - ./data:/app/data
+      - visual-derivatives:/app/visual-output
     depends_on:
       postgis:
         condition: service_healthy
@@ -79,3 +90,4 @@ volumes:
   postgis-data:
   forefire-output:
   forefire-data:
+  visual-derivatives:

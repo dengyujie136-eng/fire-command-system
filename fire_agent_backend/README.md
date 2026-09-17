@@ -32,3 +32,21 @@ DATABASE_URL=postgresql+asyncpg://xinghuo:xinghuo_dev@localhost:5432/xinghuo
 - `WS /ws/events/{event_id}`
 
 PostgreSQL 启动时会自动启用 PostGIS，并为主要点、火线和路线建立空间列与 GiST 索引。
+
+## Qwen-VL 视觉复核
+
+Qwen-VL 使用独立的 `QWEN_VL_*` 环境变量，真实 Key 不得写入仓库。容器运行时可从仓库外的环境文件注入：
+
+```powershell
+docker compose --env-file '..\个人工作\qwen.env' up -d --build fire-agent-api
+```
+
+调用 `POST /api/visual-verification/candidates/{visual_case_id}/analyses`，请求体只提交已登记的派生影像编号：
+
+```json
+{
+  "derivative_ids": ["derivative-id"]
+}
+```
+
+服务会从数据库解析对应的 `visual-output://` 地址，不接受客户端提交任意文件路径。未配置 Key 时返回 `503 qwen_not_configured`；模型调用失败时返回并保存结构化失败结果。

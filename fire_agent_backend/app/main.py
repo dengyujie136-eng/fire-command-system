@@ -18,12 +18,15 @@ from app.routers import (
     recalculations,
     recommendations,
     reports,
+    realtime,
+    realtime_demo,
     scenarios,
     spatial_analysis,
     spread,
     system,
     websocket,
 )
+from app.visual_verification.router import router as visual_verification_router
 
 
 @asynccontextmanager
@@ -58,6 +61,8 @@ def create_app() -> FastAPI:
     app.include_router(clock.router, prefix=settings.api_prefix)
     app.include_router(observations.router, prefix=settings.api_prefix)
     app.include_router(fire_data.router, prefix=settings.api_prefix)
+    app.include_router(realtime.router, prefix=settings.api_prefix)
+    app.include_router(realtime_demo.router, prefix=settings.api_prefix)
     app.include_router(data_agent.router, prefix=settings.api_prefix)
     app.include_router(scenarios.router, prefix=settings.api_prefix)
     app.include_router(spread.router, prefix=settings.api_prefix)
@@ -66,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(recommendations.router, prefix=settings.api_prefix)
     app.include_router(recalculations.router, prefix=settings.api_prefix)
     app.include_router(reports.router, prefix=settings.api_prefix)
+    app.include_router(visual_verification_router, prefix=settings.api_prefix)
     app.include_router(websocket.router)
 
     return app

@@ -1,0 +1,371 @@
+{
+    "schema_version":  "fire.dataset.manifest.v0.1",
+    "event_id":  "dixie_fire_2021",
+    "event_name":  "Dixie Fire",
+    "generated_at":  "2026-09-10T01:16:21.1000947Z",
+    "spatial_extent":  {
+                           "west":  -122.5,
+                           "south":  39,
+                           "east":  -119,
+                           "north":  42,
+                           "crs":  "EPSG:4326"
+                       },
+    "temporal_extent":  [
+                            "2021-07-13",
+                            "2021-10-25"
+                        ],
+    "datasets":  [
+                     {
+                         "dataset_id":  "dixie_fire_2021_firms_viirs_snpp_sp",
+                         "name":  "Dixie Fire VIIRS S-NPP historical hotspot observations",
+                         "source_url":  "https://firms.modaps.eosdis.nasa.gov/",
+                         "license":  "NASA Earthdata/FIRMS",
+                         "source_crs":  "EPSG:4326",
+                         "target_crs":  "EPSG:4326",
+                         "temporal_extent":  [
+                                                 "2021-07-13",
+                                                 "2021-10-25"
+                                             ],
+                         "processing_steps":  [
+                                                  "CSV header validation",
+                                                  "UTC time normalization",
+                                                  "point geometry creation",
+                                                  "MTBS perimeter spatial filtering"
+                                              ],
+                         "files":  [
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210713.csv",
+                                           "size_bytes":  118708,
+                                           "sha256":  "7687c0494daf4e4ccae1703f390f4511199101a9a0e5498ad86dd966e1ac14dd"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210718.csv",
+                                           "size_bytes":  399861,
+                                           "sha256":  "1eb60833d3aa8f6c3c9a5157f6a5020fec62b296d2a275db5ed6a32e3e986031"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210723.csv",
+                                           "size_bytes":  367633,
+                                           "sha256":  "39d28c563ec5017f954c4f2e5dec9ddf7b892d1d9463b54a3190d8fd0186152b"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210728.csv",
+                                           "size_bytes":  143268,
+                                           "sha256":  "22f7f1952dc278e2b9bf3f2c6b871b8f354ccfbac5b648bfdc650bb4d43c7a58"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210802.csv",
+                                           "size_bytes":  766772,
+                                           "sha256":  "3afa872b2d2285c5062e9493b6f65347f4ef23fac4666848581183d119b272ad"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210807.csv",
+                                           "size_bytes":  646032,
+                                           "sha256":  "d6ce94cc4abcc313f920b063414b56f785c19da38bd02af5d05056bb26f9975d"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210812.csv",
+                                           "size_bytes":  570630,
+                                           "sha256":  "8d455826186646882c305786509005c32ab5063d1cf36b216f56c31589e4edaa"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210817.csv",
+                                           "size_bytes":  820613,
+                                           "sha256":  "55c6bf6da90e6d5b25d8b4a15bf871b8f0563ed0febe8bf6cd26cec0660b56cd"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210822.csv",
+                                           "size_bytes":  327995,
+                                           "sha256":  "2d1f92f02c95bd37ec93aff1b14d0a593f5d2cbfc3bc330065b6746d25a8d504"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210827.csv",
+                                           "size_bytes":  541047,
+                                           "sha256":  "0f81acc305f34b87880ef1ff9e36e64014070dfb3bbc2c4b05323d4c9060ca0d"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210901.csv",
+                                           "size_bytes":  452230,
+                                           "sha256":  "fe0d0ca3426d0629785fff1c72bb5845449de5f357aa326c2f50410a6c3d0bb4"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210906.csv",
+                                           "size_bytes":  364571,
+                                           "sha256":  "0baf91e64a75377de347d76e8d306061e7b7b81dea9d06e970c9f3b4282ff883"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210911.csv",
+                                           "size_bytes":  18414,
+                                           "sha256":  "0bcd6aec4469cc8bd9135f10dd332202d50f12a88c6ea751b5ae46cc142e4cd8"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210916.csv",
+                                           "size_bytes":  12204,
+                                           "sha256":  "c3345f46d88898c608df6b09cddc16a0d43b7dd1f9c16ff282dfd39a32d87019"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210921.csv",
+                                           "size_bytes":  39713,
+                                           "sha256":  "1ce70106e6b08172abc138b9b11233873e24b217d850439f70389497e991530d"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20210926.csv",
+                                           "size_bytes":  11320,
+                                           "sha256":  "22ca7f46f58e887d619e9cf14ed47aa85603315f07ab8c0be53934a074dcecdf"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20211001.csv",
+                                           "size_bytes":  9676,
+                                           "sha256":  "9326ce711560b512bec029a3587cdce12a4d4d0f7c9c41c0362da679cc047591"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20211006.csv",
+                                           "size_bytes":  7365,
+                                           "sha256":  "7c786189d7a7bbfb40b827c89eee56e6cb6b7ac3c823fe1892456dcb8dd13a02"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20211011.csv",
+                                           "size_bytes":  7259,
+                                           "sha256":  "373f76914e6c77e16b0be1129dc5ba9585b4d829e5dc195b0b655f5713c1e2f6"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20211016.csv",
+                                           "size_bytes":  10165,
+                                           "sha256":  "1a507653461c15a8189f71e667ecc3d109ff3654ea66076804191827b7799d13"
+                                       },
+                                       {
+                                           "path":  "data/raw/firms/dixie_fire_2021_20211021.csv",
+                                           "size_bytes":  1250,
+                                           "sha256":  "0488390f8fd2fc42f5b146f503422ad7d800922ce87fdb788850b59b28ccbddf"
+                                       }
+                                   ]
+                     },
+                     {
+                         "dataset_id":  "dixie_fire_2021_mtbs_burn_area",
+                         "name":  "Dixie Fire MTBS burned area boundary",
+                         "source_url":  "https://www.mtbs.gov/",
+                         "license":  "USGS/USDA Forest Service MTBS",
+                         "source_crs":  "EPSG:5070",
+                         "target_crs":  "EPSG:4326",
+                         "temporal_extent":  [
+                                                 "2020-07-08",
+                                                 "2022-07-14"
+                                             ],
+                         "processing_steps":  [
+                                                  "Shapefile bundle validation",
+                                                  "Albers to WGS84 transformation",
+                                                  "ST_MakeValid geometry repair",
+                                                  "MultiPolygon validation"
+                                              ],
+                         "files":  [
+                                       {
+                                           "path":  "data/raw/burned_area/dixie_fire_2021_mtbs_burn_area.zip",
+                                           "size_bytes":  642025,
+                                           "sha256":  "e3a4403a430f0a0ad8040e3d0bae69fa176915751d68c8596cdb4392c0b5963b"
+                                       },
+                                       {
+                                           "path":  "data/raw/burned_area/dixie_fire_2021_mtbs_burn_area/mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.dbf",
+                                           "size_bytes":  3397,
+                                           "sha256":  "4af337f7d251d58a2d8778d6c1f5b9df12c2928a9c1e7f2f2856e676a64bcbed"
+                                       },
+                                       {
+                                           "path":  "data/raw/burned_area/dixie_fire_2021_mtbs_burn_area/mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.prj",
+                                           "size_bytes":  459,
+                                           "sha256":  "b38f60752e2672fe3d20e368065b9abb82aa164bdbee1dc52b32a8b85149028a"
+                                       },
+                                       {
+                                           "path":  "data/raw/burned_area/dixie_fire_2021_mtbs_burn_area/mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.shp",
+                                           "size_bytes":  810496,
+                                           "sha256":  "cc8428d1fa555603d8efb7cb2d48b5145bf943e156fd9fb848e7aa03cb0afabc"
+                                       },
+                                       {
+                                           "path":  "data/raw/burned_area/dixie_fire_2021_mtbs_burn_area/mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.shx",
+                                           "size_bytes":  108,
+                                           "sha256":  "edce85a42322f279b52ffe085edfb6753ede231de4c84965dffca1624c5deb71"
+                                       },
+                                       {
+                                           "path":  "data/raw/burned_area/dixie_fire_2021_mtbs_burn_area/mtbs_ca3987612137920210714_10023957_20200708_20220714_iso_metadata.xml",
+                                           "size_bytes":  53150,
+                                           "sha256":  "7aa7752aacc0ea0317e725593b9acf6f7376917370ec396dcfef28ac4bca3980"
+                                       },
+                                       {
+                                           "path":  "data/raw/burned_area/dixie_fire_2021_mtbs_burn_area/mtbs_ca3987612137920210714_10023957_20200708_20220714_metadata.xml",
+                                           "size_bytes":  37959,
+                                           "sha256":  "98c31d0f6cdba293b9ab0f41feb84b1bd7c22c7bb3f3adbcd9b5b5e13b9c86a3"
+                                       }
+                                   ]
+                     },
+                     {
+                         "dataset_id":  "dixie_fire_2021_nasa_power_daily",
+                         "name":  "Dixie Fire NASA POWER daily meteorological baseline",
+                         "source_url":  "https://power.larc.nasa.gov/",
+                         "license":  "NASA POWER data access terms",
+                         "source_crs":  "EPSG:4326",
+                         "target_crs":  "EPSG:4326",
+                         "temporal_extent":  [
+                                                 "2021-07-13",
+                                                 "2021-10-25"
+                                             ],
+                         "processing_steps":  [
+                                                  "NASA POWER daily point query",
+                                                  "UTC time standard",
+                                                  "JSON to normalized CSV",
+                                                  "point geometry creation"
+                                              ],
+                         "files":  [
+                                       {
+                                           "path":  "data/raw/weather/dixie_fire_2021_nasa_power_daily.json",
+                                           "size_bytes":  14923,
+                                           "sha256":  "14c40b85a741f39cc6ae70903a0eaa7cbb7916d23e33e089500114a552073d8b"
+                                       },
+                                       {
+                                           "path":  "data/processed/weather/dixie_fire_2021_nasa_power_daily.csv",
+                                           "size_bytes":  11259,
+                                           "sha256":  "a64dabdeafba75734c65c1c440692b6c9a4fcc74452fd8cfe802a41b092a5511"
+                                       }
+                                   ]
+                     },
+                     {
+                         "dataset_id":  "dixie_fire_2021_nasa_power_hourly",
+                         "name":  "Dixie Fire NASA POWER hourly meteorological input",
+                         "source_url":  "https://power.larc.nasa.gov/",
+                         "license":  "NASA POWER data access terms",
+                         "source_crs":  "EPSG:4326",
+                         "target_crs":  "EPSG:4326",
+                         "temporal_extent":  [
+                                                 "2021-07-13T00:00:00Z",
+                                                 "2021-10-25T23:00:00Z"
+                                             ],
+                         "processing_steps":  [
+                                                  "NASA POWER hourly point query",
+                                                  "UTC time standard",
+                                                  "JSON to normalized CSV",
+                                                  "wind component derivation",
+                                                  "no interpolation"
+                                              ],
+                         "files":  [
+                                       {
+                                           "path":  "data/raw/weather/dixie_fire_2021_nasa_power_hourly.json",
+                                           "size_bytes":  287694,
+                                           "sha256":  "ce9f0e13567a839f7ec7c47056bce255a36614735b894af769e77d387d69d13e"
+                                       },
+                                       {
+                                           "path":  "data/processed/weather/dixie_fire_2021_nasa_power_hourly.csv",
+                                           "size_bytes":  386493,
+                                           "sha256":  "1e7cbe49a34a3df1fe46b84effbb78c9a84e26b5b83c05e7e305196b8b90df12"
+                                       },
+                                       {
+                                           "path":  "data/processed/weather/dixie_fire_2021_nasa_power_hourly_metadata.json",
+                                           "size_bytes":  1638,
+                                           "sha256":  "f500cd91af574797d6e65037cc811ac06d346c348d738d51c3f6586d7f4ed2da"
+                                       }
+                                   ]
+                     },
+                     {
+                         "dataset_id":  "dixie_fire_2021_copernicus_dem_glo30",
+                         "name":  "Dixie Fire Copernicus DEM GLO-30 AOI product",
+                         "source_url":  "https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-digital-elevation-model",
+                         "license":  "Copernicus DEM license",
+                         "source_crs":  "EPSG:4326",
+                         "target_crs":  "EPSG:32610",
+                         "temporal_extent":  [
+                                                 "2021-07-13",
+                                                 "2021-10-25"
+                                             ],
+                         "processing_steps":  [
+                                                  "AOI boundary from MTBS perimeter plus 15 km buffer",
+                                                  "four COG tiles mosaicked",
+                                                  "reprojected to UTM zone 10N",
+                                                  "resampled to 30 m"
+                                              ],
+                         "files":  [
+                                       {
+                                           "path":  "data/processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif",
+                                           "size_bytes":  61949429,
+                                           "sha256":  "9580ad5b7226d28a5586c8f258ba3e699f48332df90c4cbddd050f1d3d96543f"
+                                       },
+                                       {
+                                           "path":  "data/processed/dem/dixie_fire_2021_slope_deg_30m_utm10.tif",
+                                           "size_bytes":  75671326,
+                                           "sha256":  "83d6faeda8d79a0c9463a8dcfb5eae15a8746a8bba005ee591ec38b866afbfef"
+                                       },
+                                       {
+                                           "path":  "data/processed/dem/dixie_fire_2021_aspect_deg_30m_utm10.tif",
+                                           "size_bytes":  75047139,
+                                           "sha256":  "654a850399f83f6a24960d121de321448aad6ddf40d030ebe4ea971bf55cd3de"
+                                       },
+                                       {
+                                           "path":  "data/manifests/dixie_fire_2021_raster_sources.json",
+                                           "size_bytes":  2588,
+                                           "sha256":  "0478d532c884d61a6de2e74cbc14b807b0698a597f2f5d0eee8d0910f575a927"
+                                       }
+                                   ]
+                     },
+                     {
+                         "dataset_id":  "dixie_fire_2021_esa_worldcover_2021",
+                         "name":  "Dixie Fire ESA WorldCover 2021 AOI product",
+                         "source_url":  "https://esa-worldcover.org/en/data-access",
+                         "license":  "ESA WorldCover license",
+                         "source_crs":  "EPSG:4326",
+                         "target_crs":  "EPSG:32610",
+                         "temporal_extent":  [
+                                                 "2021-01-01",
+                                                 "2021-12-31"
+                                             ],
+                         "processing_steps":  [
+                                                  "AOI boundary from MTBS perimeter plus 15 km buffer",
+                                                  "10 m source product read from COG",
+                                                  "reprojected to UTM zone 10N",
+                                                  "nearest-neighbour resampled to 30 m",
+                                                  "mapped to simplified fuel classes"
+                                              ],
+                         "files":  [
+                                       {
+                                           "path":  "data/processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif",
+                                           "size_bytes":  1553351,
+                                           "sha256":  "9a844264250e59cc22a4b0826296bdc6be2a6f7698fd50f41c488823d3a530ac"
+                                       },
+                                       {
+                                           "path":  "data/processed/fuel/dixie_fire_2021_fuel_class_30m_utm10.tif",
+                                           "size_bytes":  1298390,
+                                           "sha256":  "52e1f79ce51dae9321d26a9f0e5537f9d6414d132aaefd63b2e9fcf3d2695af6"
+                                       },
+                                       {
+                                           "path":  "data/manifests/dixie_fire_2021_raster_sources.json",
+                                           "size_bytes":  2588,
+                                           "sha256":  "0478d532c884d61a6de2e74cbc14b807b0698a597f2f5d0eee8d0910f575a927"
+                                       },
+                                       {
+                                           "path":  "data/manifests/dixie_fire_2021_worldcover_fuel_mapping.json",
+                                           "size_bytes":  1711,
+                                           "sha256":  "118d63a82aa0b3876a5c16d7134ea9eb9140fa91a12bf301fdeab21988fe55c5"
+                                       }
+                                   ]
+                     },
+                     {
+                         "dataset_id":  "dixie_fire_2021_forefire_input_manifest",
+                         "name":  "Dixie Fire ForeFire input preparation manifest",
+                         "source_url":  "https://github.com/forefireAPI/firefront",
+                         "license":  "Project input manifest; source dataset licenses are recorded per input dataset",
+                         "source_crs":  "EPSG:4326",
+                         "target_crs":  "EPSG:32610",
+                         "temporal_extent":  [
+                                                 "2021-07-14T09:11:00Z",
+                                                 "2021-10-25T23:00:00Z"
+                                             ],
+                         "processing_steps":  [
+                                                  "deterministic ignition candidate selection",
+                                                  "30 m raster input inventory",
+                                                  "NASA POWER hourly weather inventory",
+                                                  "SHA-256 file checksums"
+                                              ],
+                         "files":  [
+                                       {
+                                           "path":  "data/processed/forefire_input/dixie_fire_2021_forefire_input_manifest.json",
+                                           "size_bytes":  7696,
+                                           "sha256":  "fcbc48d3aef793d3f16426fe3fce7ba9f3c3b82de33b52bec5cf681116eed888"
+                                       }
+                                   ]
+                     }
+                 ]
+}

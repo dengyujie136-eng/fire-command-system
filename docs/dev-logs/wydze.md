@@ -818,3 +818,31 @@ Keep only the Dixie Fire 2021 scenario in runtime selectors and defaults. Preser
 - Each arrow fades out at the track end and fades back in at the beginning, then repeats without changing its geographic wind sample.
 - Increased the bounded arrow density to 360-560 after viewport inspection so enough samples remain visible across the full research-area view.
 - Increased the final random geographic-sample density from 520-800 to 1000-1600 arrows for a more continuous wind-direction field.
+
+## 2026-09-17 - Synchronize member branch with origin/main
+
+### Goal
+
+Prepare the historical raster spread and spatial risk work for review on `member/wydze`, then merge the latest shared baseline without pushing to `main`.
+
+### Merge resolution
+
+- Merged `origin/main` after committing the member-owned feature changes.
+- Resolved conflicts in `compose.yaml`, `fire_agent_backend/.env.example`, `fire_agent_backend/app/core/config.py`, `fire_agent_backend/app/db/spatial.py`, `fire_agent_backend/app/main.py`, and `fire_agent_backend/requirements.txt`.
+- Preserved the historical spread landscape mount, spatial-analysis router, impact geometry columns, and raster dependencies.
+- Preserved the incoming realtime monitoring, visual verification, ForeFire client, Qwen-VL configuration, generated geometry columns, and image-processing dependencies.
+- Kept downloaded rasters, raw GIS data, database seed files, and the handoff archive outside Git.
+
+### Verification
+
+- `npm run build`: passed after the merge.
+- `py -3.12 -m compileall fire_agent_backend/app backend/forefire_api/app`: passed.
+- `docker compose config --quiet`: passed.
+- `py -3.12 -m unittest tests.test_raster_fire_spread_tool`: 7 tests passed after pointing PROJ to Rasterio's packaged database.
+- `tests.test_spatial_risk_areas`: not run successfully because the host Python 3.12 environment does not have SQLAlchemy installed.
+- Container tests were not run because Docker Desktop was not running.
+
+### Integration notes
+
+- Review the shared Compose environment, backend router registration, PostGIS schema upgrades, and dependency constraints during merge review.
+- The frontend production bundle still reports the existing warning for a JavaScript chunk larger than 500 kB.

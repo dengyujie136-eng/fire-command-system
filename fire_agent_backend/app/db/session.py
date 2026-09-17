@@ -33,6 +33,8 @@ async def init_db() -> None:
     from app.models import spread as _spread  # noqa: F401
     from app.models import spatial_analysis as _spatial_analysis  # noqa: F401
     from app.models import system as _system  # noqa: F401
+    from app.visual_verification import models as _visual_verification  # noqa: F401
+    from app.models import realtime as _realtime  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

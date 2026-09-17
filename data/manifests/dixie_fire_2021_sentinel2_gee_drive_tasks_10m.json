@@ -1,0 +1,747 @@
+{
+  "schema_version": "fire.imagery.gee-drive-task-manifest.v0.1",
+  "event_id": "dixie_fire_2021",
+  "source": "Google Earth Engine / COPERNICUS/S2_SR_HARMONIZED",
+  "project_id": "able-rarity-471613-f2",
+  "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+  "aoi_bbox": [
+    -121.542701,
+    39.860961,
+    -120.186653,
+    40.78435
+  ],
+  "bands": [
+    "B2",
+    "B3",
+    "B4",
+    "B8"
+  ],
+  "grid_columns": 3,
+  "grid_rows": 2,
+  "assets": [
+    {
+      "task_id": "LBJQSL4J2A4WM3BZQ5TGGAUP",
+      "task_description": "dixie_fire_2021_s2_10m_pre_r01c01",
+      "phase": "pre",
+      "phase_label": "灾前",
+      "date_start": "2021-07-01",
+      "date_end_exclusive": "2021-07-13",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_pre_r01c01",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.542701,
+        39.860961,
+        -121.090685,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 3,
+        "10TGL": 3,
+        "11TKE": 3,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T11TKF"
+      }
+    },
+    {
+      "task_id": "Y56ZNUZZKXYYGFPK5GHAFZ7J",
+      "task_description": "dixie_fire_2021_s2_10m_pre_r01c02",
+      "phase": "pre",
+      "phase_label": "灾前",
+      "date_start": "2021-07-01",
+      "date_end_exclusive": "2021-07-13",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_pre_r01c02",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.090685,
+        39.860961,
+        -120.63866900000001,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 3,
+        "10TGL": 3,
+        "11TKE": 3,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T11TKF"
+      }
+    },
+    {
+      "task_id": "S6GB4LCL5STTDK4BK43SAZJV",
+      "task_description": "dixie_fire_2021_s2_10m_pre_r01c03",
+      "phase": "pre",
+      "phase_label": "灾前",
+      "date_start": "2021-07-01",
+      "date_end_exclusive": "2021-07-13",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_pre_r01c03",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -120.63866900000001,
+        39.860961,
+        -120.186653,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 3,
+        "10TGL": 3,
+        "11TKE": 3,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T11TKF"
+      }
+    },
+    {
+      "task_id": "7VPMGH4XIVQ5ATGL7BSBQZBJ",
+      "task_description": "dixie_fire_2021_s2_10m_pre_r02c01",
+      "phase": "pre",
+      "phase_label": "灾前",
+      "date_start": "2021-07-01",
+      "date_end_exclusive": "2021-07-13",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_pre_r02c01",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.542701,
+        40.3226555,
+        -121.090685,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 3,
+        "10TGL": 3,
+        "11TKE": 3,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T11TKF"
+      }
+    },
+    {
+      "task_id": "HGHD7NTBPTFNCSVK7IGLS77Q",
+      "task_description": "dixie_fire_2021_s2_10m_pre_r02c02",
+      "phase": "pre",
+      "phase_label": "灾前",
+      "date_start": "2021-07-01",
+      "date_end_exclusive": "2021-07-13",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_pre_r02c02",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.090685,
+        40.3226555,
+        -120.63866900000001,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 3,
+        "10TGL": 3,
+        "11TKE": 3,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T11TKF"
+      }
+    },
+    {
+      "task_id": "275OETCXX7SOVU5OTYEBIACS",
+      "task_description": "dixie_fire_2021_s2_10m_pre_r02c03",
+      "phase": "pre",
+      "phase_label": "灾前",
+      "date_start": "2021-07-01",
+      "date_end_exclusive": "2021-07-13",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_pre_r02c03",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -120.63866900000001,
+        40.3226555,
+        -120.186653,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 3,
+        "10TGL": 3,
+        "11TKE": 3,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210705T183921_20210705T185253_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210708T184921_20210708T185756_T11TKF"
+      }
+    },
+    {
+      "task_id": "EWDXB2XWGJ57EYLVOS44AGPW",
+      "task_description": "dixie_fire_2021_s2_10m_during_r01c01",
+      "phase": "during",
+      "phase_label": "灾中",
+      "date_start": "2021-07-13",
+      "date_end_exclusive": "2021-07-21",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_during_r01c01",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.542701,
+        39.860961,
+        -121.090685,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 2,
+        "10TFL": 2,
+        "10TGK": 5,
+        "10TGL": 3,
+        "11TKE": 5,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210713T184919_20210713T190139_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T11TKF"
+      }
+    },
+    {
+      "task_id": "KSADJD6H3XACBZQ3UH7BHPI2",
+      "task_description": "dixie_fire_2021_s2_10m_during_r01c02",
+      "phase": "during",
+      "phase_label": "灾中",
+      "date_start": "2021-07-13",
+      "date_end_exclusive": "2021-07-21",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_during_r01c02",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.090685,
+        39.860961,
+        -120.63866900000001,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 2,
+        "10TFL": 2,
+        "10TGK": 5,
+        "10TGL": 3,
+        "11TKE": 5,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210713T184919_20210713T190139_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T11TKF"
+      }
+    },
+    {
+      "task_id": "SBETZEQJWW6HUC4YZI34R63G",
+      "task_description": "dixie_fire_2021_s2_10m_during_r01c03",
+      "phase": "during",
+      "phase_label": "灾中",
+      "date_start": "2021-07-13",
+      "date_end_exclusive": "2021-07-21",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_during_r01c03",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -120.63866900000001,
+        39.860961,
+        -120.186653,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 2,
+        "10TFL": 2,
+        "10TGK": 5,
+        "10TGL": 3,
+        "11TKE": 5,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210713T184919_20210713T190139_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T11TKF"
+      }
+    },
+    {
+      "task_id": "RZNF72JPRB4O6EQNW2VDHKLQ",
+      "task_description": "dixie_fire_2021_s2_10m_during_r02c01",
+      "phase": "during",
+      "phase_label": "灾中",
+      "date_start": "2021-07-13",
+      "date_end_exclusive": "2021-07-21",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_during_r02c01",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.542701,
+        40.3226555,
+        -121.090685,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 2,
+        "10TFL": 2,
+        "10TGK": 5,
+        "10TGL": 3,
+        "11TKE": 5,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210713T184919_20210713T190139_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T11TKF"
+      }
+    },
+    {
+      "task_id": "L4OKEB5GUIMGZEHJQCK33UG4",
+      "task_description": "dixie_fire_2021_s2_10m_during_r02c02",
+      "phase": "during",
+      "phase_label": "灾中",
+      "date_start": "2021-07-13",
+      "date_end_exclusive": "2021-07-21",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_during_r02c02",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.090685,
+        40.3226555,
+        -120.63866900000001,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 2,
+        "10TFL": 2,
+        "10TGK": 5,
+        "10TGL": 3,
+        "11TKE": 5,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210713T184919_20210713T190139_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T11TKF"
+      }
+    },
+    {
+      "task_id": "HE2B53FTPVLDRM6EUDGMCKJ3",
+      "task_description": "dixie_fire_2021_s2_10m_during_r02c03",
+      "phase": "during",
+      "phase_label": "灾中",
+      "date_start": "2021-07-13",
+      "date_end_exclusive": "2021-07-21",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_during_r02c03",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -120.63866900000001,
+        40.3226555,
+        -120.186653,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 2,
+        "10TFL": 2,
+        "10TGK": 5,
+        "10TGL": 3,
+        "11TKE": 5,
+        "11TKF": 3
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210713T184919_20210713T190139_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210715T183921_20210715T184627_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210718T184921_20210718T185405_T11TKF"
+      }
+    },
+    {
+      "task_id": "FAUE7HJ57PUZHRAILKU65VLC",
+      "task_description": "dixie_fire_2021_s2_10m_post_r01c01",
+      "phase": "post",
+      "phase_label": "灾后",
+      "date_start": "2021-09-20",
+      "date_end_exclusive": "2021-09-24",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_post_r01c01",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.542701,
+        39.860961,
+        -121.090685,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 2,
+        "10TGL": 2,
+        "11TKE": 2,
+        "11TKF": 2
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKF"
+      }
+    },
+    {
+      "task_id": "MFQAR5HARTPP66QTKTG7RMUB",
+      "task_description": "dixie_fire_2021_s2_10m_post_r01c02",
+      "phase": "post",
+      "phase_label": "灾后",
+      "date_start": "2021-09-20",
+      "date_end_exclusive": "2021-09-24",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_post_r01c02",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.090685,
+        39.860961,
+        -120.63866900000001,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 2,
+        "10TGL": 2,
+        "11TKE": 2,
+        "11TKF": 2
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKF"
+      }
+    },
+    {
+      "task_id": "RZVQHQOB4RZPYCIFZFRZ2FIJ",
+      "task_description": "dixie_fire_2021_s2_10m_post_r01c03",
+      "phase": "post",
+      "phase_label": "灾后",
+      "date_start": "2021-09-20",
+      "date_end_exclusive": "2021-09-24",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_post_r01c03",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -120.63866900000001,
+        39.860961,
+        -120.186653,
+        40.3226555
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 2,
+        "10TGL": 2,
+        "11TKE": 2,
+        "11TKF": 2
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKF"
+      }
+    },
+    {
+      "task_id": "UAUVR5UG6LDECWOS26457744",
+      "task_description": "dixie_fire_2021_s2_10m_post_r02c01",
+      "phase": "post",
+      "phase_label": "灾后",
+      "date_start": "2021-09-20",
+      "date_end_exclusive": "2021-09-24",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_post_r02c01",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.542701,
+        40.3226555,
+        -121.090685,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 2,
+        "10TGL": 2,
+        "11TKE": 2,
+        "11TKF": 2
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKF"
+      }
+    },
+    {
+      "task_id": "K2JZI4VLL54SDWP24X6V7FSU",
+      "task_description": "dixie_fire_2021_s2_10m_post_r02c02",
+      "phase": "post",
+      "phase_label": "灾后",
+      "date_start": "2021-09-20",
+      "date_end_exclusive": "2021-09-24",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_post_r02c02",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -121.090685,
+        40.3226555,
+        -120.63866900000001,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 2,
+        "10TGL": 2,
+        "11TKE": 2,
+        "11TKF": 2
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKF"
+      }
+    },
+    {
+      "task_id": "PTC7D6QCWIZVOY3I4DHSV6YJ",
+      "task_description": "dixie_fire_2021_s2_10m_post_r02c03",
+      "phase": "post",
+      "phase_label": "灾后",
+      "date_start": "2021-09-20",
+      "date_end_exclusive": "2021-09-24",
+      "drive_folder": "Dixie_Fire_2021_Sentinel2_10m",
+      "file_name_prefix": "dixie_fire_2021_s2_10m_post_r02c03",
+      "bands": [
+        "B2",
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "crs": "EPSG:32610",
+      "resolution_m": 10,
+      "bbox": [
+        -120.63866900000001,
+        40.3226555,
+        -120.186653,
+        40.78435
+      ],
+      "source_scene_counts_by_mgrs_tile": {
+        "10TFK": 1,
+        "10TFL": 1,
+        "10TGK": 2,
+        "10TGL": 2,
+        "11TKE": 2,
+        "11TKF": 2
+      },
+      "selected_scene_ids_by_mgrs_tile": {
+        "10TFK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFK",
+        "10TFL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TFL",
+        "10TGK": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGK",
+        "10TGL": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T10TGL",
+        "11TKE": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKE",
+        "11TKF": "COPERNICUS/S2_SR_HARMONIZED/20210921T184959_20210921T185231_T11TKF"
+      }
+    }
+  ],
+  "submitted_at": "2026-09-11T08:05:14.936715+00:00",
+  "resolution_m": 10,
+  "crs": "EPSG:32610",
+  "download_note": "After tasks are COMPLETED, download all 10 m GeoTIFFs from Google Drive."
+}

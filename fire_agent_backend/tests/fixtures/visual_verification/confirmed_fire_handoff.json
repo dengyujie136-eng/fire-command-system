@@ -1,0 +1,14 @@
+{
+  "confirmation_id": "confirmation-fire-001-v1",
+  "event_id": "cresta-dam-visual-demo",
+  "source_candidate_id": "cresta-dam-visual-demo-firms-viirs_snpp-20260909T020000Z-39.842700--121.382100",
+  "confirmed_at": "2026-09-09T02:05:00Z",
+  "ignition_point": {
+    "type": "Point",
+    "coordinates": [-121.3821, 39.8427]
+  },
+  "confidence": 0.94,
+  "evidence_ids": ["asset-wildfire-smoke", "asset-wildfire-false-color", "detector-fixture-001"],
+  "confirmation_method": "visual_verification_v1",
+  "is_simulated": true
+}

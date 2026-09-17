@@ -1,0 +1,13 @@
+{
+  "analysis_run_id": "run-failed-001",
+  "visual_case_id": "visual-case-cloud-001",
+  "run_status": "timeout",
+  "error_code": "MODEL_TIMEOUT",
+  "error_message": "The visual provider did not return a complete structured result before the deadline.",
+  "retryable": true,
+  "attempted_model_name": "qwen-vl-placeholder",
+  "attempted_model_version": "unconfigured",
+  "prompt_version": "visual-fire-v1",
+  "used_evidence_ids": ["asset-cloud-cover"],
+  "is_fallback": false
+}
