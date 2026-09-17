@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-xinghuo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xinghuo_dev}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgis-data:/var/lib/postgresql/data
     healthcheck:
@@ -47,6 +47,7 @@ services:
       DATA_DIR: /app/data
       VISUAL_OUTPUT_DIR: /app/visual-output
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xinghuo}:${POSTGRES_PASSWORD:-xinghuo_dev}@postgis:5432/${POSTGRES_DB:-xinghuo}
+      LANDSCAPE_DATA_DIR: /app/environment
       CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
       FOREFIRE_API_URL: http://forefire-api:8080
       LLM_PROVIDER: ${LLM_PROVIDER:-zhipu}
@@ -61,12 +62,11 @@ services:
       QWEN_VL_MAX_IMAGE_BYTES: ${QWEN_VL_MAX_IMAGE_BYTES:-10485760}
       FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
     volumes:
+      - ./environment:/app/environment:ro
       - ./data:/app/data
       - visual-derivatives:/app/visual-output
     depends_on:
       postgis:
-        condition: service_healthy
-      forefire-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8200/health')"]

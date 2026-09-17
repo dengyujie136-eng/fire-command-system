@@ -14,7 +14,7 @@ class FireEvent(Base):
     event_id: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     status: Mapped[str] = mapped_column(String(40), index=True, default="created")
-    scenario_id: Mapped[str] = mapped_column(String(100), index=True, default="muli_lier_village")
+    scenario_id: Mapped[str] = mapped_column(String(100), index=True, default="dixie_fire_2021")
     source_mode: Mapped[str] = mapped_column(String(40), default="simulation")
     ignition_longitude: Mapped[float] = mapped_column(Float)
     ignition_latitude: Mapped[float] = mapped_column(Float)

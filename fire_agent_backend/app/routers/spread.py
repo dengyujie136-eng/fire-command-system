@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.db.session import get_db
-from app.schemas.spread import FireFrontStepRead, SimulationRunRead, SpreadEnvelope, SpreadRunPayload, SpreadRunRequest
+from app.schemas.spread import FireFrontStepRead, HistoricalCalibrationRequest, HistoricalSpreadRunRequest, SimulationRunRead, SpreadEnvelope, SpreadRunPayload, SpreadRunRequest
+from app.services.historical_spread_service import calibrate_historical_spread_run, create_historical_spread_run
 from app.services.spread_service import create_spread_run, latest_spread_run, spread_steps
 
 router = APIRouter(tags=["spread"])
@@ -20,6 +21,24 @@ def _payload(data: dict) -> SpreadRunPayload:
 @router.post("/events/{event_id}/spread-runs", response_model=SpreadEnvelope)
 async def create(event_id: str, request: SpreadRunRequest, db: AsyncSession = Depends(get_db)) -> SpreadEnvelope:
     return SpreadEnvelope(data=_payload(await create_spread_run(db, event_id, request)))
+
+
+@router.post("/events/{event_id}/spread-runs/historical", response_model=SpreadEnvelope)
+async def create_historical(
+    event_id: str,
+    request: HistoricalSpreadRunRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SpreadEnvelope:
+    return SpreadEnvelope(data=_payload(await create_historical_spread_run(db, event_id, request)))
+
+
+@router.post("/events/{event_id}/spread-runs/calibrate", response_model=SpreadEnvelope)
+async def calibrate_historical(
+    event_id: str,
+    request: HistoricalCalibrationRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SpreadEnvelope:
+    return SpreadEnvelope(data=_payload(await calibrate_historical_spread_run(db, event_id, request)))
 
 
 @router.get("/events/{event_id}/spread-runs/latest", response_model=SpreadEnvelope)

@@ -27,8 +27,7 @@ INPUT_NC = ENVIRONMENT_DIR / "final_input.nc"
 VISUAL_WIND_NC = ENVIRONMENT_DIR / "weather_wind_large.nc"
 IGNITION_FILE = ENVIRONMENT_DIR / "ignition.txt"
 SCENE_ENVIRONMENT_DIRS = {
-    "muli_lier_village": ENVIRONMENT_DIR,
-    "pingyao_liujian_gou_early_replay": ENVIRONMENT_DIR / "pingyao_20240613",
+    "dixie_fire_2021": ENVIRONMENT_DIR / "dixie_fire_2021",
 }
 WIND_FIELD_LOCK = threading.Lock()
 WIND_FIELD_CACHE: dict[tuple[int, float | None], dict[str, Any]] = {}

@@ -7,57 +7,39 @@ from app.models.scenario import ScenarioDefinition
 
 DEFAULT_SCENARIOS = [
     {
-        "scenario_id": "muli_lier_village",
-        "name": "Muli Li'er Village early fire decision scenario",
-        "location_name": "Near Li'er Village, Yalongjiang Town, Muli County, Sichuan",
-        "longitude": 101.269444,
-        "latitude": 28.530278,
-        "coordinate_precision": "exact",
-        "duration_minutes": 120,
+        "scenario_id": "dixie_fire_2021",
+        "name": "Dixie Fire 2021 historical raster replay",
+        "location_name": "Dixie Fire ignition area, California, USA",
+        "longitude": -121.38241,
+        "latitude": 39.87194,
+        "coordinate_precision": "firms_candidate_exact",
+        "duration_minutes": 72 * 60,
         "default_tick_interval_seconds": 2.0,
-        "time_segments": [{"from_minute": 0, "to_minute": 120, "step_minutes": 5}],
+        "time_segments": [{"from_minute": 0, "to_minute": 72 * 60, "step_minutes": 60}],
         "profiles": {
-            "region": "mountain_forest",
-            "weather": "dry_windy",
-            "fuel": "coniferous_mixed_forest",
-            "road": "mountain_roads",
-            "resource": "county_level",
-            "sensor": "standard_four_layer",
-        },
-    },
-    {
-        "scenario_id": "pingyao_liujian_gou_early_replay",
-        "name": "Pingyao Yanzhi Gou 2024-06-13 early fire decision replay",
-        "location_name": "Yanzhi Gou area, Fengsheng Village, Zhukeng Township, Pingyao County, Shanxi",
-        # Approximate geocoded point selected from public place descriptions until an official coordinate is verified.
-        "longitude": 112.3136,
-        "latitude": 37.0468,
-        "coordinate_precision": "approximate_geocoded",
-        "duration_minutes": 720,
-        "default_tick_interval_seconds": 1.0,
-        "time_segments": [
-            {"from_minute": 0, "to_minute": 120, "step_minutes": 5},
-            {"from_minute": 120, "to_minute": 720, "step_minutes": 15},
-        ],
-        "profiles": {
-            "region": "north_china_hilly_forest",
-            "weather": "dry_gusty",
-            "fuel": "pine_shrub_mixed",
-            "road": "rural_mountain_roads",
-            "resource": "multi_county_response",
-            "sensor": "standard_four_layer",
+            "region": "dixie_fire_2021",
+            "weather": "nasa_power_hourly",
+            "fuel": "esa_worldcover_2021",
+            "terrain": "copernicus_dem_glo30",
+            "data_source": "shared_handoff",
         },
     },
 ]
 
 
 async def ensure_default_scenarios(db: AsyncSession) -> None:
+    # Keep historical rows for referential integrity, but expose only the
+    # active Dixie scenario to new events and the scenario selector.
+    result = await db.execute(select(ScenarioDefinition))
+    for existing in result.scalars().all():
+        existing.enabled = existing.scenario_id == "dixie_fire_2021"
     for item in DEFAULT_SCENARIOS:
         result = await db.execute(select(ScenarioDefinition).where(ScenarioDefinition.scenario_id == item["scenario_id"]))
         existing = result.scalar_one_or_none()
         if existing:
             for key, value in item.items():
                 setattr(existing, key, value)
+            existing.enabled = True
             continue
         db.add(ScenarioDefinition(**item))
     await db.commit()

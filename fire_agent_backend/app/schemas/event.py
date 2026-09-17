@@ -19,13 +19,13 @@ EventStatus = Literal[
 
 
 class IgnitionPoint(BaseModel):
-    longitude: float = 101.269444
-    latitude: float = 28.530278
+    longitude: float = -121.38241
+    latitude: float = 39.87194
     confidence: float = Field(default=0.87, ge=0, le=1)
 
 
 class StartSimulatedEventRequest(BaseModel):
-    scenario_id: str = "muli_lier_village"
+    scenario_id: str = "dixie_fire_2021"
     name: str | None = None
     ignition_point: IgnitionPoint | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

@@ -16,6 +16,8 @@ node_modules
 __pycache__/
 *.py[cod]
 backend/forefire_api/.venv
+__pycache__/
+*.py[cod]
 forefire-output
 dist
 dist-ssr
