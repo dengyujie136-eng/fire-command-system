@@ -53,6 +53,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
     volumes:
       - ./environment:/app/environment:ro
+      - ./data:/app/data:ro
     depends_on:
       postgis:
         condition: service_healthy

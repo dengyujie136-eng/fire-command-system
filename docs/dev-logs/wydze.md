@@ -582,3 +582,239 @@ from app.tools import invoke_agent_tool, list_agent_tool_schemas
 - 对相邻网格风险分数进行邻域平滑，并保留单格连通区域，减少空洞和碎片。
 - 接口新增 `model_reliability`，标记为 `demonstration_only`、未校准、未完成历史火灾验证。
 - 推演页面增加“演示级综合风险指数”说明，避免将结果解释为官方灾害等级。
+
+## 2026-09-11 - Dixie Fire 历史栅格推演与空间验证
+
+### 本次目标
+
+利用甲成员交付的 Dixie Fire 小时气象、Copernicus DEM、ESA WorldCover、FIRMS 和 MTBS 数据，建立可由智能体调用的动态栅格火势推演链路，并用同期观测代理量化空间吻合程度。
+
+### 已完成
+
+- 新增智能体工具 `run_raster_fire_spread`，在 `EPSG:32610` 投影网格中按气象更新时间逐段推进火线。
+- 使用多源 Dijkstra 到达时间传播，综合时变风速风向、死燃料含水率、DEM 有符号坡度和 WorldCover 燃料/阻隔类型。
+- 新增 `POST /api/events/{event_id}/spread-runs/historical`，从 PostGIS 读取历史小时气象并保存 26 个火线时步。
+- 标准气象风向在工具入口由“风从哪里来”转换为“火势被推向哪里”；转换后的方向和原始方向均保存在环境快照中。
+- 使用同期 FIRMS 热点凸包计算面积偏差、交集面积、IoU、模拟区命中率和热点区覆盖率；MTBS 仅作为最终事件面积参考。
+- 修复栅格火线零增长时风险分析除零错误，并兼容 Polygon/MultiPolygon 火线。
+- 推演页面新增 Dixie 历史回放、真实栅格元数据和历史对比指标；历史回放禁止切换到径向工具续推，避免模型语义变化。
+- 修复移动端全局导航拥挤，窄屏只显示当前导航入口。
+
+### API 与响应字段
+
+- 请求字段：`horizon_hours`、`start_at`、`raster_resolution_m`、`simulation_buffer_km`、`initial_radius_m`、`suppression_factor`、`hotspot_comparison_radius_km`、`wind_direction_convention`。
+- `result_summary.comparison` 新增：`intersection_with_hotspot_hull_km2`、`spatial_iou_percent`、`simulation_precision_percent`、`hotspot_hull_recall_percent`。
+- `result_summary.model_validation_status=course_demo_unvalidated`；风险模型仍标记 `demonstration_only`。
+
+### 数据、依赖与公共文件
+
+- 栅格路径限制在配置的 `data/` 目录内；Docker 只读挂载 `./data:/app/data:ro`。
+- Python 新增 `rasterio`，后端镜像新增 Rasterio 运行所需的 `libexpat1`。
+- 修改高冲突公共文件：`compose.yaml`、`fire_agent_backend/app/main.py`、`src/api/modules.ts`、`src/stores/fireEventStore.ts`、`src/components/AppHeader.vue`。
+- `data/` 与 `handoff/` 为共享原始/处理数据，不纳入本成员代码提交。
+
+### 验证结果
+
+- 24 小时运行：26 帧，最终面积 `4.0435 km²`，最大半径 `2.1376 km`，方向 `337.8°`。
+- 同期 96 个 FIRMS 热点凸包面积 `9.8759 km²`；交集 `4.0230 km²`，IoU `40.64%`，模拟区命中率 `99.49%`，热点区覆盖率 `40.74%`。
+- MTBS 最终面积 `3965.121 km²`，不是 24 小时时间匹配边界，不能直接用于参数校准。
+- `POST /api/events/dixie_fire_2021/spatial-analysis` 返回 `completed`，生成 3 个风险连通区，不再出现 500。
+- 前端桌面 `1440x900` 与移动端 `390x844` 自动交互截图通过：Cesium 画布非空、无横向溢出、浏览器无 console/page error。
+
+### 限制与合并检查重点
+
+- 当前传播速率是可解释代理模型，尚未使用历史火场样本进行独立标定；不应根据单个 24 小时 FIRMS 凸包直接硬调参数。
+- NASA POWER 是再分析/格点气象，不能替代火场局地风场；尚未模拟飞火、冠层火和火场诱导风。
+- FIRMS 凸包是活跃火点范围代理，不是严格过火边界；后续应接入同时间戳的实测火场边界并划分训练、验证事件。
+- 集成人员需重点检查上述公共路由、Store、Compose 和移动端 Header 样式冲突。
+# 2026-09-12 - Retain Dixie scenario and balance raster terrain spread
+
+### Scope
+
+Keep only the Dixie Fire 2021 scenario in runtime selectors and defaults. Preserve old database rows for referential integrity, but disable non-Dixie scenarios.
+
+### Changes
+
+- Updated the scenario registry, event defaults, map defaults, and landscape mappings to `dixie_fire_2021` at the shared FIRMS ignition point.
+- Updated the legacy ForeFire scene directory map so the old Muli and Pingyao scenes are no longer runtime entries.
+- Reduced the signed DEM neighbor correction from an unbounded-looking 0.62-1.65 range to a bounded 0.78-1.28 range. Wind and fuel remain the primary controls, while terrain still promotes uphill spread and limits downhill spread without blocking lateral propagation.
+- Added regression tests for right/east and down/south propagation on burnable flat terrain and for propagation under a sharp elevation change.
+
+### Verification
+
+- `py -3.12 -m compileall -q fire_agent_backend/app backend/forefire_api/app`: passed.
+- `npm run build`: passed.
+- Raster unit tests require the Rasterio PROJ data directory when a PostgreSQL PROJ environment variable is globally configured; rerun with `PROJ_LIB=D:\Python\Python312\Lib\site-packages\rasterio\proj_data`.
+
+## 2026-09-12 - Unify the prediction page on the Dixie raster engine
+
+- Removed the prediction page entry point for the legacy radial dynamic model, whose smoothed 72-direction geometry appeared circular.
+- The primary prediction command now runs the Dixie historical raster workflow using hourly weather, DEM, and WorldCover data.
+- Removed duplicate controls that allowed users to accidentally select two different spread engines for the same Dixie scenario.
+- `npm run build`: passed.
+
+## 2026-09-12 - Protect the ignition and active fire front risk levels
+
+- Added conservative minimum risk scores for the active fire-front band and the early-stage burned footprint.
+- The ignition core is now guaranteed to remain high risk during the first six simulation hours; neighborhood smoothing and isolated-cell cleanup cannot downgrade constrained cells.
+- Multi-factor scores continue to classify the surrounding threat buffer and preserve spatial variation outside the confirmed burning area.
+- Added a regression test asserting that an early ignition point is contained by a high-risk polygon.
+- Fixed risk component GeoJSON to preserve interior holes, preventing a surrounding low-risk component from geometrically covering the high-risk ignition core.
+- Updated Cesium risk rendering to support Polygon holes and draw low, medium, then high risk layers.
+
+## 2026-09-12 - Use modeled fireline intensity in spatial risk
+
+- Raster fire-front cells now calculate an uncalibrated Byram `H * w * R` fireline intensity proxy in kW/m from local spread rate, WorldCover-derived fuel load, fuel moisture, and representative heat content.
+- Every fireline frame exposes 72 directional intensity samples plus mean and maximum intensity diagnostics.
+- Fire intensity is now the largest weighted component of the spatial risk score; each merged risk polygon reports mean/max intensity and an intensity class.
+- The UI displays mean and maximum fireline intensity for every risk area.
+- Fixed grid-to-sector attribution so each risk cell uses its own directional intensity instead of the final sector's value.
+
+## 2026-09-12 - Restore weather-driven rolling fire spread
+
+- Restored manual current and forecast weather inputs as the primary prediction workflow, including temperature, humidity, wind speed, wind direction, fuel moisture, FWI, and the next weather update interval.
+- Standard Dixie spread runs now use the same DEM- and WorldCover-aware raster agent tool as historical validation runs.
+- Rolling forecasts inherit the parent run's final Polygon/MultiPolygon fireline, continue from its final minute, and apply the newly entered weather instead of restarting from the ignition point.
+- Moved the 6/12/24-hour historical replay into an optional collapsed validation section; historical comparison runs remain non-continuable.
+- Verified a 60-minute eastward forecast followed by a 60-minute southward continuation: the second run linked to the first, advanced from minute 60 to 120, and increased area from `0.1456 km2` to `0.1941 km2`.
+
+### 气象更新时间语义修正
+
+- 推演区间采用离散的更新时间语义：`T_i` 的气象条件驱动 `T_i -> T_{i+1}`，不对起止时刻做中点平均。
+- 页面将当前气象和“距下次气象更新”作为本轮唯一人工输入；更新风向或其他环境因素后，从上一轮最终火线开启下一轮续推。
+
+### 真实小时气象入口
+
+- 推演页面将历史入口明确为“使用真实小时气象推演”，不再把它仅描述为结果对照。
+- 结果中显示数据库小时气象帧数和实际覆盖时间；每个小时的气象输入会驱动对应的下一小时栅格火线更新。
+
+### 逐时传播追溯与 FIRMS 验证
+
+- 每个非初始火线检查点保存 `weather_used_for_previous_interval`、`propagation_interval`、`weather_used_from` 和 `weather_used_to`，明确本段实际使用的气象。
+- 每个模拟检查点使用从起火到当前时刻的累计 FIRMS 热点构造过火范围代理，当前时刻前后 30 分钟热点只用于火头方向验证；计算面积误差、IoU、命中率、覆盖率、Hausdorff 距离、蔓延方向误差和最大半径误差。
+- 少于有效面积的热点集合不再被错误记为 `IoU=0`，而是返回 `null` 并从面积指标汇总中排除。
+- 页面显示逐时有效样本数及平均 IoU、Hausdorff 距离、方向误差和半径误差。
+
+
+## 2026-09-12 - Restore manual weather and rolling continuation
+
+- Restored current and forecast weather inputs as the primary prediction workflow, including the weather update interval that determines each run horizon.
+- Routed normal Dixie spread requests through the DEM and ESA WorldCover raster agent tool instead of the legacy radial model.
+- Enabled rolling continuation only after playback reaches the final checkpoint; the parent run's final Polygon/MultiPolygon is used as the next run's initial fireline.
+- Kept 6/12/24-hour historical replay in a collapsed optional validation section rather than making it the main prediction action.
+
+## 2026-09-14 - Calibrate short-window spread against FIRMS hull
+
+### Scope
+
+- Abandoned the expensive full-incident replay and MTBS tuning path.
+- Calibrated only a 6/12/24-hour simulated fireline against the time-matched cumulative FIRMS hotspot convex hull.
+
+### Model and API changes
+
+- Added explicit bounded run parameters: `spread_rate_multiplier` (`0.6-1.6`), `wind_influence_multiplier` (`0.5-1.5`), and `terrain_influence_multiplier` (`0.5-1.5`). The values affect grid travel time and Byram intensity consistently and are stored in run metadata.
+- Retained continuous edge progress across hourly weather boundaries, with `T_i` weather driving `T_i -> T_{i+1}`.
+- Added `POST /api/events/{event_id}/spread-runs/calibrate`. It performs a three-stage bounded coordinate search across exact 6/12/24-hour checkpoints and persists only the selected 24-hour run.
+- Extra output checkpoints slice the continuous arrival-time grid without inserting weather frames or changing hourly weather validity.
+- Per-window score: `0.75 * FIRMS hull IoU + 0.25 * exp(-abs(log(simulated area / hull area)))`. Selection score: `0.70 * mean window score + 0.30 * worst window score` to limit degradation at any one stage.
+- Removed the unfinished full-event output interval, 7-day/full-event UI choices, and MTBS final-perimeter comparison from this workflow.
+
+### Real-data result
+
+- Baseline selection score `0.383253`, mean `0.409069`, worst-window score `0.323015`.
+- Selected parameters: spread `0.80`, wind `1.25`, terrain `1.25`; selection score `0.403310`, mean `0.429079`, worst-window score `0.343183`.
+- Selected 6h result: IoU `37.68%`, area `0.8815 km2`, FIRMS hull `0.4010 km2`.
+- Selected 12h result: IoU `28.92%`, area `3.2833 km2`, FIRMS hull `6.4999 km2`.
+- Selected 24h result: IoU `46.32%`, area `12.3247 km2`, FIRMS hull `9.8759 km2`.
+- Status is explicitly `calibrated_to_dixie_6h_12h_24h_windows`. FIRMS convex hull is an active-fire observation proxy with satellite overpass gaps, not a measured burned perimeter, and this is not an independent general validation.
+
+### Verification
+
+- Raster spread unit tests: 7 passed with Rasterio `PROJ_LIB` configured, including proof that an extra output checkpoint does not change final spread.
+- `py -3.12 -m compileall -q fire_agent_backend/app`: passed.
+- `npm run build`: passed.
+- Docker `fire-agent-api`, `frontend`, and `postgis`: running; backend and PostGIS healthy.
+
+## 2026-09-14 - Keep the Dixie map visible with terrain enabled
+
+- Fixed `setTerrainEnabled(true)` re-enabling Cesium astronomical globe lighting after component initialization.
+- Three-dimensional terrain, depth testing, and elevation exaggeration remain enabled, while day/night shading stays disabled because Cesium's clock is not the fire simulation clock.
+
+## 2026-09-14 - Prevent unsupported low-risk cells inside the fire extent
+
+- The cumulative burned footprint now has a medium-risk floor because the spread model does not track cell burnout, residual heat, or cooling time and therefore cannot justify a low-risk interior.
+- The active fireline band remains high risk. Low risk is limited to the external threat buffer.
+- Protected all constrained fire cells from the isolated-cell smoothing pass, which could previously overwrite the numeric minimum with a lower categorical class.
+- Added `zone_relation`, interior-cell count, and active-front-cell count to risk polygons; the frontend labels active fireline, burned footprint, and external threat-buffer regions separately.
+- Verified against the running Dixie database: 11 risk zones, 0 low-risk zones intersecting the fire footprint; 5 external low-risk zones, 5 medium zones, and 1 high-risk active-front zone.
+
+## 2026-09-14 - Add interactive local weather visualization
+
+- Added an interactive wind-direction dial using the existing `spread_toward` convention. Dragging the dial snaps to 5-degree increments and updates the same value sent to the raster spread tool.
+- Added compact temperature, humidity, and wind-speed gauges with range controls and retained numeric inputs for precise entry.
+- Mounted the existing Cesium wind canvas and added a manual local vector-field source centered on the ignition point.
+- The ignition-point vector exactly follows the user setting. Surrounding vectors use smooth direction perturbations and speed gradients, then inverse-distance interpolation provides continuous particle motion between grid samples.
+- Reduced wind particles from 760-1500 to 180-360, lengthened trail persistence, reduced opacity, and used a restrained blue/green/yellow speed palette.
+- Historical playback updates the map weather strip and local flow field from the selected hourly environment frame; manual runs remain synchronized with current form values.
+- Narrowed the modeled fire-front line and glow so the wind field, risk surfaces, and perimeter remain distinguishable.
+- `npm run build`: passed. The frontend Docker image was rebuilt successfully before Docker Desktop later became unavailable.
+- NASA POWER is not called in this change. It remains a possible real gridded/time-series source, but the current visualization is deterministic and works offline from project weather inputs.
+
+## 2026-09-15 - Make the local wind field observable
+
+- Added a one-click `定位风场` control that centers Cesium on the confirmed fire point and enables the wind layer without changing the camera while the direction dial is dragged.
+- Kept the simulated field sparse and continuous, while allowing its radius to use the configured 90 km local field extent.
+- Increased the wind speed heat layer visibility and added low, medium, and high wind speed legend entries so the map encoding is understandable.
+- `focusWindField` is exposed by `CesiumMap` for future agent or workflow-driven map focus actions.
+
+## 2026-09-15 - Reflow weather gauges
+
+- Changed the left weather console layout so the wind-speed gauge occupies its own row.
+- Temperature and humidity gauges now share a separate two-column row, keeping the controls readable in the narrow left panel.
+
+## 2026-09-15 - Add readable wind direction arrows
+
+- Replaced direction-ambiguous particle strokes with short animated trails ending in arrowheads.
+- Increased particle density moderately and strengthened contrast so the wind field remains visible at the local map scale without returning to a crowded arrow grid.
+- Arrowheads use each particle's interpolated local vector, preserving spatially varying wind direction around the fire point.
+
+## 2026-09-15 - Decouple arrow animation from wind speed
+
+- Replaced persistent arrow trails with discrete fixed-length direction arrows, clearing their previous positions every frame.
+- All arrows now drift at the same deliberately slow animation rate; wind speed no longer controls arrow movement or arrow size.
+- Wind speed remains encoded by the separate blue/green/yellow background field, while arrows use one light neutral color and only communicate direction.
+- Extended particle lifetime to reduce visual blinking and kept density bounded for a cleaner close-range view.
+
+## 2026-09-15 - Align weather gauges in one row
+
+- Kept the wind-direction dial in the left column and aligned wind speed, temperature, and humidity gauges in one three-column row on the right.
+- Ordered the gauges as wind speed, temperature, and humidity while preserving their existing controls and values.
+
+## 2026-09-15 - Separate wind direction and weather gauge rows
+
+- Moved the wind-direction dial and its precise numeric input into a dedicated full-width first row.
+- Kept wind speed, temperature, and humidity together in a separate three-column second row.
+
+## 2026-09-15 - Enlarge the wind-direction dial
+
+- Increased the wind-direction dial from 108 px to 124 px and adjusted its arrow and center labels proportionally.
+- Preserved sufficient width for the precise direction input in the same row.
+
+## 2026-09-15 - Keep wind direction arrows persistent
+
+- Removed particle lifetime expiry, random respawning, and positional drift from the wind-direction arrows.
+- Arrows now remain anchored to stable geographic sample positions and only communicate direction.
+- Camera movement still reprojects the arrows, and changing the wind input immediately updates their orientation without visible blinking.
+
+## 2026-09-15 - Animate flow inside anchored arrows
+
+- Kept every wind arrow anchored and continuously visible.
+- Added a slow bright segment that travels along each fixed arrow shaft toward its head, providing forward motion without moving or respawning the arrow itself.
+- Randomized animation phase per arrow to avoid synchronized flashing across the map.
+
+## 2026-09-15 - Move complete arrows along short local tracks
+
+- Replaced the fixed-arrow internal highlight with complete arrow glyphs moving slowly along short 28 px local tracks.
+- Each arrow fades out at the track end and fades back in at the beginning, then repeats without changing its geographic wind sample.
+- Increased the bounded arrow density to 360-560 after viewport inspection so enough samples remain visible across the full research-area view.
+- Increased the final random geographic-sample density from 520-800 to 1000-1600 arrows for a more continuous wind-direction field.

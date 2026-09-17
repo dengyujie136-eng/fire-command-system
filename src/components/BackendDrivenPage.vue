@@ -153,7 +153,7 @@ const props = defineProps<{
 
 const fireEvent = useFireEventStore()
 const mapRef = ref<InstanceType<typeof CesiumMap> | null>(null)
-const scenarioId = ref(fireEvent.selectedScenarioId || 'muli_lier_village')
+const scenarioId = ref(fireEvent.selectedScenarioId || 'dixie_fire_2021')
 const busy = ref(false)
 const message = ref('等待操作')
 const disturbanceType = ref('road_unavailable')

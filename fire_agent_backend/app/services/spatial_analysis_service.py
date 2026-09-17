@@ -384,9 +384,13 @@ def _risk_areas(
 ) -> list[dict[str, Any]]:
     """Build multi-factor risk zones across the fire and its threat buffer."""
     properties = final_feature.get("properties") or {}
-    geometry = final_feature.get("geometry") or {}
-    ring = (geometry.get("coordinates") or [[]])[0]
+    rings = _rings_from_feature(final_feature)
+    ring = max(rings, key=len, default=[])
     radii = [float(value) for value in properties.get("sector_radii_km") or []]
+    fire_intensities = [
+        max(0.0, float(value))
+        for value in properties.get("sector_fire_intensity_kw_m") or []
+    ]
     if len(ring) < 3 or len(radii) < 2:
         return []
     previous_radii = [
@@ -399,15 +403,23 @@ def _risk_areas(
     landcover_labels = landscape.get("landcover_sector_labels") or []
     max_radius = max(radii) or 1.0
     max_growth = max(
-        [max(0.0, radius - previous_radii[index]) for index, radius in enumerate(radii) if index < len(previous_radii)]
-        or [1.0]
+        1e-6,
+        max(
+            [max(0.0, radius - previous_radii[index]) for index, radius in enumerate(radii) if index < len(previous_radii)]
+            or [1.0]
+        ),
     )
     point_assets = [*assets["settlements"], *assets["targets"], *assets["stations"]]
     risk_scores: list[float] = []
     component_rows: list[dict[str, float]] = []
+    sector_intensity_values: list[float] = []
     for index, radius in enumerate(radii):
         direction = index * 360.0 / len(radii)
-        point = ring[index]
+        point = _from_local(
+            math.sin(math.radians(direction)) * radius,
+            math.cos(math.radians(direction)) * radius,
+            center,
+        )
         spread_score = min(1.0, radius / max_radius)
         growth = max(0.0, radius - previous_radii[index]) if index < len(previous_radii) else radius
         growth_score = min(1.0, growth / max_growth)
@@ -422,7 +434,17 @@ def _risk_areas(
             (max(0.0, 1.0 - _distance_km(point, item["point"]) / 2.0) for item in point_assets),
             default=0.0,
         )
+        intensity_kw_m = fire_intensities[index] if index < len(fire_intensities) else 0.0
+        if fire_intensities:
+            intensity_score = (
+                _clamp(intensity_kw_m / 1000.0, 0.0, 0.5)
+                if intensity_kw_m < 500.0
+                else _clamp(0.5 + (intensity_kw_m - 500.0) / 5000.0, 0.5, 1.0)
+            )
+        else:
+            intensity_score = growth_score
         components = {
+            "fire_intensity": intensity_score,
             "spread": spread_score,
             "growth": growth_score,
             "wind": wind_score,
@@ -431,15 +453,20 @@ def _risk_areas(
             "asset_exposure": asset_score,
         }
         score = 100.0 * (
-            0.28 * spread_score
-            + 0.24 * growth_score
-            + 0.16 * wind_score
-            + 0.12 * terrain_score
-            + 0.08 * fuel_score
-            + 0.12 * asset_score
+            # Fireline intensity is the primary hazard driver. The remaining
+            # factors describe how quickly the hazard may grow and what it may
+            # expose, without converting geometry alone into a risk category.
+            0.45 * intensity_score
+            + 0.12 * spread_score
+            + 0.12 * growth_score
+            + 0.08 * wind_score
+            + 0.07 * terrain_score
+            + 0.07 * fuel_score
+            + 0.09 * asset_score
         )
         risk_scores.append(score)
         component_rows.append(components)
+        sector_intensity_values.append(intensity_kw_m)
 
     # Classify a local grid instead of connecting the fireline vertices to the
     # ignition point. This keeps risk areas spatially meaningful and avoids the
@@ -450,6 +477,22 @@ def _risk_areas(
     threat_buffer_km = _clamp(threat_buffer_km, 0.08, 1.0)
     extent = max_radius + threat_buffer_km
     cell_size = (extent * 2.0) / grid_size
+    # ``active_front`` is retained as an explanatory spatial attribute, but it
+    # must not impose a minimum risk level.  A fireline can have low modeled
+    # intensity (for example after moisture or fuel changes), so its risk must
+    # still come from the fire-behaviour factors below.
+    active_front_width_km = max(0.12, cell_size * 1.1)
+
+    def classify_risk(score: float, intensity_kw_m: float) -> str:
+        # 500 kW/m is the transition from low to moderate Byram fireline
+        # intensity. A moderate-intensity cell becomes high risk only when its
+        # multi-factor score is also elevated; geometry is not a criterion.
+        if score >= 58.0 or (intensity_kw_m >= 500.0 and score >= 40.0):
+            return "high"
+        if score >= 35.0:
+            return "medium"
+        return "low"
+
     cells: dict[tuple[int, int], dict[str, Any]] = {}
     for row in range(grid_size):
         for col in range(grid_size):
@@ -475,19 +518,22 @@ def _risk_areas(
                 1.0,
             )
             base_score = risk_scores[sector]
-            # Risk is highest around the active front, while the burning core
-            # remains elevated instead of becoming an artificial low-risk hole.
+            # Proximity to the modeled front modulates the score, but does not
+            # override fire intensity.  This keeps the map continuous without
+            # turning every perimeter cell into a high-risk cell.
             local_score = base_score * (0.62 + 0.38 * front_proximity)
-            if inside_fire:
-                local_score = max(local_score, base_score * 0.78)
             local_score = _clamp(local_score, 0.0, 100.0)
-            level = "high" if local_score >= 70 else "medium" if local_score >= 42 else "low"
+            level = classify_risk(local_score, sector_intensity_values[sector])
             cells[(row, col)] = {
                 "score": local_score,
                 "level": level,
                 "sector": sector,
                 "point": [x, y],
                 "components": component_rows[sector],
+                "fire_intensity_kw_m": sector_intensity_values[sector],
+                "minimum_score": 0.0,
+                "inside_fire": inside_fire,
+                "active_front": boundary_distance <= active_front_width_km,
             }
 
     # Smooth cell scores over their immediate neighborhood. This removes
@@ -505,16 +551,21 @@ def _risk_areas(
             if neighbor in cells
         ]
         neighborhood_mean = sum(neighbor_scores) / len(neighbor_scores) if neighbor_scores else data["score"]
-        smoothed_scores[cell] = 0.6 * data["score"] + 0.4 * neighborhood_mean
+        smoothed_scores[cell] = max(
+            data["minimum_score"],
+            0.6 * data["score"] + 0.4 * neighborhood_mean,
+        )
     for cell, score in smoothed_scores.items():
         cells[cell]["score"] = score
-        cells[cell]["level"] = "high" if score >= 70 else "medium" if score >= 42 else "low"
+        cells[cell]["level"] = classify_risk(score, cells[cell]["fire_intensity_kw_m"])
 
     # Remove isolated one-cell classifications that create visual gaps between
     # otherwise continuous risk bands. Two passes are enough at this grid size.
     for _ in range(2):
         level_updates: dict[tuple[int, int], str] = {}
         for cell, data in cells.items():
+            if data["minimum_score"] > 0:
+                continue
             row, col = cell
             neighbor_levels = [
                 cells[neighbor]["level"]
@@ -551,41 +602,58 @@ def _risk_areas(
                     stack.append(neighbor)
         components.append(component)
 
-    def component_polygon(component: list[tuple[int, int]]) -> list[list[float]]:
-        selected = set(component)
-        edges: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    def component_polygon(component: list[tuple[int, int]]) -> list[list[list[float]]]:
+        import numpy as np
+        from affine import Affine
+        from rasterio.features import shapes
+
+        mask = np.zeros((grid_size, grid_size), dtype="uint8")
         for row, col in component:
-            for neighbor, start, end in (
-                ((row - 1, col), (col, row), (col + 1, row)),
-                ((row, col + 1), (col + 1, row), (col + 1, row + 1)),
-                ((row + 1, col), (col + 1, row + 1), (col, row + 1)),
-                ((row, col - 1), (col, row + 1), (col, row)),
-            ):
-                if neighbor not in selected:
-                    edges.append((start, end))
-        next_edges = {start: end for start, end in edges}
-        start = edges[0][0]
-        cursor = start
-        points: list[list[float]] = []
-        while cursor in next_edges and len(points) <= len(edges) + 1:
-            points.append(_from_local(-extent + cursor[0] * cell_size, -extent + cursor[1] * cell_size, center))
-            cursor = next_edges.pop(cursor)
-            if cursor == start:
-                break
-        if points and points[0] != points[-1]:
-            points.append(points[0])
-        return points
+            mask[row, col] = 1
+        transform = Affine(cell_size, 0.0, -extent, 0.0, cell_size, -extent)
+        polygons: list[list[list[list[float]]]] = []
+        for geometry, value in shapes(mask, mask=mask.astype(bool), transform=transform):
+            if value != 1 or geometry.get("type") != "Polygon":
+                continue
+            polygons.append(
+                [
+                    [_from_local(float(point[0]), float(point[1]), center) for point in ring]
+                    for ring in geometry.get("coordinates", [])
+                ]
+            )
+        return polygons[0] if polygons else []
 
     result: list[dict[str, Any]] = []
     for group_index, component in enumerate(components, 1):
-        level = cells[component[0]]["level"]
         score = sum(cells[cell]["score"] for cell in component) / len(component)
         factor_totals = {
             key: sum(cells[cell]["components"].get(key, 0.0) for cell in component)
             for key in component_rows[0]
         }
-        polygon = component_polygon(component)
-        if len(polygon) < 4:
+        component_intensities = [cells[cell]["fire_intensity_kw_m"] for cell in component]
+        inside_cell_count = sum(bool(cells[cell]["inside_fire"]) for cell in component)
+        active_front_cell_count = sum(bool(cells[cell]["active_front"]) for cell in component)
+        # Components are assembled from cells of one class, so preserve that
+        # class instead of averaging a local intensity peak back out of it.
+        # Spatial relation remains explanatory and never forces the category.
+        level = cells[component[0]]["level"]
+        zone_relation = (
+            "contains_active_fireline"
+            if active_front_cell_count
+            else "burned_footprint"
+            if inside_cell_count
+            else "external_threat_buffer"
+        )
+        mean_intensity = sum(component_intensities) / max(1, len(component_intensities))
+        max_intensity = max(component_intensities, default=0.0)
+        intensity_level = (
+            "extreme" if mean_intensity >= 4000
+            else "high" if mean_intensity >= 2000
+            else "moderate" if mean_intensity >= 500
+            else "low"
+        )
+        polygon_rings = component_polygon(component)
+        if not polygon_rings or len(polygon_rings[0]) < 4:
             continue
         result.append(
             {
@@ -595,14 +663,21 @@ def _risk_areas(
                     "object_type": "risk_area",
                     "risk_level": level,
                     "risk_score": round(score, 1),
+                    "mean_fire_intensity_kw_m": round(mean_intensity, 1),
+                    "max_fire_intensity_kw_m": round(max_intensity, 1),
+                    "fire_intensity_level": intensity_level,
+                    "fire_intensity_method": "Byram_H_w_R_proxy_unvalidated",
                     "sector_count": len(component),
                     "dominant_factors": sorted(factor_totals, key=factor_totals.get, reverse=True)[:3],
                     "grid_cell_count": len(component),
+                    "inside_fire_cell_count": inside_cell_count,
+                    "active_front_cell_count": active_front_cell_count,
+                    "zone_relation": zone_relation,
                     "grid_resolution": round(cell_size, 3),
                     "threat_buffer_km": round(threat_buffer_km, 3),
                     "is_simulated": True,
                 },
-                "geometry": {"type": "Polygon", "coordinates": [polygon]},
+                "geometry": {"type": "Polygon", "coordinates": polygon_rings},
             }
         )
     return result

@@ -10,6 +10,11 @@ from app.tools.dynamic_fire_spread import (
     TOOL_NAME,
     run_dynamic_fire_spread,
 )
+from app.tools.raster_fire_spread import (
+    RASTER_FIRE_SPREAD_TOOL_SCHEMA,
+    TOOL_NAME as RASTER_TOOL_NAME,
+    run_raster_fire_spread,
+)
 
 
 ToolHandler = Callable[..., Any]
@@ -34,7 +39,12 @@ AGENT_TOOL_REGISTRY: dict[str, AgentTool] = {
         name=TOOL_NAME,
         schema=DYNAMIC_FIRE_SPREAD_TOOL_SCHEMA,
         handler=run_dynamic_fire_spread,
-    )
+    ),
+    RASTER_TOOL_NAME: AgentTool(
+        name=RASTER_TOOL_NAME,
+        schema=RASTER_FIRE_SPREAD_TOOL_SCHEMA,
+        handler=run_raster_fire_spread,
+    ),
 }
 
 

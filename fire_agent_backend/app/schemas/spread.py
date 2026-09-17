@@ -83,6 +83,38 @@ class SpreadRunRequest(BaseModel):
         "what_if",
     ] = "initial_forecast"
     initial_fireline_source: str = "ignition"
+    raster_resolution_m: int = Field(default=90, ge=30, le=300)
+    simulation_buffer_km: float = Field(default=25, ge=5, le=80)
+    wind_direction_convention: Literal[
+        "meteorological_from",
+        "spread_toward",
+    ] = "spread_toward"
+
+
+class HistoricalSpreadRunRequest(BaseModel):
+    start_at: datetime | None = None
+    horizon_hours: int = Field(default=24, ge=1, le=168)
+    raster_resolution_m: int = Field(default=90, ge=30, le=300)
+    simulation_buffer_km: float = Field(default=25, ge=5, le=80)
+    initial_radius_m: float = Field(default=187.5, ge=15, le=500)
+    suppression_factor: float = Field(default=0, ge=0, le=0.95)
+    hotspot_comparison_radius_km: float = Field(default=20, ge=1, le=100)
+    spread_rate_multiplier: float = Field(default=1, ge=0.6, le=1.6)
+    wind_influence_multiplier: float = Field(default=1, ge=0.5, le=1.5)
+    terrain_influence_multiplier: float = Field(default=1, ge=0.5, le=1.5)
+    wind_direction_convention: Literal[
+        "meteorological_from",
+        "spread_toward",
+    ] = "meteorological_from"
+
+
+class HistoricalCalibrationRequest(HistoricalSpreadRunRequest):
+    horizon_hours: int = Field(
+        default=24,
+        ge=24,
+        le=24,
+        description="Fixed horizon providing 6, 12, and 24 hour FIRMS calibration checkpoints.",
+    )
 
 
 class SimulationRunRead(BaseModel):

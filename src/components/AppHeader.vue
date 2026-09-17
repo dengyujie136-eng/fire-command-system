@@ -481,6 +481,46 @@ onUnmounted(() => {
   }
 }
 
+@media (max-width: 600px) {
+  .app-header {
+    padding: 0 8px;
+  }
+
+  .logo {
+    gap: 6px;
+  }
+
+  .logo-image {
+    width: 30px;
+    height: 30px;
+  }
+
+  .logo h1 {
+    font-size: 14px;
+  }
+
+  .header-nav {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .nav-item:not(.active) {
+    display: none;
+  }
+
+  .nav-item.active {
+    padding: 6px;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .archive-btn {
+    padding: 0 8px;
+  }
+}
+
 @media (max-height: 700px) {
   .logo h1 {
     font-size: 14px;

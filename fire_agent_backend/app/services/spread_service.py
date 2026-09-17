@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from uuid import uuid4
 
@@ -16,6 +17,11 @@ from app.services.landscape_service import load_scenario_landscape
 from app.services.scenario_registry import get_scenario_or_404
 from app.services.websocket_manager import websocket_manager
 from app.tools.dynamic_fire_spread import TOOL_NAME, TOOL_VERSION, run_dynamic_fire_spread
+from app.tools.raster_fire_spread import (
+    TOOL_NAME as RASTER_TOOL_NAME,
+    TOOL_VERSION as RASTER_TOOL_VERSION,
+    run_raster_fire_spread,
+)
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -454,7 +460,12 @@ async def create_spread_run(
         run_mode = "rolling_forecast"
 
     terrain = request.terrain.model_dump(exclude_none=True)
-    if request.landscape:
+    use_raster_tool = event.scenario_id == "dixie_fire_2021"
+    if use_raster_tool:
+        landscape = None
+        landscape_warning = None
+        landscape_source = "Copernicus_DEM_and_ESA_WorldCover"
+    elif request.landscape:
         landscape = request.landscape.model_dump()
         landscape_warning = None
         landscape_source = "agent_supplied_landscape"
@@ -477,21 +488,37 @@ async def create_spread_run(
     )
 
     try:
-        tool_result = run_dynamic_fire_spread(
-            ignition_longitude=ignition_longitude,
-            ignition_latitude=ignition_latitude,
-            environment_timeline=environment_timeline,
-            horizon_minutes=requested_horizon,
-            step_minutes=request.step_minutes,
-            terrain=terrain,
-            landscape=landscape,
-            initial_radius_m=request.initial_radius_m,
-            initial_fireline_geojson=initial_fireline,
-        )
-    except (TypeError, ValueError) as exc:
+        if use_raster_tool:
+            tool_result = await asyncio.to_thread(
+                run_raster_fire_spread,
+                ignition_longitude=ignition_longitude,
+                ignition_latitude=ignition_latitude,
+                environment_timeline=environment_timeline,
+                dem_path="processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif",
+                landcover_path="processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif",
+                raster_resolution_m=request.raster_resolution_m,
+                simulation_buffer_km=request.simulation_buffer_km,
+                initial_radius_m=request.initial_radius_m,
+                suppression_factor=request.terrain.suppression_factor,
+                wind_direction_convention=request.wind_direction_convention,
+                initial_fireline_geojson=initial_fireline,
+            )
+        else:
+            tool_result = run_dynamic_fire_spread(
+                ignition_longitude=ignition_longitude,
+                ignition_latitude=ignition_latitude,
+                environment_timeline=environment_timeline,
+                horizon_minutes=requested_horizon,
+                step_minutes=request.step_minutes,
+                terrain=terrain,
+                landscape=landscape,
+                initial_radius_m=request.initial_radius_m,
+                initial_fireline_geojson=initial_fireline,
+            )
+    except (OSError, TypeError, ValueError) as exc:
         raise AppError(
-            f"Dynamic fire spread tool rejected its input: {exc}",
-            code="dynamic_spread_tool_invalid_input",
+            f"Fire spread tool rejected its input: {exc}",
+            code="spread_tool_invalid_input",
             status_code=400,
         ) from exc
 
@@ -506,8 +533,8 @@ async def create_spread_run(
     )
     if not steps:
         raise AppError(
-            "Dynamic fire spread tool produced no fire fronts.",
-            code="dynamic_spread_tool_empty",
+            "Fire spread tool produced no fire fronts.",
+            code="spread_tool_empty",
             status_code=500,
         )
 
@@ -516,8 +543,8 @@ async def create_spread_run(
     normalized_environment_timeline = tool_result["input"][
         "environment_timeline"
     ]
-    normalized_terrain = tool_result["input"]["terrain"]
-    normalized_landscape = tool_result["input"]["landscape"]
+    normalized_terrain = tool_result["input"].get("terrain", terrain)
+    normalized_landscape = tool_result["input"].get("landscape") or {}
     effective_horizon = int(tool_result["input"]["horizon_minutes"])
     effective_step = int(tool_result["input"]["step_minutes"])
     max_fwi = max(
@@ -555,14 +582,17 @@ async def create_spread_run(
             "generation": int(parent_lineage.get("generation") or 0)
             + (1 if parent_run else 0),
         },
-        "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
+        "tool": {
+            "name": RASTER_TOOL_NAME if use_raster_tool else TOOL_NAME,
+            "version": RASTER_TOOL_VERSION if use_raster_tool else TOOL_VERSION,
+        },
     }
     run = SimulationRun(
         run_id=run_id,
         event_id=event_id,
         scenario_id=event.scenario_id,
         status="completed",
-        engine="dynamic_agent_tool",
+        engine="raster_agent_tool" if use_raster_tool else "dynamic_agent_tool",
         forefire_attempted=False,
         forefire_available=False,
         fallback_used=False,

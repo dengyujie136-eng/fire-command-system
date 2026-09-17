@@ -73,6 +73,14 @@ export const spreadAPI = {
     method: 'POST',
     body: JSON.stringify(data)
   }),
+  createHistorical: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/spread-runs/historical`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  calibrate: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/spread-runs/calibrate`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
   getLatest: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/spread-runs/latest`),
   getSteps: (runId: string) => fireAgentRequest(`/api/spread-runs/${runId}/steps`)
 }

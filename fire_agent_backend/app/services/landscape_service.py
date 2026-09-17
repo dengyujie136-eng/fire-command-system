@@ -5,8 +5,7 @@ from typing import Any
 
 
 SCENE_ENVIRONMENT_SUBDIRS = {
-    "muli_lier_village": "",
-    "pingyao_liujian_gou_early_replay": "pingyao_20240613",
+    "dixie_fire_2021": "dixie_fire_2021",
 }
 
 PROJECT_LANDCOVER_LABELS = {

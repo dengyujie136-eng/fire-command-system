@@ -2,8 +2,8 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { clockAPI, decisionAPI, eventAPI, observationAPI, recalculationAPI, recommendationAPI, reportAPI, scenarioAPI, spatialAnalysisAPI, spreadAPI } from '../api/modules'
 
-export const DEFAULT_MAP_CENTER: [number, number] = [101.269444, 28.530278]
-export const MULI_COUNTY_CENTER: [number, number] = [101.2803, 28.6456]
+export const DEFAULT_MAP_CENTER: [number, number] = [-121.38241, 39.87194]
+export const MULI_COUNTY_CENTER: [number, number] = DEFAULT_MAP_CENTER
 // ERA5 风场覆盖范围约为 100.75E-102.0E、28.0N-29.0N。
 // 所有页面默认以风场中心开图，避免初始视角露出大片没有风场动画的区域。
 export const WIND_VIEW_CENTER: [number, number] = DEFAULT_MAP_CENTER
@@ -68,7 +68,7 @@ export const useFireEventStore = defineStore('fireEvent', () => {
   const eventLoading = ref(false)
   const eventError = ref('')
   const scenarios = ref<any[]>(saved.scenarios || [])
-  const selectedScenarioId = ref<string>(saved.selectedScenarioId || saved.eventDetail?.scenario_id || 'muli_lier_village')
+  const selectedScenarioId = ref<string>(saved.selectedScenarioId || saved.eventDetail?.scenario_id || 'dixie_fire_2021')
   const clockState = ref<any>(saved.clockState || null)
   const environmentSnapshot = ref<any>(saved.environmentSnapshot || null)
   const clockLoading = ref(false)
@@ -486,6 +486,16 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     return applySpreadRun(result)
   }
 
+  async function createHistoricalSpreadRun(payload: any = {}, id = 'dixie_fire_2021') {
+    const result = await spreadAPI.createHistorical(id, payload)
+    return applySpreadRun(result)
+  }
+
+  async function calibrateHistoricalSpreadRun(payload: any = {}, id = 'dixie_fire_2021') {
+    const result = await spreadAPI.calibrate(id, payload)
+    return applySpreadRun(result)
+  }
+
   async function loadLatestSpreadRun(id = eventId.value) {
     if (!id) return null
     const result = await spreadAPI.getLatest(id)
@@ -829,6 +839,8 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     setForeFireResult,
     applySpreadRun,
     createSpreadRun,
+    createHistoricalSpreadRun,
+    calibrateHistoricalSpreadRun,
     loadLatestSpreadRun,
     applySpatialAnalysis,
     createSpatialAnalysis,
