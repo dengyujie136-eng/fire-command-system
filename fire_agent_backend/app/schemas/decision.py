@@ -15,6 +15,11 @@ class DecisionRunRead(BaseModel):
     decision_run_id: str
     event_id: str
     scenario_id: str
+    source_candidate_id: str | None = None
+    visual_case_id: str | None = None
+    confirmation_id: str | None = None
+    spread_run_id: str | None = None
+    spatial_analysis_id: str | None = None
     status: str
     provider: str
     model: str

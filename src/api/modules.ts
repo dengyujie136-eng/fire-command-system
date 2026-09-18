@@ -83,6 +83,10 @@ export const visualVerificationAPI = {
     `/api/visual-verification/candidates/${encodeURIComponent(visualCaseId)}/analyses`,
     { method: 'POST', body: JSON.stringify({ derivative_ids: derivativeIds }) }
   ),
+  review: (visualCaseId: string, derivativeIds: string[]) => fireAgentRequest(
+    `/api/visual-verification/candidates/${encodeURIComponent(visualCaseId)}/review`,
+    { method: 'POST', body: JSON.stringify({ derivative_ids: derivativeIds }) }
+  ),
   derivativeImageUrl: (derivativeId: string) => (
     `${FIRE_AGENT_API_BASE_URL}/api/visual-verification/derivatives/${encodeURIComponent(derivativeId)}/image`
   ),
@@ -120,6 +124,14 @@ export const decisionAPI = {
   }),
   getLatest: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/decision-runs/latest`),
   getPackets: (decisionRunId: string) => fireAgentRequest(`/api/decision-runs/${decisionRunId}/packets`)
+}
+
+export const commandWorkflowAPI = {
+  run: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/command-workflow`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  getLatest: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/command-workflow/latest`)
 }
 
 export const recommendationAPI = {

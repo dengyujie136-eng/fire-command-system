@@ -184,7 +184,13 @@ async function runAnalysis() {
     )
     selectedImageUrl.value = visualVerificationAPI.derivativeImageUrl(derivative.derivative_id)
     analysisStage.value = 'Qwen-VL 分析中…'
-    const result = await visualVerificationAPI.analyze(selectedCase.value.visual_case_id, [derivative.derivative_id])
+    const review = await visualVerificationAPI.review(selectedCase.value.visual_case_id, [derivative.derivative_id])
+    const result = {
+      ...review.visual,
+      decision: review.confirmation?.status || review.visual?.decision,
+      confirmation_id: review.confirmation_id,
+      fusion_run_id: review.fusion_run_id
+    }
     results.value = { ...results.value, [selectedCase.value.visual_case_id]: result }
   } catch (cause: any) {
     analysisError.value = `视觉复核失败：${cause?.message || '未知错误'}`

@@ -9,6 +9,7 @@ from app.core.logging import configure_logging
 from app.db.session import init_db
 from app.routers import (
     clock,
+    command_workflow,
     data_agent,
     decisions,
     events,
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(scenarios.router, prefix=settings.api_prefix)
     app.include_router(spread.router, prefix=settings.api_prefix)
     app.include_router(spatial_analysis.router, prefix=settings.api_prefix)
+    app.include_router(command_workflow.router, prefix=settings.api_prefix)
     app.include_router(decisions.router, prefix=settings.api_prefix)
     app.include_router(recommendations.router, prefix=settings.api_prefix)
     app.include_router(recalculations.router, prefix=settings.api_prefix)

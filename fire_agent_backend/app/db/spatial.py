@@ -130,6 +130,16 @@ SPATIAL_INDEXES = (
 )
 
 SCALAR_SCHEMA_UPGRADES = (
+    'ALTER TABLE decision_runs ADD COLUMN IF NOT EXISTS source_candidate_id VARCHAR(240)',
+    'ALTER TABLE decision_runs ADD COLUMN IF NOT EXISTS visual_case_id VARCHAR(180)',
+    'ALTER TABLE decision_runs ADD COLUMN IF NOT EXISTS confirmation_id VARCHAR(100)',
+    'ALTER TABLE decision_runs ADD COLUMN IF NOT EXISTS spread_run_id VARCHAR(100)',
+    'ALTER TABLE decision_runs ADD COLUMN IF NOT EXISTS spatial_analysis_id VARCHAR(100)',
+    'CREATE INDEX IF NOT EXISTS ix_decision_runs_source_candidate_id ON decision_runs (source_candidate_id)',
+    'CREATE INDEX IF NOT EXISTS ix_decision_runs_visual_case_id ON decision_runs (visual_case_id)',
+    'CREATE INDEX IF NOT EXISTS ix_decision_runs_confirmation_id ON decision_runs (confirmation_id)',
+    'CREATE INDEX IF NOT EXISTS ix_decision_runs_spread_run_id ON decision_runs (spread_run_id)',
+    'CREATE INDEX IF NOT EXISTS ix_decision_runs_spatial_analysis_id ON decision_runs (spatial_analysis_id)',
     "ALTER TABLE visual_verification_cases ADD COLUMN IF NOT EXISTS source_cluster_id VARCHAR(180)",
     "ALTER TABLE visual_verification_cases ADD COLUMN IF NOT EXISTS cluster_point_count INTEGER",
     "ALTER TABLE visual_verification_cases ADD COLUMN IF NOT EXISTS cluster_mean_confidence DOUBLE PRECISION",
