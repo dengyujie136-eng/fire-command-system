@@ -47,6 +47,11 @@ SPATIAL_COLUMNS = (
         END
     ) STORED
     """,
+    """
+    ALTER TABLE realtime_hotspots
+    ADD COLUMN IF NOT EXISTS location_geom geometry(Point, 4326)
+    GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)) STORED
+    """,
 )
 
 SPATIAL_INDEXES = (
@@ -57,6 +62,7 @@ SPATIAL_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_uav_assets_location_geom ON uav_assets USING GIST (location_geom)",
     "CREATE INDEX IF NOT EXISTS ix_fire_front_steps_fireline_geom ON fire_front_steps USING GIST (fireline_geom)",
     "CREATE INDEX IF NOT EXISTS ix_route_plans_route_geom ON route_plans USING GIST (route_geom)",
+    "CREATE INDEX IF NOT EXISTS ix_realtime_hotspots_location_geom ON realtime_hotspots USING GIST (location_geom)",
 )
 
 

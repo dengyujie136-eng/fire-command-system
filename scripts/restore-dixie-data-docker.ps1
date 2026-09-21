@@ -13,7 +13,7 @@ $SeedPath = (Resolve-Path $SeedPath).Path
 if (-not (Test-Path $SeedPath -PathType Leaf)) { throw "Seed file not found: $SeedPath" }
 
 Write-Host '[1/3] Starting the backend and PostGIS container'
-docker compose up -d fire-agent-api
+docker compose up -d --no-build --no-deps fire-agent-api
 if ($LASTEXITCODE -ne 0) { throw 'PostGIS or fire-agent-api failed to start.' }
 
 Write-Host '[2/4] Creating the甲侧 data tables'

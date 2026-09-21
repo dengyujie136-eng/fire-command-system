@@ -1,4 +1,4 @@
-from sqlalchemy import select
+﻿from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -46,6 +46,29 @@ DEFAULT_SCENARIOS = [
             "road": "rural_mountain_roads",
             "resource": "multi_county_response",
             "sensor": "standard_four_layer",
+        },
+    },
+    {
+        "scenario_id": "dixie_fire_2021_replay",
+        "name": "Dixie Fire 2021 historical replay",
+        "location_name": "Dixie Fire perimeter region, Northern California",
+        "longitude": -121.39,
+        "latitude": 40.12,
+        "coordinate_precision": "historical_event_centroid",
+        "duration_minutes": 720,
+        "default_tick_interval_seconds": 1.0,
+        "time_segments": [
+            {"from_minute": 0, "to_minute": 120, "step_minutes": 5},
+            {"from_minute": 120, "to_minute": 720, "step_minutes": 30},
+        ],
+        "profiles": {
+            "region": "northern_california_mixed_conifer",
+            "weather": "historical_replay_driver",
+            "fuel": "worldcover_derived_fuel",
+            "road": "historical_context_roads",
+            "resource": "county_state_response",
+            "sensor": "firms_plus_workflow_drill_sources",
+            "source_mode": "historical_replay",
         },
     },
 ]

@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
@@ -35,6 +35,11 @@ const routes = [
     path: '/fire-predict',
     name: 'FirePredict',
     component: () => import('../views/FirePredict.vue')
+  },
+  {
+    path: '/disaster-review',
+    name: 'DisasterReview',
+    component: () => import('../views/DisasterReview.vue')
   },
   {
     path: '/disaster-assess',

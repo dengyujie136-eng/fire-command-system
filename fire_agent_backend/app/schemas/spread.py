@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,6 +8,7 @@ class SpreadRunRequest(BaseModel):
     horizon_minutes: int = Field(default=120, ge=30, le=720)
     step_minutes: int = Field(default=30, ge=5, le=120)
     prefer_forefire: bool = True
+    user_environment_override: dict[str, Any] | None = None
 
 
 class SimulationRunRead(BaseModel):

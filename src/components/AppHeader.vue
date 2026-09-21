@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <header class="app-header">
     <div class="header-left">
       <div class="logo">
@@ -82,6 +82,7 @@ const navItems = [
   { path: '/resource-dispatch', label: '资源', icon: '资' },
   { path: '/disaster-assess', label: '评估', icon: '评' },
   { path: '/command-center', label: '指挥', icon: '令' },
+  { path: '/disaster-review', label: '复盘', icon: '复' },
 ]
 
 let timer: ReturnType<typeof setInterval>

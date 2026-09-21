@@ -1,4 +1,4 @@
-import math
+﻿import math
 from typing import Any
 from uuid import uuid4
 
@@ -240,6 +240,21 @@ async def create_spread_run(db: AsyncSession, event_id: str, request: SpreadRunR
         raise AppError("Trusted fire point is required before spread prediction.", code="trusted_point_required", status_code=400)
     env = await _latest_environment(db, event_id)
     env_payload = _environment_payload(env)
+    if request.user_environment_override:
+        allowed_keys = {
+            "temperature_c",
+            "humidity_percent",
+            "wind_speed_m_s",
+            "wind_direction_deg",
+            "fuel_moisture",
+            "fire_weather_index",
+            "precipitation_mm",
+        }
+        for key, value in request.user_environment_override.items():
+            if key in allowed_keys and value is not None:
+                env_payload[key] = value
+        env_payload["source_mode"] = "user_input"
+        env_payload["user_environment_override"] = request.user_environment_override
     run_id = f"spr_{uuid4().hex[:18]}"
     input_payload = {
         "event_id": event_id,

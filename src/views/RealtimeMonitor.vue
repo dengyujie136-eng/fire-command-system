@@ -1,7 +1,7 @@
 <template>
-  <BackendDrivenPage mode="monitor" title="实时火情监测" subtitle="后端事件、时钟与观测数据" />
+  <MemberARealtimeMonitor />
 </template>
 
 <script setup lang="ts">
-import BackendDrivenPage from '../components/BackendDrivenPage.vue'
+import MemberARealtimeMonitor from '../components/MemberARealtimeMonitor.vue'
 </script>

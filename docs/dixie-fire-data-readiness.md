@@ -1,6 +1,6 @@
 # Dixie Fire data readiness report
 
-- Generated: 2026-09-12T01:42:55.2880046Z
+- Generated: 2026-09-17T11:59:49.1935269Z
 - Branch: `member/heimini`
 - Event: `dixie_fire_2021` (Dixie Fire)
 

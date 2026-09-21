@@ -1,6 +1,6 @@
 {
     "schema_version":  "fire.dixie.readiness.v0.1",
-    "generated_at":  "2026-09-12T01:42:55.2880046Z",
+    "generated_at":  "2026-09-17T11:59:49.1935269Z",
     "branch":  "member/heimini",
     "event_id":  "dixie_fire_2021",
     "raw_firms":  {
@@ -70,13 +70,23 @@
                            "checked":  true,
                            "service_status":  [
                                                   {
+                                                      "service":  "fire-agent-api",
+                                                      "state":  "running",
+                                                      "health":  "healthy"
+                                                  },
+                                                  {
+                                                      "service":  "frontend",
+                                                      "state":  "running",
+                                                      "health":  ""
+                                                  },
+                                                  {
                                                       "service":  "postgis",
                                                       "state":  "running",
                                                       "health":  "healthy"
                                                   }
                                               ],
                            "counts":  {
-                                          "events":  1,
+                                          "events":  3,
                                           "firms_raw":  70460,
                                           "hotspots":  60013,
                                           "clusters":  11704,

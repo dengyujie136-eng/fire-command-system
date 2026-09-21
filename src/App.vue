@@ -1,14 +1,16 @@
-<template>
+﻿<template>
   <div id="app-container">
     <AppHeader />
     <main class="main-content">
       <router-view />
     </main>
+    <AIAssistant />
   </div>
 </template>
 
 <script setup lang="ts">
 import AppHeader from './components/AppHeader.vue'
+import AIAssistant from './components/AIAssistant.vue'
 </script>
 
 <style scoped>

@@ -32,6 +32,31 @@ export const eventAPI = {
 export const scenarioAPI = {
   getList: () => fireAgentRequest('/api/scenarios')
 }
+export const dixieFireAPI = {
+  getEvent: () => fireAgentRequest('/api/data/events/dixie_fire_2021'),
+  getHotspots: (params: { limit?: number; offset?: number; status?: string; aggregate?: boolean } = {}) => {
+    const query = new URLSearchParams()
+    query.set('limit', String(params.limit ?? 1000))
+    query.set('offset', String(params.offset ?? 0))
+    if (params.status) query.set('status', params.status)
+    if (params.aggregate !== undefined) query.set('aggregate', String(params.aggregate))
+    return fireAgentRequest(`/api/data/events/dixie_fire_2021/hotspots?${query.toString()}`)
+  },
+  getBurnedArea: () => fireAgentRequest('/api/data/events/dixie_fire_2021/burned-area?include_geometry=true'),
+  getWeatherHourly: (params: { limit?: number; offset?: number } = {}) => {
+    const query = new URLSearchParams()
+    query.set('limit', String(params.limit ?? 1000))
+    query.set('offset', String(params.offset ?? 0))
+    return fireAgentRequest(`/api/data/events/dixie_fire_2021/weather-hourly?${query.toString()}`)
+  }
+}
+
+export const dataCatalogAPI = {
+  getHistorical: () => fireAgentRequest('/api/data-agent/catalog/dixie_fire_2021'),
+  getRealtime: () => fireAgentRequest('/api/data-agent/realtime-catalog'),
+  getGoesManifest: () => fireAgentRequest('/api/realtime-demo/manifest'),
+  getFirmsArchiveManifest: () => fireAgentRequest('/api/realtime-demo/firms-archive/manifest')
+}
 
 export const clockAPI = {
   get: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/clock`),
@@ -77,6 +102,16 @@ export const spreadAPI = {
   getSteps: (runId: string) => fireAgentRequest(`/api/spread-runs/${runId}/steps`)
 }
 
+export const workflowAPI = {
+  rerunSpread: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/workflow/rerun-spread`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  startHistorical: (historicalEventId: string, data: any = { include_report: true }) => fireAgentRequest(`/api/historical-events/${historicalEventId}/workflow/start`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
 export const decisionAPI = {
   create: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/decision-runs`, {
     method: 'POST',
@@ -106,6 +141,38 @@ export const recalculationAPI = {
   getLatest: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/recalculations/latest`)
 }
 
+
+export const historicalEventsAPI = {
+  search: (params: { country?: string; region?: string; last_years?: number; sort_by?: string; limit?: number } = {}) => {
+    const query = new URLSearchParams()
+    query.set('country', params.country ?? 'United States')
+    query.set('region', params.region ?? 'California')
+    query.set('last_years', String(params.last_years ?? 5))
+    query.set('sort_by', params.sort_by ?? 'burned_area_km2')
+    query.set('limit', String(params.limit ?? 5))
+    return fireAgentRequest(`/api/data-agent/historical-events?${query.toString()}`)
+  },
+  query: (data: any) => fireAgentRequest('/api/data-agent/historical-events/query', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  get: (eventId: string) => fireAgentRequest(`/api/data-agent/historical-events/${eventId}`)
+}
+
+export const assistantAPI = {
+  chat: (data: any) => fireAgentRequest('/api/assistant/chat', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export const disasterReviewAPI = {
+  getAnalysis: (eventId: string) => fireAgentRequest(`/api/review/events/${eventId}/analysis`)
+}
+
+export const ruleBaseAPI = {
+  getFireEmergencyRules: () => fireAgentRequest('/api/rules/fire-emergency')
+}
 export const reportAPI = {
   create: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/reports`, {
     method: 'POST',

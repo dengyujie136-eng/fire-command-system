@@ -48,10 +48,12 @@
         </div>
         <p v-else class="empty-text">{{ config.emptyLeft }}</p>
       </section>
+      <DataCatalogPanel v-if="mode === 'monitor'" />
     </aside>
 
     <section class="map-stage">
       <CesiumMap ref="mapRef" class="map" :scene-id="scenarioId" />
+      <DixieFireLayerPanel />
       <div class="map-topbar">
         <div>
           <p>{{ subtitle }}</p>
@@ -91,6 +93,14 @@
         </article>
       </section>
 
+
+      <SpreadControlPanel
+        v-if="showSpreadControl"
+        :environment="fireEvent.environmentSnapshot"
+        :busy="busy"
+        :status="message"
+        @run="runControlledSpread"
+      />
       <section v-if="mode === 'command'" class="whatif-panel">
         <h3>情景重算</h3>
         <div class="scenario-row">
@@ -138,8 +148,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import CesiumMap from './CesiumMap.vue'
+import DataCatalogPanel from './DataCatalogPanel.vue'
+import DixieFireLayerPanel from './DixieFireLayerPanel.vue'
+import SpreadControlPanel from './SpreadControlPanel.vue'
+import { workflowAPI } from '../api/modules'
 import { WIND_VIEW_ZOOM, useFireEventStore } from '../stores/fireEventStore'
 import { syncActiveFireToMap } from '../composables/useFireEventMapSync'
+import { syncDixieFireToMap } from '../composables/useDixieFireMapSync'
 
 type Mode = 'monitor' | 'fusion' | 'predict' | 'route' | 'uav' | 'resource' | 'assess' | 'command'
 type Row = { id: string; title: string; subtitle: string; value: string }
@@ -158,6 +173,7 @@ const busy = ref(false)
 const message = ref('等待操作')
 const disturbanceType = ref('road_unavailable')
 let mapSync: ReturnType<typeof syncActiveFireToMap> | null = null
+let dixieMapSync: ReturnType<typeof syncDixieFireToMap> | null = null
 
 const mode = computed(() => props.mode)
 const title = computed(() => props.title)
@@ -265,6 +281,7 @@ const trustedConfidence = computed(() => fireEvent.trustedFirePoint ? Number(fir
 const spreadEngineLabel = computed(() => fireEvent.spreadRun ? `${fireEvent.spreadRun.engine}${fireEvent.spreadRun.fallback_used ? ' / 兜底' : ''}` : '待推演')
 const modelLabel = computed(() => fireEvent.decisionRun ? `${fireEvent.decisionRun.provider || ''} ${fireEvent.decisionRun.model || ''}`.trim() : '待调用')
 const recalculationText = computed(() => fireEvent.latestRecalculation?.recalculation?.change_summary?.message || '选择假设条件后重新计算推荐结果。')
+const showSpreadControl = computed(() => props.mode === 'command' && Boolean(fireEvent.trustedFirePoint || fireEvent.spreadRun))
 
 const mapStatus = computed(() => [
   { label: '时钟', value: clockMinute.value },
@@ -554,6 +571,18 @@ function disturbancePayload() {
   return { disturbance_type: type, assumption: `Command-side ${type} assumption.`, parameters, created_by: 'frontend-command' }
 }
 
+
+async function runControlledSpread(payload: any) {
+  await runStep('重新生成火势推演', async () => {
+    if (!fireEvent.eventId) throw new Error('没有后端事件。')
+    const result = await workflowAPI.rerunSpread(fireEvent.eventId, { ...payload, include_report: true })
+    const data = result?.data || result
+    fireEvent.applySpreadRun(data.spread)
+    fireEvent.applyDecisionRun({ data: data.decision })
+    fireEvent.applyRecommendationPackage({ data: data.recommendations })
+    if (data.report) fireEvent.applyReport(data.report)
+  })
+}
 async function runRecalculation() {
   await runStep('执行情景重算', async () => {
     await fireEvent.recalculateWithDisturbance({ disturbance: disturbancePayload(), status: 'recommended' })
@@ -589,6 +618,7 @@ onMounted(async () => {
     mode: props.mode,
     showHotspotBeforePrediction: true,
   })
+  dixieMapSync = syncDixieFireToMap(() => mapRef.value)
 })
 
 watch(() => fireEvent.selectedScenarioId, (value) => {
@@ -597,6 +627,7 @@ watch(() => fireEvent.selectedScenarioId, (value) => {
 
 onUnmounted(() => {
   mapSync?.stop?.()
+  dixieMapSync?.stop?.()
 })
 </script>
 

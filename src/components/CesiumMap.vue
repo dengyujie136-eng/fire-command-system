@@ -28,6 +28,8 @@ const containerRef = ref<HTMLDivElement>()
 const windCanvasRef = ref<HTMLCanvasElement>()
 let viewer: Cesium.Viewer | null = null
 let hotspotEntities: Cesium.Entity[] = []
+let dixieHotspotEntities: Cesium.Entity[] = []
+let dixieBurnedAreaEntities: Cesium.Entity[] = []
 let fireFrontEntities: Cesium.Entity[] = []
 let demoEntities: Cesium.Entity[] = []
 let fireParticleSystem: Cesium.ParticleSystem | null = null
@@ -207,6 +209,120 @@ function addHotspotGeoJson(geojson: any) {
     })
 }
 
+function clearDixieLayers() {
+  if (!viewer) return
+  dixieHotspotEntities.forEach((entity) => viewer?.entities.remove(entity))
+  dixieBurnedAreaEntities.forEach((entity) => viewer?.entities.remove(entity))
+  dixieHotspotEntities = []
+  dixieBurnedAreaEntities = []
+}
+
+function addDixieHotspotsGeoJson(geojson: any) {
+  if (!viewer || !geojson?.features?.length) return
+  dixieHotspotEntities.forEach((entity) => viewer?.entities.remove(entity))
+  dixieHotspotEntities = []
+
+  geojson.features
+    .filter((feature: any) => feature?.geometry?.type === 'Point')
+    .forEach((feature: any) => {
+      const [lng, lat] = feature.geometry.coordinates
+      const frp = Number(feature.properties?.frp_mw || 0)
+      const confidence = Number(feature.properties?.confidence_score || 0)
+      const color = frp >= 20 || confidence >= 0.8 ? Cesium.Color.RED : Cesium.Color.ORANGE
+      const source = feature.properties?.satellite || feature.properties?.source_product || feature.properties?.data_owner || 'Unknown'
+      const entity = viewer!.entities.add({
+        name: feature.properties?.name || 'Dixie Fire hotspot',
+        description: [
+          `<strong>Observed:</strong> ${feature.properties?.observed_at || 'Unknown'}`,
+          `<strong>Source:</strong> ${source}`,
+          `<strong>Confidence:</strong> ${Number.isFinite(confidence) ? confidence : 'Unknown'}`,
+          `<strong>FRP:</strong> ${Number.isFinite(frp) ? `${frp} MW` : 'Unknown'}`
+        ].join('<br>'),
+        position: Cesium.Cartesian3.fromDegrees(lng, lat, 90),
+        point: {
+          pixelSize: Math.min(18, Math.max(11, 11 + frp / 15)),
+          color: color.withAlpha(0.96),
+          outlineColor: Cesium.Color.WHITE.withAlpha(0.95),
+          outlineWidth: 2,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        },
+        properties: feature.properties || {}
+      })
+      dixieHotspotEntities.push(entity)
+    })
+}
+
+function geometryPolygons(geometry: any): LngLat[][][] {
+  if (!geometry) return []
+  if (geometry.type === 'Polygon') return [geometry.coordinates || []]
+  if (geometry.type === 'MultiPolygon') return geometry.coordinates || []
+  return []
+}
+
+function addDixieBurnedAreaGeoJson(geojson: any) {
+  if (!viewer || !geojson?.features?.length) return
+  dixieBurnedAreaEntities.forEach((entity) => viewer?.entities.remove(entity))
+  dixieBurnedAreaEntities = []
+
+  geojson.features.forEach((feature: any) => {
+    geometryPolygons(feature.geometry).forEach((polygonRings, polygonIndex) => {
+      const outerRing = polygonRings?.[0]
+      if (!Array.isArray(outerRing) || outerRing.length < 3) return
+      const holes = polygonRings
+        .slice(1)
+        .filter((ring) => Array.isArray(ring) && ring.length >= 3)
+        .map((ring) => new Cesium.PolygonHierarchy(ringToGroundPositions(ring)))
+      const hierarchy = new Cesium.PolygonHierarchy(ringToGroundPositions(outerRing), holes)
+      const polygon = viewer!.entities.add({
+        name: feature.properties?.name || 'Dixie Fire burned area',
+        polygon: {
+          hierarchy,
+          material: Cesium.Color.ORANGERED.withAlpha(0.4),
+          outline: false,
+          classificationType: Cesium.ClassificationType.TERRAIN
+        },
+        properties: feature.properties || {}
+      })
+      dixieBurnedAreaEntities.push(polygon)
+
+      polygonRings.forEach((ring) => {
+        if (!Array.isArray(ring) || ring.length < 2) return
+        const outline = viewer!.entities.add({
+          name: `${feature.properties?.name || 'Dixie Fire burned area'} outline`,
+          polyline: {
+            positions: ringToGroundPositions(ring),
+            width: 3,
+            material: Cesium.Color.ORANGERED.withAlpha(0.92),
+            clampToGround: true,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        })
+        dixieBurnedAreaEntities.push(outline)
+      })
+
+      if (polygonIndex === 0) {
+        const [lng, lat] = outerRing[Math.floor(outerRing.length / 2)]
+        const label = viewer!.entities.add({
+          name: 'Dixie Fire burned area label',
+          position: Cesium.Cartesian3.fromDegrees(lng, lat, 120),
+          label: {
+            text: 'Dixie Fire 2021',
+            font: '13px sans-serif',
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 3,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new Cesium.Cartesian2(0, -18),
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        })
+        dixieBurnedAreaEntities.push(label)
+      }
+    })
+  })
+}
 function addDemoPoint(options: { name: string, position: LngLat, color?: string, label?: string, size?: number }) {
   if (!viewer) return
   const color = Cesium.Color.fromCssColorString(options.color || '#38bdf8')
@@ -919,7 +1035,7 @@ async function setTerrainEnabled(enabled: boolean) {
       if (!viewer || viewer !== currentViewer || viewer.isDestroyed()) return
       currentViewer.terrainProvider = terrainProvider
       currentViewer.scene.globe.depthTestAgainstTerrain = true
-      currentViewer.scene.globe.enableLighting = true
+      currentViewer.scene.globe.enableLighting = false
       currentViewer.scene.verticalExaggeration = 1.8
       currentViewer.scene.verticalExaggerationRelativeHeight = 1800
       return
@@ -1297,6 +1413,9 @@ defineExpose({
   zoomOut,
   addHotspotGeoJson,
   clearHotspots,
+  addDixieHotspotsGeoJson,
+  addDixieBurnedAreaGeoJson,
+  clearDixieLayers,
   addDemoPoint,
   addDemoRoute,
   addDemoArea,

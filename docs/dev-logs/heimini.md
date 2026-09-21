@@ -1,3 +1,70 @@
+﻿## 2026-09-21 智能应急决策系统升级
+- 分支：`member/heimini`
+- 最新提交：未提交（用户要求禁止 git add/git commit/git push）
+- 任务目标：建立历史火灾事件库/Data Agent、灾前灾中灾后复盘、结构化规则库、统一 AI Assistant、Command Center 火势推演控制面板和真实风雨数据展示入口。
+
+### 已完成
+- 新增 Historical Fire Event Database ORM 与加州事件种子，当前支持 Dixie Fire、Park Fire、Caldor Fire、Mosquito Fire，其中 Dixie Fire 具备本地 FIRMS/Weather/DEM/Fuel/Burned Area 链路。
+- Data Agent 新增历史事件查询和详情接口，默认支持“近五年加州过火面积最大火灾”按 burned_area_km2 排序。
+- 新增 Disaster Review API 与页面，按灾前、灾中、灾后展示专题图、NASA POWER 风雨样本、MTBS/NDVI 可用性和 6 节自动报告。
+- 新增 `config/rules/fire_emergency_rules.yaml` 结构化规则库，21 条规则，覆盖火势、气象、地形、燃料、风险、救援、指挥。
+- 新增统一 AI Assistant 浮窗，调用后端 intent/Data Agent/Review Agent，并由前端执行现有 workflow 工具链。
+- Command Center 新增火势推演控制面板，提交风速、风向、温度、湿度、降水、燃料湿度、FWI、预测时间后调用现有 spread run，并刷新 Decision/Recommendation。
+
+### 主要文件
+- `fire_agent_backend/app/models/historical_event.py`：新增历史事件 ORM 表。
+- `fire_agent_backend/app/services/historical_event_service.py`：历史事件种子与查询逻辑。
+- `fire_agent_backend/app/routers/data_agent.py`：新增 historical-events 查询/详情接口。
+- `fire_agent_backend/app/services/review_service.py`、`fire_agent_backend/app/routers/review.py`：灾害复盘分析与报告 API。
+- `fire_agent_backend/app/services/assistant_service.py`、`fire_agent_backend/app/routers/assistant.py`：统一 Assistant 工具调用编排。
+- `fire_agent_backend/app/services/rule_base_service.py`、`fire_agent_backend/app/routers/rules.py`、`config/rules/fire_emergency_rules.yaml`：规则库与摘要接口。
+- `src/components/AIAssistant.vue`：全局自然语言入口。
+- `src/views/DisasterReview.vue`：灾前灾中灾后复盘页面。
+- `src/components/SpreadControlPanel.vue`、`src/components/BackendDrivenPage.vue`：Command Center 推演控制面板。
+- `src/api/modules.ts`、`src/router/index.ts`、`src/App.vue`、`src/components/AppHeader.vue`：API、路由、全局组件与导航接入。
+
+### 接口变化
+- 新增：`GET /api/data-agent/historical-events`。
+- 新增：`POST /api/data-agent/historical-events/query`。
+- 新增：`GET /api/data-agent/historical-events/{event_id}`。
+- 新增：`POST /api/assistant/chat`。
+- 新增：`GET /api/review/events/{event_id}/analysis`。
+- 新增：`GET /api/rules/fire-emergency`。
+- 修改：`POST /api/events/{event_id}/spread-runs` 请求新增可选 `user_environment_override`，记录用户输入气象/燃料参数；旧请求兼容。
+- 响应字段：历史事件返回 `data_availability`、`environmental_data`、`model_data`；复盘返回 `source_modes`、`pre_fire`、`during_fire`、`post_fire`、`report`、`rule_base`。
+- 错误和状态变化：未找到历史事件时返回后端统一 404；缺失 NDVI/未注册数据以 `not_available` 标注，不伪造结果。
+
+### 数据库与数据变化
+- 新增表：`historical_fire_events`。
+- 坐标系：历史事件 bbox/centroid 使用 EPSG:4326。
+- 数据来源与处理脚本：本次未新增下载脚本；Dixie 复盘复用已登记 FIRMS、NASA POWER、Copernicus DEM、WorldCover/Fuel、MTBS 链路。其他加州事件仅为目录元数据，未冒充本地分析数据。
+
+### 配置与依赖变化
+- 环境变量：无。
+- Python/npm/Docker 依赖：无新增。
+- Docker 配置：无修改。
+
+### 验证结果
+- `[通过]` `npm run build`。
+- `[通过]` `python -m compileall fire_agent_backend/app backend/forefire_api/app`。
+- `[通过]` `docker compose config --quiet`。
+- `[失败/未验证]` `docker compose up -d`：Docker Desktop daemon 未运行，无法连接 `dockerDesktopLinuxEngine`。
+- `[通过]` 后端 smoke test：历史事件查询返回 3 条，首选 `dixie_fire_2021`；复盘报告 6 节；规则库 21 条。
+- `[未完整执行]` 浏览器端完整自然语言链路未在 Docker 环境中启动验证；前端构建与后端服务级工具链已验证。
+
+### 对其他模块的影响
+- 依赖的上游输出：已有 Dixie 数据包、现有 spread/decision/recommendation/report workflow。
+- 提供给下游的输出：历史事件候选列表、统一 Assistant 工具计划、复盘报告、规则库摘要、用户参数标记的 spread run。
+- 高冲突公共文件：`fire_agent_backend/app/main.py`、`src/api/modules.ts`、`src/components/BackendDrivenPage.vue`、`src/components/AppHeader.vue`。
+
+### 已知问题与下一步
+- Park/Caldor/Mosquito 当前仅有目录元数据，缺少本地 FIRMS/Weather/DEM/Fuel/MTBS 产品，不能进入完整分析流程。
+- Docker daemon 未运行，容器启动与端到端浏览器流程未完成验证。
+- Assistant 当前使用可解释规则化 intent 识别；未配置远程 LLM API key 时不冒充远程 LLM 输出。
+
+### 合并提示
+- 暂时不要合并到 main，建议先由集成人员检查公共文件与 Assistant 工具链交互，再在 Docker 环境运行完整端到端流程。
+
 ## 2026-09-11 - Natural-language command pipeline
 - Branch: `member/heimini`
 - Latest commit: final hash is reported in the delivery summary
@@ -942,3 +1009,196 @@
 
 - Can merge: yes as a local stable baseline; do not push until a remote strategy is chosen.
 - Project owner should check: initial repository remote strategy before any future push.
+
+## 2026-09-12 - Selective Dixie Fire shared data baseline integration
+- Branch: `member/heimini`
+- Latest commit: not committed in this task
+- Task goal: Selectively integrate the Dixie Fire 2021 shared data baseline from `origin/member/qingzhe_ivory` without switching branches or merging unrelated deletions.
+
+### Completed
+
+- Fetched `origin/member/qingzhe_ivory` and inspected the full branch diff.
+- Avoided whole-branch merge because it would delete current agent/planning/resource code and add `.env`.
+- Selectively added Dixie Fire data scripts, data router, handoff docs, manifests, raw/processed data, and SQL files.
+- Mounted `fire_data.router` in `fire_agent_backend/app/main.py` under the existing API prefix.
+- Updated `scripts/validate-dixie-data.ps1` branch guard to allow `member/*` branches instead of only `member/qingzhe_ivory`.
+- Kept `handoff/` untracked and did not commit or move it.
+- Removed the temporary `handoff_staging/` directory after data merge and validation.
+
+### Main Files
+
+- `fire_agent_backend/app/main.py`: added the Dixie Fire data router import and include call.
+- `fire_agent_backend/app/routers/fire_data.py`: added Dixie Fire data API endpoints.
+- `scripts/*dixie*.ps1`: added Dixie Fire download/import/restore/validate helpers.
+- `data/`: added Dixie Fire raw, processed, SQL, manifest, and ForeFire input data from the handoff ZIP.
+- `docs/DIXIE_FIRE_TRANSFER_PACKAGE.md`, `docs/TEAM_DATA_HANDOFF_AI_GUIDE.md`, `docs/dixie-fire-data-readiness.md`: added/updated handoff and readiness docs.
+
+### API Changes
+
+- Added `/api/data/events/{event_id}`.
+- Added `/api/data/events/{event_id}/hotspots` with `status`, `aggregate`, `start_at`, `end_at`, `limit`, and `offset` query support.
+- Added `/api/data/events/{event_id}/burned-area` with `include_geometry` query support.
+- Added `/api/data/events/{event_id}/weather` and `/api/data/events/{event_id}/weather-hourly`.
+- Added `/api/data/events/{event_id}/realtime-replay`.
+
+### Database And Data Changes
+
+- Added Dixie Fire 2021 local data files under `data/raw`, `data/processed`, `data/manifests`, and `data/sql`.
+- Restored local Docker PostGIS data for `event_id = 'dixie_fire_2021'` only.
+- Verified counts: FIRMS raw 70460, candidate hotspots 60013, ten-minute clusters 11704, burned area 1, daily weather 105, hourly weather 2520.
+- Created minimal local `fire_events`/`event_timeline` base tables in the Docker PostGIS volume because backend Docker build could not run `init_db()`.
+
+### Config And Dependency Changes
+
+- Existing `.env` was not overwritten.
+- Appended missing local development database keys to `.env`: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`.
+- No real API keys, Cesium tokens, LLM keys, or database secrets were added to tracked files.
+
+### Verification Results
+
+- `[passed]` `git fetch origin member/qingzhe_ivory`
+- `[passed]` SHA256 check for `dixie_fire_2021_database_seed.sql`
+- `[passed]` SHA256 check for `qingzhe_ivory_dixie_fire_2021_data_bundle.zip`
+- `[passed]` ZIP extracted to staging and merged into `data/` using user-approved overwrite of `data/README.md` and `data/manifest.example.json`.
+- `[passed]` Docker PostGIS started and became healthy.
+- `[passed]` Dixie Fire seed restored with PostGIS-only fallback after backend image build failed.
+- `[passed]` `scripts/validate-dixie-data.ps1` after branch guard fix.
+- `[failed]` `scripts/restore-dixie-data-docker.ps1`: backend image build failed while resolving Docker base image metadata from the configured mirror.
+- `[failed]` `docker compose up -d fire-agent-api`: Docker mirror EOF for `python:3.12-slim` and `ubuntu:22.04`.
+- `[failed]` `docker compose up -d --build`: Docker mirror EOF for `python:3.12-slim`, `ubuntu:22.04`, `nginx:1.27-alpine`, and `node:22-alpine`.
+- `[not executed]` API endpoint checks against `localhost:8200` because the backend service could not start.
+
+### Impact On Other Modules
+
+- Upstream dependencies: requires PostGIS data tables and seed data for Dixie Fire 2021.
+- Downstream outputs: frontend/backend can consume Dixie Fire event data through `/api/data/...` once backend service starts.
+- High-conflict shared files: `fire_agent_backend/app/main.py`; changed only to mount `fire_data.router`.
+
+### Known Issues And Next Steps
+
+- Docker image builds are blocked by EOF responses from the configured Docker registry mirror.
+- Local Windows `asyncpg` connections to the Docker PostGIS port fail with `ConnectionDoesNotExistError`, so the local uvicorn fallback could not start.
+- API and full website verification remain pending until backend/frontend containers can build or the local database connection issue is resolved.
+
+### Merge Notes
+
+- Can merge: not yet; review generated data file tracking first and confirm whether large raw/processed data should remain untracked or be handled outside Git.
+- Project owner should check: `data/` file policy, `scripts/validate-dixie-data.ps1` branch guard, and Docker mirror configuration.
+
+## 2026-09-17 - Member A FINAL data and realtime monitor integration
+
+- Branch: `member/heimini`
+- Latest commit: not committed in this task
+- Task goal: Install and validate the Member A FINAL handoff, restore Dixie Fire and realtime data, and expose an API-backed data catalog on `/realtime-monitor`.
+
+### Completed
+
+- Verified all four handoff file SHA256 values before extraction.
+- Installed the core and realtime data incrementally without overwriting existing repository data.
+- Preserved the current readiness manifest, archived the FINAL version for audit, and regenerated readiness from the current code, database, and local files.
+- Restored the Dixie Fire event and Member A realtime seed data through scoped restore scripts.
+- Added realtime FIRMS, FIRMS archive, and GOES-18 demo backend routes and services.
+- Added an API-backed Data Catalog and the complete history/realtime monitor workflow, including both timeline controls and the GOES detection preview.
+- Configured `FIRMS_MAP_KEY` only in the ignored local `.env`; the key was not printed or copied into tracked files.
+
+### Main Files
+
+- `compose.yaml`: passes `FIRMS_MAP_KEY` and mounts local `data/` into `fire-agent-api`.
+- `fire_agent_backend/app/{models,schemas,services,routers}/realtime*`: realtime persistence, FIRMS NRT, archive, and GOES demo integration.
+- `fire_agent_backend/app/routers/data_agent.py`: catalog responses backed by database counts, manifests, and filesystem checks.
+- `scripts/restore-member-a-realtime-docker.ps1`, `scripts/verify_member_a_data.py`: scoped restore and data verification.
+- `src/components/DataCatalogPanel.vue`, `src/components/MemberARealtimeMonitor.vue`: data inventory and complete monitor UI.
+- `src/views/RealtimeMonitor.vue`, `src/api/modules.ts`: page mount and catalog API clients.
+
+### API Changes
+
+- Added `/api/data-agent/catalog/dixie_fire_2021` and `/api/data-agent/realtime-catalog` catalog responses.
+- Added `/api/realtime/status`, `/api/realtime/hotspots`, and `/api/realtime/sync`.
+- Added `/api/realtime-demo/manifest`, `/api/realtime-demo/detect`, `/api/realtime-demo/preview/{slot_index}`, and FIRMS archive manifest/hotspot endpoints.
+
+### Database And Data Changes
+
+- Dixie restore counts: 70460 FIRMS raw records, 60013 candidate hotspots, 11704 clusters, 1 burned area, 105 daily weather rows, and 2520 hourly weather rows.
+- Realtime seed counts: 16 observations and 5709 candidate hotspots.
+- Browser validation triggered one expected FIRMS NRT sync; final catalog counts are 17 observations and 6363 deduplicated candidate hotspots.
+- Installed 39 new realtime files. Skipped 80 identical core files and preserved one differing readiness manifest for audit.
+- Preserved all existing Sentinel-2, DEM, fuel, weather, GeoTIFF, and other event data. Sentinel-2 currently contains no installed imagery and is reported as Missing by the catalog.
+
+### Config And Dependency Changes
+
+- Added `netCDF4`, `pyproj`, and `Pillow` for the local GOES demo pipeline.
+- Added local-only `FIRMS_MAP_KEY`; `.env` remains ignored by Git.
+- No database credentials, LLM keys, Cesium tokens, or MAP key values were written to tracked files.
+
+### Verification Results
+
+- `[passed]` `npm run build`
+- `[passed]` `python -m compileall -q fire_agent_backend\\app backend`
+- `[passed]` `docker compose config --quiet`
+- `[passed]` `python scripts\\verify_member_a_data.py`
+- `[passed]` `.\\scripts\\validate-dixie-data.ps1`
+- `[passed]` all required backend catalog, demo, and Dixie endpoints returned HTTP 200.
+- `[passed]` frontend Docker image rebuild and `/realtime-monitor` HTTP/render/interaction checks.
+- `[passed]` GOES slot 0 detection: 6 displayed hotspots, F1 0.9692, preview HTTP 200.
+- `[not executed]` pytest suite because the active Python 3.10 environment does not have `pytest` installed.
+- `[passed]` `git diff --check`
+
+### Impact On Other Modules
+
+- Existing non-monitor routes and pages were not changed.
+- High-conflict shared files: `compose.yaml`, `fire_agent_backend/app/main.py`, and `src/api/modules.ts`; changes are limited to realtime/catalog wiring.
+- No branch merge, Git staging, commit, or push was performed.
+
+### Known Issues And Next Steps
+
+- Sentinel-2 imagery is not installed in the current local `data/raw/sentinel2` directory, so the catalog correctly reports it as Missing.
+- The production bundle still emits the existing Vite large-chunk warning; the build succeeds.
+- Install audit files and the archived handoff comparison remain under untracked `handoff_temp/_audit/`.
+
+### Merge Notes
+
+- Can merge: not yet; review the uncommitted integration diff and large-data policy first.
+- Project owner should check: shared-file wiring, realtime sync behavior, local data distribution, and whether pytest should be added to the development environment.
+
+
+## 2026-09-21 - Assistant tool-calling and workflow orchestration continuation
+
+- Branch: `member/heimini`
+- Task goal: turn the unified Assistant into an auditable LLM/function-tool entry point and route spread parameter changes through the workflow runtime.
+- Completed:
+  - Added `workflow_service.py` and `workflows.py`.
+  - Added `POST /api/events/{event_id}/workflow/rerun-spread`.
+  - Added `POST /api/historical-events/{historical_event_id}/workflow/start`.
+  - Added four Assistant tool schemas: `query_historical_fire_events`, `start_fire_workflow`, `start_disaster_review`, and `generate_report`.
+  - Added OpenAI-compatible chat-completions function-calling when `LLM_API_KEY` is configured. Missing credentials are reported as deterministic tool-router mode, never as LLM output.
+  - Historical workflow now advances the existing clock-driven evidence runtime, then calls the existing Spread, Decision, recommendation, and report services.
+  - Command Center control panel now calls workflow rerun and hydrates all downstream outputs from one response.
+- Source modes:
+  - California event catalog and registered FIRMS/Weather/DEM/Fuel/MTBS products remain real-data records.
+  - Existing clock/evidence adapters are explicitly returned as `drill_data`.
+  - Spread, risk, route, resource, Commander and report outputs are marked `model_result`.
+  - User parameter overrides remain `user_input`.
+- Smoke test:
+  - Input: simulate the largest California wildfire in the last five years and generate a post-fire review.
+  - Result: Dixie Fire selected; trace completed through DataAgent, WorkflowAgent, ReportAgent and ReviewAgent; two frontend actions returned for command-center hydration and Disaster Review navigation.
+- Verification:
+  - [passed] `npm run build`
+  - [passed] `python -m compileall fire_agent_backend/app backend/forefire_api/app`
+  - [passed] `docker compose config --quiet`
+  - [passed] `git diff --check`
+  - [blocked] `docker compose up -d`: Docker Desktop Linux engine named pipe was unavailable on this machine.
+- No `git add`, `git commit`, or `git push` was run.
+- Merge notes: inspect shared files `fire_agent_backend/app/main.py`, `src/api/modules.ts`, and `src/components/BackendDrivenPage.vue` during integration.
+
+
+## 2026-09-21 - Frontend AI Assistant productization
+
+- Branch: `member/heimini`
+- Audited existing routes: `/realtime-monitor`, `/command-center`, and `/disaster-review` already exist. Reused the existing global `src/components/AIAssistant.vue`; no second mounted Assistant was added.
+- Added `src/stores/assistantStore.ts` for shared chat history, current event, historical event, workflow id, tool status, loading and error state.
+- The Assistant now calls `POST /api/assistant/chat`, renders the returned trace, hydrates the Command Center workflow action, navigates to Disaster Review, and keeps state across route changes with Pinia plus local storage persistence.
+- User weather commands such as wind speed changes call the existing workflow rerun client and send `user_environment_override.source_mode=user_input`; the frontend never calls the raw spread endpoint for this path.
+- UI includes a single fixed lower-right intelligent command assistant with online state, current-event context, tool progress rows, trace chips, natural-language composer and mobile sizing.
+- Validation: `npm run build` passed; `git diff --check` passed with existing LF/CRLF warnings.
+- Browser-level Computer Use verification was not completed because the Windows Computer Use helper exited twice with `helper_unknown_error`; the temporary Vite server was stopped.
+- No `git add`, `git commit`, or `git push` was run.

@@ -1,0 +1,246 @@
+﻿schema_version: fire.emergency.rules.v0.1
+source_mode: structured_rule_base
+notes: Rules are deterministic emergency decision rules. They do not replace model outputs; they declare when tools should be rerun, risk should be escalated, or command attention is required.
+rules:
+  - rule_id: spread.wind_speed_growth
+    category: fire_spread
+    priority: high
+    if:
+      - metric: wind_speed_m_s
+        operator: increased_by_percent
+        value: 25
+      - metric: fireline_growth_rate
+        operator: increased
+        value: true
+    then:
+      - action: raise_spread_risk_level
+      - action: rerun_spread_prediction
+      - action: refresh_risk_analysis
+    explanation: Higher wind speed with faster fireline growth indicates the spread model must be recomputed.
+  - rule_id: spread.downwind_exposure
+    category: fire_spread
+    priority: high
+    if:
+      - metric: spread_direction_intersects_protected_target
+        operator: equals
+        value: true
+    then:
+      - action: mark_downwind_sector_critical
+      - action: notify_commander_agent
+    explanation: Downwind assets need priority review when the modeled spread direction intersects them.
+  - rule_id: spread.fast_area_growth
+    category: fire_spread
+    priority: medium
+    if:
+      - metric: final_area_km2
+        operator: greater_than_or_equal
+        value: 4.5
+    then:
+      - action: set_risk_level_high
+      - action: request_resource_recommendation_update
+    explanation: Large projected area triggers a high-risk command posture.
+  - rule_id: weather.wind_shift
+    category: weather
+    priority: high
+    if:
+      - metric: wind_direction_change_deg
+        operator: greater_than_or_equal
+        value: 30
+    then:
+      - action: rerun_spread_prediction
+      - action: rerun_route_planning
+      - action: inspect_crosswind_evacuation
+    explanation: Large wind shifts can invalidate previous spread and route outputs.
+  - rule_id: weather.low_humidity
+    category: weather
+    priority: medium
+    if:
+      - metric: relative_humidity_percent
+        operator: less_than_or_equal
+        value: 25
+    then:
+      - action: raise_ignition_and_spotting_risk
+      - action: increase_weather_monitoring_frequency
+    explanation: Low humidity increases fuel dryness and spotting concern.
+  - rule_id: weather.rain_reduces_short_term_spread
+    category: weather
+    priority: medium
+    if:
+      - metric: precipitation_mm_h
+        operator: greater_than_or_equal
+        value: 2
+    then:
+      - action: lower_short_term_spread_pressure
+      - action: keep_route_risk_review_active
+    explanation: Rain may reduce spread pressure but does not by itself clear route risk.
+  - rule_id: weather.extreme_fwi
+    category: weather
+    priority: high
+    if:
+      - metric: fire_weather_index
+        operator: greater_than_or_equal
+        value: 24
+    then:
+      - action: set_weather_risk_high
+      - action: notify_resource_agent
+    explanation: High FWI requires resource readiness and updated command review.
+  - rule_id: terrain.steep_slope
+    category: terrain
+    priority: high
+    if:
+      - metric: slope_deg
+        operator: greater_than_or_equal
+        value: 25
+      - metric: fire_front_moving_upslope
+        operator: equals
+        value: true
+    then:
+      - action: raise_upslope_spread_risk
+      - action: avoid_upslope_attack_route
+    explanation: Upslope fire movement over steep terrain can accelerate spread and endanger crews.
+  - rule_id: terrain.south_west_aspect
+    category: terrain
+    priority: medium
+    if:
+      - metric: aspect_class
+        operator: in
+        value: [south, southwest, west]
+    then:
+      - action: increase_dry_fuel_attention
+    explanation: Exposed aspects often carry lower moisture and need fuel-risk attention.
+  - rule_id: terrain.ridge_channeling
+    category: terrain
+    priority: medium
+    if:
+      - metric: valley_or_ridge_channeling
+        operator: equals
+        value: true
+    then:
+      - action: inspect_wind_channeling_effect
+      - action: rerun_local_risk_analysis
+    explanation: Topographic channeling can change wind exposure and local spread.
+  - rule_id: fuel.continuous_fuel
+    category: fuel
+    priority: high
+    if:
+      - metric: continuous_fuel_patch_km2
+        operator: greater_than_or_equal
+        value: 1
+    then:
+      - action: raise_fuel_continuity_risk
+      - action: prioritize_fuel_break_review
+    explanation: Continuous fuels can support uninterrupted head-fire growth.
+  - rule_id: fuel.low_moisture
+    category: fuel
+    priority: high
+    if:
+      - metric: fuel_moisture
+        operator: less_than_or_equal
+        value: 0.12
+    then:
+      - action: raise_spotting_and_intensity_risk
+      - action: notify_commander_agent
+    explanation: Low fuel moisture increases fire intensity and spotting risk.
+  - rule_id: fuel.wildland_urban_interface
+    category: fuel
+    priority: high
+    if:
+      - metric: fuel_near_residential_area
+        operator: equals
+        value: true
+    then:
+      - action: raise_protection_priority
+      - action: prepare_evacuation_notice
+    explanation: Fuels connected to residential areas raise protective-action priority.
+  - rule_id: risk.protected_target_distance
+    category: risk
+    priority: high
+    if:
+      - metric: distance_to_residential_km
+        operator: less_than_or_equal
+        value: 3
+    then:
+      - action: raise_protection_level
+      - action: prepare_evacuation_readiness
+      - action: rerun_resource_recommendation
+    explanation: Modeled fire near residents requires protection and evacuation readiness.
+  - rule_id: risk.hotspot_density
+    category: risk
+    priority: medium
+    if:
+      - metric: hotspot_density_per_km2
+        operator: greater_than_or_equal
+        value: 5
+    then:
+      - action: mark_hotspot_density_zone
+      - action: request_visual_verification
+    explanation: Dense FIRMS clusters should be checked by visual verification before operational confirmation.
+  - rule_id: rescue.safety_distance
+    category: rescue
+    priority: high
+    if:
+      - metric: crew_distance_to_fireline_km
+        operator: less_than_or_equal
+        value: 0.5
+    then:
+      - action: flag_crew_safety_risk
+      - action: recommend_withdrawal_or_safety_zone
+    explanation: Crews too close to the modeled fireline require safety review.
+  - rule_id: rescue.route_blocked_by_fire
+    category: rescue
+    priority: high
+    if:
+      - metric: evacuation_route_intersects_risk_zone
+        operator: equals
+        value: true
+    then:
+      - action: mark_route_unavailable
+      - action: rerun_astar_route_planning
+    explanation: A route intersecting high-risk fire area must be excluded and replanned.
+  - rule_id: rescue.resource_gap
+    category: rescue
+    priority: medium
+    if:
+      - metric: required_resource_count
+        operator: greater_than
+        compare_to: available_resource_count
+    then:
+      - action: raise_resource_shortage
+      - action: recommend_mutual_aid_request
+    explanation: Resource shortage should be transparent and escalated to command.
+  - rule_id: command.rerun_chain_after_spread
+    category: command
+    priority: high
+    if:
+      - metric: spread_run_changed
+        operator: equals
+        value: true
+    then:
+      - action: rerun_risk_analysis
+      - action: rerun_scenario_generation
+      - action: rerun_route_planning
+      - action: rerun_commander_decision
+    explanation: Downstream products depend on the latest spread run.
+  - rule_id: command.data_provenance_required
+    category: command
+    priority: high
+    if:
+      - metric: output_source_mode_missing
+        operator: equals
+        value: true
+    then:
+      - action: block_report_publication
+      - action: request_data_provenance_label
+    explanation: Reports must identify real data, model results, drill data and user input.
+  - rule_id: command.user_override
+    category: command
+    priority: medium
+    if:
+      - metric: user_adjusted_weather_parameter
+        operator: equals
+        value: true
+    then:
+      - action: record_user_input
+      - action: rerun_spread_prediction
+      - action: label_outputs_as_user_scenario
+    explanation: User weather adjustments create a scenario branch and must be traceable.
