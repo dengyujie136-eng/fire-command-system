@@ -1,0 +1,1212 @@
+﻿[
+    {
+        "package":  "core",
+        "relative_path":  ".gitignore",
+        "source_size":  433,
+        "source_sha256":  "E3634DF0062E895B23DAE2E49BE9CD2BF0FEFC85D6984584E2E82B0FAADCB8CF",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "DIRECTORY_STRUCTURE.md",
+        "source_size":  1796,
+        "source_sha256":  "F1BE4691E8FB5D9A9ACE7998FDD4CE65BBC59A20D0D93CFE38B3E3346A3C3112",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "manifest.example.json",
+        "source_size":  527,
+        "source_sha256":  "F046609368FDEF02B1DE2CA29638499D619C4EC58A14D5E1D602EC51444E2797",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "README.md",
+        "source_size":  896,
+        "source_sha256":  "280F92E0F6FB4F1CAFEE229759906CF96C0B4AF36CC4B8E5759AB035D210DB6F",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "interim\\clipped\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "interim\\normalized\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "interim\\reprojected\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "manifests\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "manifests\\dixie_fire_2021.json",
+        "source_size":  25690,
+        "source_sha256":  "5AD31875D3E203D8B2B6ED5D04D67201850DDFB694AC679AFE9F0B96F3FC208B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "manifests\\dixie_fire_2021_raster_sources.json",
+        "source_size":  2588,
+        "source_sha256":  "0478D532C884D61A6DE2E74CBC14B807B0698A597F2F5D0EEE8D0910F575A927",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "manifests\\dixie_fire_2021_readiness.json",
+        "source_size":  5859,
+        "source_sha256":  "B5FC83D3BC76A16299360200C67C303C3F7DB05F18F6C07C53677FD038EBD7C4",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  false,
+        "classification":  "C_DIFFERENT_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "manifests\\dixie_fire_2021_worldcover_fuel_mapping.json",
+        "source_size":  1711,
+        "source_sha256":  "118D63A82AA0B3876A5C16D7134EA9EB9140FA91A12BF301FDEAB21988FE55C5",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\burned_area\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\dem\\dixie_fire_2021_aspect_deg_30m_utm10.tif",
+        "source_size":  75047139,
+        "source_sha256":  "654A850399F83F6A24960D121DE321448AAD6DDF40D030EBE4EA971BF55CD3DE",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\dem\\dixie_fire_2021_aspect_deg_30m_utm10.tif.aux.xml",
+        "source_size":  372,
+        "source_sha256":  "FC611F234BBA8EEB3D2D0CB845F1DDBE5AF22351A2AD0B3792B272FFF2997084",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\dem\\dixie_fire_2021_copernicus_dem_30m_utm10.tif",
+        "source_size":  61949429,
+        "source_sha256":  "9580AD5B7226D28A5586C8F258BA3E699F48332DF90C4CBDDD050F1D3D96543F",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\dem\\dixie_fire_2021_copernicus_dem_30m_utm10.tif.aux.xml",
+        "source_size":  381,
+        "source_sha256":  "3854D4617BC7F10F741F87D16D7BC50F3C6ADDCB057AACAE8A77BA44AC5AC30B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\dem\\dixie_fire_2021_slope_deg_30m_utm10.tif",
+        "source_size":  75671326,
+        "source_sha256":  "83D6FAEDA8D79A0C9463A8DCFB5EAE15A8746A8BBA005EE591EC38B866AFBFEF",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\dem\\dixie_fire_2021_slope_deg_30m_utm10.tif.aux.xml",
+        "source_size":  370,
+        "source_sha256":  "437B42B7AD9B6483B867D7C594268D38C8F929D6889BD1D0E3F7BFE840886BA9",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\forefire_input\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\forefire_input\\dixie_fire_2021_forefire_input_manifest.json",
+        "source_size":  7696,
+        "source_sha256":  "FCBC48D3AEF793D3F16426FE3FCE7BA9F3C3B82DE33B52BEC5CF681116EED888",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\forefire_input\\README.md",
+        "source_size":  915,
+        "source_sha256":  "0ACBBD898EAE68B8A5B4395F61FD68C7BFEAA5770E61BC719D1914DCE52B220A",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\fuel\\dixie_fire_2021_fuel_class_30m_utm10.tif",
+        "source_size":  1298390,
+        "source_sha256":  "52E1F79CE51DAE9321D26A9F0E5537F9D6414D132AAEFD63B2E9FCF3D2695AF6",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\fuel\\dixie_fire_2021_fuel_class_30m_utm10.tif.aux.xml",
+        "source_size":  359,
+        "source_sha256":  "FDC1585EBC53BA4DAD9F33BF37A1E509EC849AB1B82F9D4BFBE4C7AFF8BA5C3D",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\fuel\\dixie_fire_2021_worldcover_30m_utm10.tif",
+        "source_size":  1553351,
+        "source_sha256":  "9A844264250E59CC22A4B0826296BDC6BE2A6F7698FD50F41C488823D3A530AC",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\fuel\\dixie_fire_2021_worldcover_30m_utm10.tif.aux.xml",
+        "source_size":  358,
+        "source_sha256":  "1BF3E62F4F975C58387054A340D3CC29DBDB46C6A82D1817EF516D5F4BAB5375",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\hotspots\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\osm\\README.md",
+        "source_size":  972,
+        "source_sha256":  "9C99997753F4F9BB233477B64427739CD3986E6BF0FED83E31117751CE427EE5",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\realtime_products\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\weather\\dixie_fire_2021_nasa_power_daily.csv",
+        "source_size":  11259,
+        "source_sha256":  "A64DABDEAFBA75734C65C1C440692B6C9A4FCC74452FD8CFE802A41B092A5511",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\weather\\dixie_fire_2021_nasa_power_hourly.csv",
+        "source_size":  386493,
+        "source_sha256":  "1E7CBE49A34A3DF1FE46B84EFFBB78C9A84E26B5B83C05E7E305196B8B90DF12",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "processed\\weather\\dixie_fire_2021_nasa_power_hourly_metadata.json",
+        "source_size":  1638,
+        "source_sha256":  "F500CD91AF574797D6E65037CC811AC06D346C348D738D51C3F6586D7F4ED2DA",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\dixie_fire_2021_mtbs_burn_area.zip",
+        "source_size":  642025,
+        "source_sha256":  "E3A4403A430F0A0AD8040E3D0BAE69FA176915751D68C8596CDB4392C0B5963B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\dixie_fire_2021_mtbs_burn_area\\mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.dbf",
+        "source_size":  3397,
+        "source_sha256":  "4AF337F7D251D58A2D8778D6C1F5B9DF12C2928A9C1E7F2F2856E676A64BCBED",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\dixie_fire_2021_mtbs_burn_area\\mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.prj",
+        "source_size":  459,
+        "source_sha256":  "B38F60752E2672FE3D20E368065B9ABB82AA164BDBEE1DC52B32A8B85149028A",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\dixie_fire_2021_mtbs_burn_area\\mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.shp",
+        "source_size":  810496,
+        "source_sha256":  "CC8428D1FA555603D8EFB7CB2D48B5145BF943E156FD9FB848E7AA03CB0AFABC",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\dixie_fire_2021_mtbs_burn_area\\mtbs_ca3987612137920210714_10023957_20200708_20220714_burn_area.shx",
+        "source_size":  108,
+        "source_sha256":  "EDCE85A42322F279B52FFE085EDFB6753EDE231DE4C84965DFFCA1624C5DEB71",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\dixie_fire_2021_mtbs_burn_area\\mtbs_ca3987612137920210714_10023957_20200708_20220714_iso_metadata.xml",
+        "source_size":  53150,
+        "source_sha256":  "7AA7752AACC0EA0317E725593B9ACF6F7376917370EC396DCFEF28AC4BCA3980",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\burned_area\\dixie_fire_2021_mtbs_burn_area\\mtbs_ca3987612137920210714_10023957_20200708_20220714_metadata.xml",
+        "source_size":  37959,
+        "source_sha256":  "98C31D0F6CDBA293B9AB0F41FEB84B1BD7C22C7BB3F3ADBCD9B5B5E13B9C86A3",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\dem\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210713.csv",
+        "source_size":  118708,
+        "source_sha256":  "7687C0494DAF4E4CCAE1703F390F4511199101A9A0E5498AD86DD966E1AC14DD",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210718.csv",
+        "source_size":  399861,
+        "source_sha256":  "1EB60833D3AA8F6C3C9A5157F6A5020FEC62B296D2A275DB5ED6A32E3E986031",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210723.csv",
+        "source_size":  367633,
+        "source_sha256":  "39D28C563EC5017F954C4F2E5DEC9DDF7B892D1D9463B54A3190D8FD0186152B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210728.csv",
+        "source_size":  143268,
+        "source_sha256":  "22F7F1952DC278E2B9BF3F2C6B871B8F354CCFBAC5B648BFDC650BB4D43C7A58",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210802.csv",
+        "source_size":  766772,
+        "source_sha256":  "3AFA872B2D2285C5062E9493B6F65347F4EF23FAC4666848581183D119B272AD",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210807.csv",
+        "source_size":  646032,
+        "source_sha256":  "D6CE94CC4ABCC313F920B063414B56F785C19DA38BD02AF5D05056BB26F9975D",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210812.csv",
+        "source_size":  570630,
+        "source_sha256":  "8D455826186646882C305786509005C32AB5063D1CF36B216F56C31589E4EDAA",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210817.csv",
+        "source_size":  820613,
+        "source_sha256":  "55C6BF6DA90E6D5B25D8B4A15BF871B8F0563ED0FEBE8BF6CD26CEC0660B56CD",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210822.csv",
+        "source_size":  327995,
+        "source_sha256":  "2D1F92F02C95BD37EC93AFF1B14D0A593F5D2CBFC3BC330065B6746D25A8D504",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210827.csv",
+        "source_size":  541047,
+        "source_sha256":  "0F81ACC305F34B87880EF1FF9E36E64014070DFB3BBC2C4B05323D4C9060CA0D",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210901.csv",
+        "source_size":  452230,
+        "source_sha256":  "FE0D0CA3426D0629785FFF1C72BB5845449DE5F357AA326C2F50410A6C3D0BB4",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210906.csv",
+        "source_size":  364571,
+        "source_sha256":  "0BAF91E64A75377DE347D76E8D306061E7B7B81DEA9D06E970C9F3B4282FF883",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210911.csv",
+        "source_size":  18414,
+        "source_sha256":  "0BCD6AEC4469CC8BD9135F10DD332202D50F12A88C6EA751B5AE46CC142E4CD8",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210916.csv",
+        "source_size":  12204,
+        "source_sha256":  "C3345F46D88898C608DF6B09CDDC16A0D43B7DD1F9C16FF282DFD39A32D87019",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210921.csv",
+        "source_size":  39713,
+        "source_sha256":  "1CE70106E6B08172ABC138B9B11233873E24B217D850439F70389497E991530D",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20210926.csv",
+        "source_size":  11320,
+        "source_sha256":  "22CA7F46F58E887D619E9CF14ED47AA85603315F07AB8C0BE53934A074DCECDF",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20211001.csv",
+        "source_size":  9676,
+        "source_sha256":  "9326CE711560B512BEC029A3587CDCE12A4D4D0F7C9C41C0362DA679CC047591",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20211006.csv",
+        "source_size":  7365,
+        "source_sha256":  "7C786189D7A7BBFB40B827C89EEE56E6CB6B7AC3C823FE1892456DCB8DD13A02",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20211011.csv",
+        "source_size":  7259,
+        "source_sha256":  "373F76914E6C77E16B0BE1129DC5BA9585B4D829E5DC195B0B655F5713C1E2F6",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20211016.csv",
+        "source_size":  10165,
+        "source_sha256":  "1A507653461C15A8189F71E667ECC3D109FF3654EA66076804191827B7799D13",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\firms\\dixie_fire_2021_20211021.csv",
+        "source_size":  1250,
+        "source_sha256":  "0488390F8FD2FC42F5B146F503422AD7D800922CE87FDB788850B59B28CCBDDF",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\fuel\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\himawari\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\osm\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\osm\\dixie_fire_2021_osm_overpass.json",
+        "source_size":  695,
+        "source_sha256":  "9E8D149C02B9AB7719F9E6CFDF696730C39ABEAD6F27E39EB13793B7D2ADBB82",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\osm\\README.md",
+        "source_size":  351,
+        "source_sha256":  "2B5D7876CDFA642C73A100C935776C6CA03EBE9AFE0AB4F3C02AF1EC75216B6A",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\sentinel2\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\weather\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\weather\\dixie_fire_2021_nasa_power_daily.json",
+        "source_size":  14923,
+        "source_sha256":  "14C40B85A741F39CC6AE70903A0EAA7CBB7916D23E33E089500114A552073D8B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "raw\\weather\\dixie_fire_2021_nasa_power_hourly.json",
+        "source_size":  287694,
+        "source_sha256":  "CE9F0E13567A839F7EC7C47056BCE255A36614735B894AF769E77D387D69D13E",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "samples\\.gitkeep",
+        "source_size":  1,
+        "source_sha256":  "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\001_fire_data_schema.sql",
+        "source_size":  6531,
+        "source_sha256":  "6D136E3AA4F87943837E42F53292CA81D4AAA06C45721AB54E0BA81A44DA9E75",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\002_load_dixie_fire.sql",
+        "source_size":  9030,
+        "source_sha256":  "310CAC682A8AEB5A212D5F49FB64674FFA1E7EBC2746602C70F69183D9E54135",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\003_weather_schema.sql",
+        "source_size":  1743,
+        "source_sha256":  "142941FEE3FB560E2199EADEEE286DC03911EB8A0AB1E20F055793139DC94F41",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\004_load_dixie_weather.sql",
+        "source_size":  2196,
+        "source_sha256":  "21CBA3F447B092E11C2C4C0DB800C0220BEA69FEE9C621F5F37C8932ECAC1784",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\005_register_dixie_rasters.sql",
+        "source_size":  2038,
+        "source_sha256":  "E6961EAA9686AC355B002B5A7AA38D22E6556524B937EFA44F90DE3A6E8702BE",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\006_weather_hourly_schema.sql",
+        "source_size":  1936,
+        "source_sha256":  "045383F349EF82C39F81AEAD3D403A35634CBADD0C3F7021E2A53AC141393BD3",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\007_load_dixie_weather_hourly.sql",
+        "source_size":  2478,
+        "source_sha256":  "C1B29062A661D9186AFB006BA6A66E409D4C6B2E6F44949DF750BC2C4A4C8BBF",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "core",
+        "relative_path":  "sql\\008_register_dixie_forefire_input.sql",
+        "source_size":  1388,
+        "source_sha256":  "87041BC443980D6C427D825DC088BFF687ECF3E248D8CFF03BE76E7710EB5690",
+        "target_exists":  true,
+        "target_type":  "File",
+        "identical":  true,
+        "classification":  "B_IDENTICAL_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "manifests",
+        "source_size":  1711,
+        "source_sha256":  "118D63A82AA0B3876A5C16D7134EA9EB9140FA91A12BF301FDEAB21988FE55C5",
+        "target_exists":  true,
+        "target_type":  "Directory",
+        "identical":  false,
+        "classification":  "D_FILE_DIRECTORY_CONFLICT"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "processed\\realtime_demo\\README.md",
+        "source_size":  366,
+        "source_sha256":  "48894F154263FDD308818B29C1DD92F123E6968629B863377869DBD653F8F759",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "processed\\realtime_demo\\hotspots\\slot_00.json",
+        "source_size":  13863,
+        "source_sha256":  "BD94C9D4AC88E392EFCB01DF0B2C3E656296934C4D37D8C937B17D5030C4F6C0",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "processed\\realtime_demo\\hotspots\\slot_01.json",
+        "source_size":  13691,
+        "source_sha256":  "412B90CC78E3FF8ED4E90308074A463687655A979817D8A2B20F4902FCDDE837",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "processed\\realtime_demo\\hotspots\\slot_02.json",
+        "source_size":  13517,
+        "source_sha256":  "322DC983014098E317999C9FD362CB3F6528386FA0B982BDD25F222109F6FAC7",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "processed\\realtime_demo\\previews\\slot_00.png",
+        "source_size":  6953,
+        "source_sha256":  "5BDEA15F2561F7E31137785319001391BD983B62EEAB6160796EB997BEAB16BF",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "processed\\realtime_demo\\previews\\slot_01.png",
+        "source_size":  6984,
+        "source_sha256":  "06CE3B023348E81C96F7D729E427C1F12EC457080C88B05781B327B9402C317B",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "processed\\realtime_demo\\previews\\slot_02.png",
+        "source_size":  7067,
+        "source_sha256":  "5D10AFD7AB8409CC37E3F559B90C59E7E161844DF8C82798ACE1B7F780F38192",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\README.md",
+        "source_size":  1060,
+        "source_sha256":  "1BD5F2A0C58386E38317467442DCEF136EE8B363E4CF34CC68461FFA9BCCA397",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-06-15_2025-06-19.csv",
+        "source_size":  97241,
+        "source_sha256":  "B2F5D5E1460D5676FD32167707EF1F11B2A12F85FB756EE67BF1803A935FEFEA",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-06-20_2025-06-24.csv",
+        "source_size":  51480,
+        "source_sha256":  "58760D45BED0D6BF69D5A2CF70ACED39CFBB87FCD02332BE5B9F3F965ACC1E55",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-06-25_2025-06-29.csv",
+        "source_size":  74607,
+        "source_sha256":  "C73ED55272B8A6F181458D8E07CC6E0A8EF63DFA8EDA5D543325D19AAF92A20D",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-06-30_2025-07-04.csv",
+        "source_size":  74292,
+        "source_sha256":  "10DA15F826C275887BCF61D5CB9E16D6160B55F91A7CB1BB1711164248746EE4",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-07-05_2025-07-09.csv",
+        "source_size":  221902,
+        "source_sha256":  "9AC92578F508E82CD3FA4F6F83F958FF5844A4521B6E6014DB07F83F63A93207",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-07-10_2025-07-14.csv",
+        "source_size":  115147,
+        "source_sha256":  "CE5AC154F7A70675BDE572016EAE07879DC6A1D3B85BE0428E91B9A94643B1AE",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-07-15_2025-07-19.csv",
+        "source_size":  65750,
+        "source_sha256":  "F3024C28540D614623780E805171280F81A05234044909DB4E1F11B218DD827F",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-07-20_2025-07-24.csv",
+        "source_size":  29856,
+        "source_sha256":  "11CE7528951E3A9D8CB1895F1BA2B78AC8964ED44508F1D786C0C3C223A81134",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-07-25_2025-07-29.csv",
+        "source_size":  86824,
+        "source_sha256":  "C2ED06D840FBDA8E2304C753032110D54E20DD574D4F4C2307BDC7A601E6862F",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-07-30_2025-08-03.csv",
+        "source_size":  298391,
+        "source_sha256":  "4C497EB48CC934667FEB9B490469A86257C22A2AC58D35CFD0B1DAE192D206FC",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-08-04_2025-08-08.csv",
+        "source_size":  116667,
+        "source_sha256":  "A2300B32C8A081E4C0872B0E614A350D1C980D06228F76F1CB2E16EC26452134",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-08-09_2025-08-13.csv",
+        "source_size":  61735,
+        "source_sha256":  "4EACB975FE5E1681065822E2C7179229151DA0EBB75AC54E05347317D5608413",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-08-14_2025-08-18.csv",
+        "source_size":  167460,
+        "source_sha256":  "A534CD49F5DDA06B8B221BBD58DCD4DC380A99F2289A7290C4800CB91218A94D",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-08-19_2025-08-23.csv",
+        "source_size":  73816,
+        "source_sha256":  "D5FA9E4FD8CC5085183F59E16BF93888E4C311375B68329C2FA3D4DE0BF0241E",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-08-24_2025-08-28.csv",
+        "source_size":  192952,
+        "source_sha256":  "95B68D30CEAD522FC7777921620C8B24559C586EBDC1CAAF986C2E44414D4202",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-08-29_2025-09-02.csv",
+        "source_size":  260054,
+        "source_sha256":  "CD87A063D39F4FE502E62745439C8DBD7BC41938A5B5AC27BB7AD69DDA03DDA9",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-09-03_2025-09-07.csv",
+        "source_size":  181015,
+        "source_sha256":  "E8CB7A8986EB5F609943F3CC21930B0434886F41D58F3EB207D79F6A4B31D483",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-09-08_2025-09-12.csv",
+        "source_size":  65626,
+        "source_sha256":  "0A021BADA5175C096CB0FBAB5B1FD55358A9AD3A397F88A4C52533239BA32EF1",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_2025-09-13_2025-09-15.csv",
+        "source_size":  44875,
+        "source_sha256":  "4AE303C83C9FF5194DF3FCDFA2B748EDCD2C9644AFAFE21DF5128D99C46CEECA",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\firms_three_months_combined.csv",
+        "source_size":  2249542,
+        "source_sha256":  "3D17D47E6C3B6046C61E25D7C3A762849BA150DFD9732423B77046AF8F736E41",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\firms_archive\\california_nevada_2025\\manifest.json",
+        "source_size":  4459,
+        "source_sha256":  "C14515FFF4AF50DE3E848595E8F15F52299BA9DD59DDC65BB0974CFB84EEE58E",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\manifest.json",
+        "source_size":  8100,
+        "source_sha256":  "F927CE3E8024D999E7AA3D6FB7E4D1BE2303A8B4F456AD3D4A5A8F1AB6819F7C",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\C07\\OR_ABI-L1b-RadC-M6C07_G18_s20242072001175_e20242072003560_c20242072004047.nc",
+        "source_size":  3940353,
+        "source_sha256":  "4FFCECFA3392984059A9983CF25CB47C6F1936D48FF12B053DE20A664E5FCC38",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\C07\\OR_ABI-L1b-RadC-M6C07_G18_s20242072011176_e20242072013561_c20242072014027.nc",
+        "source_size":  3952586,
+        "source_sha256":  "F79A332273A439B352C48A06A4CEB10FCAB9937F670C065642E50B4857F437CB",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\C07\\OR_ABI-L1b-RadC-M6C07_G18_s20242072021176_e20242072023560_c20242072024020.nc",
+        "source_size":  3962088,
+        "source_sha256":  "84E057CD6440ABCDE4C3D38D3E20CAB5ECAE0561EA7108D4D890F1B489962280",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\C14\\OR_ABI-L1b-RadC-M6C14_G18_s20242072001175_e20242072003549_c20242072004041.nc",
+        "source_size":  3937213,
+        "source_sha256":  "CAAC2C3AA61001D085AA1AD90CCD0474894FF9750D06FD7A522492B041AF580C",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\C14\\OR_ABI-L1b-RadC-M6C14_G18_s20242072011176_e20242072013549_c20242072014036.nc",
+        "source_size":  3938454,
+        "source_sha256":  "2971C6642AF5B7AEE1BEC5F1C8BA31CD7411C36D1A77AAB9F3E20818C8957F19",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\C14\\OR_ABI-L1b-RadC-M6C14_G18_s20242072021176_e20242072023549_c20242072024028.nc",
+        "source_size":  3938413,
+        "source_sha256":  "7F2BE8A7AE6503F0A61FE9B9AE1D82F0D711FB77E1DE289C7D5CFFD295455006",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\FDCC\\OR_ABI-L2-FDCC-M6_G18_s20242072001175_e20242072003549_c20242072004129.nc",
+        "source_size":  258075,
+        "source_sha256":  "0A5FDB72F5D9A2EC936951FDCCF7D2C7E7EEB7C08A4F9617BB0B33C4D6F6C4B2",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\FDCC\\OR_ABI-L2-FDCC-M6_G18_s20242072011176_e20242072013549_c20242072014121.nc",
+        "source_size":  262151,
+        "source_sha256":  "81F75A34308AF30ED1316BE57085EFE643CB9EFB7817A6234DABA3F2BF7F7C63",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    },
+    {
+        "package":  "realtime",
+        "relative_path":  "raw\\realtime_demo\\goes18\\park_fire_2024\\FDCC\\OR_ABI-L2-FDCC-M6_G18_s20242072021176_e20242072023549_c20242072024125.nc",
+        "source_size":  267345,
+        "source_sha256":  "C28E4DB4D0EDC19445C135CD1BF695629EC72F54873700F68B5FA8719D03B013",
+        "target_exists":  false,
+        "target_type":  "Missing",
+        "identical":  false,
+        "classification":  "A_NEW_FILE"
+    }
+]

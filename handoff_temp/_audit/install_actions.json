@@ -1,0 +1,15 @@
+﻿{
+    "generated_at":  "2026-09-17T07:46:33.4844853Z",
+    "core":  {
+                 "identical_skipped":  80,
+                 "different_skipped":  1,
+                 "readiness_action":  "Kept current repository readiness; retained FINAL version in audit.",
+                 "readiness_audit_path":  "handoff_temp/_audit/core_dixie_fire_2021_readiness.final.json"
+             },
+    "realtime":  {
+                     "new_files_copied":  39,
+                     "packaging_artifact_skipped":  1,
+                     "artifact_action":  "Skipped data/manifests because it is byte-identical to data/manifests/dixie_fire_2021_worldcover_fuel_mapping.json.",
+                     "artifact_audit_path":  "handoff_temp/_audit/realtime_manifests_file"
+                 }
+}
