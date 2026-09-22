@@ -1,0 +1,189 @@
+{
+  "schema_version": "fire.realtime.demo.goes18.v0.1",
+  "event_id": "park_fire_2024_demo",
+  "display_name": "Park Fire 2024 GOES-18 high-temporal-resolution demo",
+  "data_source_mode": "pre_downloaded_real_satellite_simulated_reception",
+  "platform": "GOES-18",
+  "instrument": "ABI",
+  "coverage": "CONUS",
+  "source_url": "https://noaa-goes18.s3.amazonaws.com",
+  "license": "NOAA Open Data",
+  "temporal_resolution_minutes": 10,
+  "bands": {
+    "C07": "3.9 um shortwave infrared",
+    "C14": "11.2 um longwave infrared"
+  },
+  "reference_product": "ABI-L2-FDCC",
+  "slots": [
+    {
+      "observed_at": "2024-07-25T20:00:00Z",
+      "assets": [
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2000Z-c07",
+          "product": "ABI-L1b-RadC",
+          "channel": "C07",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C07_G18_s20242072001175_e20242072003560_c20242072004047.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C07/OR_ABI-L1b-RadC-M6C07_G18_s20242072001175_e20242072003560_c20242072004047.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 3940353,
+          "acquired_at": "2024-07-25T20:04:42.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        },
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2000Z-c14",
+          "product": "ABI-L1b-RadC",
+          "channel": "C14",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C14_G18_s20242072001175_e20242072003549_c20242072004041.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C14/OR_ABI-L1b-RadC-M6C14_G18_s20242072001175_e20242072003549_c20242072004041.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 3937213,
+          "acquired_at": "2024-07-25T20:04:42.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        },
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2000Z-fdcc",
+          "product": "ABI-L2-FDCC",
+          "channel": "FDCC",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L2-FDCC/2024/207/20/OR_ABI-L2-FDCC-M6_G18_s20242072001175_e20242072003549_c20242072004129.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/FDCC/OR_ABI-L2-FDCC-M6_G18_s20242072001175_e20242072003549_c20242072004129.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 258075,
+          "acquired_at": "2024-07-25T20:04:27.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        }
+      ]
+    },
+    {
+      "observed_at": "2024-07-25T20:10:00Z",
+      "assets": [
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2010Z-c07",
+          "product": "ABI-L1b-RadC",
+          "channel": "C07",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C07_G18_s20242072011176_e20242072013561_c20242072014027.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C07/OR_ABI-L1b-RadC-M6C07_G18_s20242072011176_e20242072013561_c20242072014027.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 3952586,
+          "acquired_at": "2024-07-25T20:14:25.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        },
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2010Z-c14",
+          "product": "ABI-L1b-RadC",
+          "channel": "C14",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C14_G18_s20242072011176_e20242072013549_c20242072014036.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C14/OR_ABI-L1b-RadC-M6C14_G18_s20242072011176_e20242072013549_c20242072014036.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 3938454,
+          "acquired_at": "2024-07-25T20:14:25.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        },
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2010Z-fdcc",
+          "product": "ABI-L2-FDCC",
+          "channel": "FDCC",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L2-FDCC/2024/207/20/OR_ABI-L2-FDCC-M6_G18_s20242072011176_e20242072013549_c20242072014121.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/FDCC/OR_ABI-L2-FDCC-M6_G18_s20242072011176_e20242072013549_c20242072014121.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 262151,
+          "acquired_at": "2024-07-25T20:14:29.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        }
+      ]
+    },
+    {
+      "observed_at": "2024-07-25T20:20:00Z",
+      "assets": [
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2020Z-c07",
+          "product": "ABI-L1b-RadC",
+          "channel": "C07",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C07_G18_s20242072021176_e20242072023560_c20242072024020.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C07/OR_ABI-L1b-RadC-M6C07_G18_s20242072021176_e20242072023560_c20242072024020.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 3962088,
+          "acquired_at": "2024-07-25T20:24:27.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        },
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2020Z-c14",
+          "product": "ABI-L1b-RadC",
+          "channel": "C14",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C14_G18_s20242072021176_e20242072023549_c20242072024028.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C14/OR_ABI-L1b-RadC-M6C14_G18_s20242072021176_e20242072023549_c20242072024028.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 3938413,
+          "acquired_at": "2024-07-25T20:24:27.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        },
+        {
+          "asset_id": "goes18-park-fire-2024-20240725T2020Z-fdcc",
+          "product": "ABI-L2-FDCC",
+          "channel": "FDCC",
+          "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L2-FDCC/2024/207/20/OR_ABI-L2-FDCC-M6_G18_s20242072021176_e20242072023549_c20242072024125.nc",
+          "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/FDCC/OR_ABI-L2-FDCC-M6_G18_s20242072021176_e20242072023549_c20242072024125.nc",
+          "mime_type": "application/x-netcdf4",
+          "size_bytes": 267345,
+          "acquired_at": "2024-07-25T20:24:32.000Z",
+          "coverage_bbox": [
+            -125.0,
+            24.0,
+            -66.0,
+            50.0
+          ],
+          "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+        }
+      ]
+    }
+  ],
+  "asset_count": 9,
+  "downloaded": true
+}

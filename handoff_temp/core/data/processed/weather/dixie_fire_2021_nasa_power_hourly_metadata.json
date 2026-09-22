@@ -1,0 +1,32 @@
+{
+    "schema_version":  "fire.weather.hourly.metadata.v0.1",
+    "event_id":  "dixie_fire_2021",
+    "source_dataset":  "NASA_POWER_hourly",
+    "source_url":  "https://power.larc.nasa.gov/api/temporal/hourly/point?parameters=T2M,RH2M,WS10M,WD10M,PRECTOTCORR,ALLSKY_SFC_SW_DWN\u0026community=AG\u0026longitude=-121.38241\u0026latitude=39.87194\u0026start=20210713\u0026end=20211025\u0026format=JSON\u0026time-standard=UTC",
+    "time_standard":  "UTC",
+    "interval_minutes":  60,
+    "is_interpolated":  false,
+    "row_count":  2520,
+    "start_at":  "2021-07-13T00:00:00Z",
+    "end_at":  "2021-10-25T23:00:00Z",
+    "point":  {
+                  "longitude":  -121.382,
+                  "latitude":  39.872,
+                  "elevation_m":  1355.6,
+                  "crs":  "EPSG:4326"
+              },
+    "missing_value_counts":  {
+                                 "T2M":  0,
+                                 "RH2M":  0,
+                                 "WS10M":  0,
+                                 "WD10M":  0,
+                                 "PRECTOTCORR":  2520,
+                                 "ALLSKY_SFC_SW_DWN":  0
+                             },
+    "notes":  [
+                  "This file is normalized from the raw NASA POWER hourly response and does not replace the daily dataset.",
+                  "Values at or below -900 in the NASA POWER response are represented as empty CSV values.",
+                  "Wind components use the same trigonometric convention as the current ForeFire adapter.",
+                  "No temporal interpolation has been applied."
+              ]
+}

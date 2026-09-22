@@ -1,0 +1,134 @@
+{
+  "schema_version": "fire.realtime.demo.firms_archive.v0.1",
+  "display_name": "FIRMS three-month historical realtime demonstration",
+  "source": "VIIRS_SNPP_SP",
+  "source_url": "https://firms.modaps.eosdis.nasa.gov/",
+  "bbox_wgs84": [
+    -125.0,
+    32.0,
+    -114.0,
+    42.0
+  ],
+  "start_date": "2025-06-15",
+  "end_date": "2025-09-15",
+  "data_source_mode": "pre_downloaded_historical_simulated_reception",
+  "chunk_days": 5,
+  "chunks": [
+    {
+      "start": "2025-06-15",
+      "end": "2025-06-19",
+      "rows": 1201,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-06-15_2025-06-19.csv"
+    },
+    {
+      "start": "2025-06-20",
+      "end": "2025-06-24",
+      "rows": 637,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-06-20_2025-06-24.csv"
+    },
+    {
+      "start": "2025-06-25",
+      "end": "2025-06-29",
+      "rows": 923,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-06-25_2025-06-29.csv"
+    },
+    {
+      "start": "2025-06-30",
+      "end": "2025-07-04",
+      "rows": 916,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-06-30_2025-07-04.csv"
+    },
+    {
+      "start": "2025-07-05",
+      "end": "2025-07-09",
+      "rows": 2744,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-07-05_2025-07-09.csv"
+    },
+    {
+      "start": "2025-07-10",
+      "end": "2025-07-14",
+      "rows": 1420,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-07-10_2025-07-14.csv"
+    },
+    {
+      "start": "2025-07-15",
+      "end": "2025-07-19",
+      "rows": 811,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-07-15_2025-07-19.csv"
+    },
+    {
+      "start": "2025-07-20",
+      "end": "2025-07-24",
+      "rows": 368,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-07-20_2025-07-24.csv"
+    },
+    {
+      "start": "2025-07-25",
+      "end": "2025-07-29",
+      "rows": 1066,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-07-25_2025-07-29.csv"
+    },
+    {
+      "start": "2025-07-30",
+      "end": "2025-08-03",
+      "rows": 3697,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-07-30_2025-08-03.csv"
+    },
+    {
+      "start": "2025-08-04",
+      "end": "2025-08-08",
+      "rows": 1443,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-08-04_2025-08-08.csv"
+    },
+    {
+      "start": "2025-08-09",
+      "end": "2025-08-13",
+      "rows": 765,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-08-09_2025-08-13.csv"
+    },
+    {
+      "start": "2025-08-14",
+      "end": "2025-08-18",
+      "rows": 2072,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-08-14_2025-08-18.csv"
+    },
+    {
+      "start": "2025-08-19",
+      "end": "2025-08-23",
+      "rows": 911,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-08-19_2025-08-23.csv"
+    },
+    {
+      "start": "2025-08-24",
+      "end": "2025-08-28",
+      "rows": 2382,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-08-24_2025-08-28.csv"
+    },
+    {
+      "start": "2025-08-29",
+      "end": "2025-09-02",
+      "rows": 3211,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-08-29_2025-09-02.csv"
+    },
+    {
+      "start": "2025-09-03",
+      "end": "2025-09-07",
+      "rows": 2230,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-09-03_2025-09-07.csv"
+    },
+    {
+      "start": "2025-09-08",
+      "end": "2025-09-12",
+      "rows": 811,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-09-08_2025-09-12.csv"
+    },
+    {
+      "start": "2025-09-13",
+      "end": "2025-09-15",
+      "rows": 553,
+      "file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_2025-09-13_2025-09-15.csv"
+    }
+  ],
+  "unique_rows": 27816,
+  "combined_file": "data/raw/realtime_demo/firms_archive/california_nevada_2025/firms_three_months_combined.csv"
+}

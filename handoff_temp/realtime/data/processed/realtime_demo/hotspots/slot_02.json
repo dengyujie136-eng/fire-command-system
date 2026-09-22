@@ -1,0 +1,479 @@
+{
+  "schema_version": "fire.realtime.demo.hotspots.v0.1",
+  "event_id": "park_fire_2024_demo",
+  "display_name": "Park Fire 2024 GOES-18 high-temporal-resolution demo",
+  "data_source_mode": "pre_downloaded_real_satellite_simulated_reception",
+  "observed_at": "2024-07-25T20:20:00Z",
+  "source": "GOES-18 ABI C07/C14",
+  "algorithm": {
+    "name": "goes_abi_bt_threshold_nms_v0.2",
+    "c07_threshold_k": 330.0,
+    "c07_minus_c14_threshold_k": 8.0,
+    "display_strategy": "local_peak_non_maximum_suppression",
+    "minimum_separation_pixels": 4,
+    "pixel_resolution_note": "GOES ABI CONUS imagery is a coarse raster; displayed points are representative peaks, not independent fire pixels.",
+    "bbox_wgs84": [
+      -122.0,
+      39.5,
+      -120.5,
+      40.5
+    ]
+  },
+  "hotspots": [
+    {
+      "detection_id": "goes-demo-0001-350-1858",
+      "longitude": -121.76977,
+      "latitude": 40.06287,
+      "brightness_temperature_c07_k": 411.03,
+      "brightness_temperature_c14_k": 317.32,
+      "brightness_difference_k": 93.7,
+      "confidence": 0.99,
+      "status": "candidate",
+      "algorithm": "goes_abi_bt_threshold_nms_v0.2",
+      "source_pixel_count": 70
+    },
+    {
+      "detection_id": "goes-demo-0002-358-1861",
+      "longitude": -121.74932,
+      "latitude": 39.84489,
+      "brightness_temperature_c07_k": 411.03,
+      "brightness_temperature_c14_k": 331.23,
+      "brightness_difference_k": 79.8,
+      "confidence": 0.99,
+      "status": "candidate",
+      "algorithm": "goes_abi_bt_threshold_nms_v0.2",
+      "source_pixel_count": 70
+    },
+    {
+      "detection_id": "goes-demo-0003-349-1854",
+      "longitude": -121.86696,
+      "latitude": 40.08722,
+      "brightness_temperature_c07_k": 358.62,
+      "brightness_temperature_c14_k": 313.24,
+      "brightness_difference_k": 45.39,
+      "confidence": 0.99,
+      "status": "candidate",
+      "algorithm": "goes_abi_bt_threshold_nms_v0.2",
+      "source_pixel_count": 70
+    },
+    {
+      "detection_id": "goes-demo-0004-354-1860",
+      "longitude": -121.74655,
+      "latitude": 39.95416,
+      "brightness_temperature_c07_k": 358.46,
+      "brightness_temperature_c14_k": 316.26,
+      "brightness_difference_k": 42.2,
+      "confidence": 0.99,
+      "status": "candidate",
+      "algorithm": "goes_abi_bt_threshold_nms_v0.2",
+      "source_pixel_count": 70
+    },
+    {
+      "detection_id": "goes-demo-0005-354-1854",
+      "longitude": -121.90286,
+      "latitude": 39.94926,
+      "brightness_temperature_c07_k": 339.19,
+      "brightness_temperature_c14_k": 319.26,
+      "brightness_difference_k": 19.93,
+      "confidence": 0.99,
+      "status": "candidate",
+      "algorithm": "goes_abi_bt_threshold_nms_v0.2",
+      "source_pixel_count": 70
+    },
+    {
+      "detection_id": "goes-demo-0006-357-1857",
+      "longitude": -121.84622,
+      "latitude": 39.86912,
+      "brightness_temperature_c07_k": 331.69,
+      "brightness_temperature_c14_k": 320.75,
+      "brightness_difference_k": 10.93,
+      "confidence": 0.773,
+      "status": "candidate",
+      "algorithm": "goes_abi_bt_threshold_nms_v0.2",
+      "source_pixel_count": 70
+    }
+  ],
+  "total": 6,
+  "reference_hotspots": [
+    {
+      "reference_id": "fdcc-348-1855",
+      "longitude": -121.83362,
+      "latitude": 40.11568,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-348-1856",
+      "longitude": -121.8075,
+      "latitude": 40.1165,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-348-1857",
+      "longitude": -121.78137,
+      "latitude": 40.11733,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-349-1854",
+      "longitude": -121.86696,
+      "latitude": 40.08722,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-349-1855",
+      "longitude": -121.84086,
+      "latitude": 40.08804,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-349-1856",
+      "longitude": -121.81475,
+      "latitude": 40.08886,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-349-1857",
+      "longitude": -121.78863,
+      "latitude": 40.08968,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-349-1858",
+      "longitude": -121.76251,
+      "latitude": 40.0905,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-349-1859",
+      "longitude": -121.73638,
+      "latitude": 40.09133,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-350-1854",
+      "longitude": -121.87417,
+      "latitude": 40.05959,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-350-1855",
+      "longitude": -121.84808,
+      "latitude": 40.06041,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-350-1856",
+      "longitude": -121.82198,
+      "latitude": 40.06123,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-350-1857",
+      "longitude": -121.79588,
+      "latitude": 40.06205,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-350-1858",
+      "longitude": -121.76977,
+      "latitude": 40.06287,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-350-1859",
+      "longitude": -121.74366,
+      "latitude": 40.06369,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-350-1860",
+      "longitude": -121.71754,
+      "latitude": 40.06452,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-351-1853",
+      "longitude": -121.90744,
+      "latitude": 40.03116,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-351-1854",
+      "longitude": -121.88136,
+      "latitude": 40.03198,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-351-1857",
+      "longitude": -121.80312,
+      "latitude": 40.03443,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-351-1858",
+      "longitude": -121.77702,
+      "latitude": 40.03526,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-351-1859",
+      "longitude": -121.75092,
+      "latitude": 40.03608,
+      "mask_code": 31,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-351-1860",
+      "longitude": -121.72481,
+      "latitude": 40.0369,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-351-1861",
+      "longitude": -121.6987,
+      "latitude": 40.03773,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-352-1858",
+      "longitude": -121.78426,
+      "latitude": 40.00766,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-352-1859",
+      "longitude": -121.75817,
+      "latitude": 40.00848,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-352-1860",
+      "longitude": -121.73208,
+      "latitude": 40.0093,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-352-1861",
+      "longitude": -121.70598,
+      "latitude": 40.01013,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-353-1859",
+      "longitude": -121.7654,
+      "latitude": 39.9809,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-353-1860",
+      "longitude": -121.73932,
+      "latitude": 39.98172,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-353-1861",
+      "longitude": -121.71324,
+      "latitude": 39.98255,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-354-1854",
+      "longitude": -121.90286,
+      "latitude": 39.94926,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-354-1860",
+      "longitude": -121.74655,
+      "latitude": 39.95416,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-354-1861",
+      "longitude": -121.72048,
+      "latitude": 39.95498,
+      "mask_code": 32,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-356-1860",
+      "longitude": -121.76097,
+      "latitude": 39.89908,
+      "mask_code": 35,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-356-1861",
+      "longitude": -121.73493,
+      "latitude": 39.8999,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-356-1862",
+      "longitude": -121.70888,
+      "latitude": 39.90072,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-357-1860",
+      "longitude": -121.76816,
+      "latitude": 39.87156,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-357-1861",
+      "longitude": -121.74213,
+      "latitude": 39.87238,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-357-1862",
+      "longitude": -121.7161,
+      "latitude": 39.8732,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-358-1860",
+      "longitude": -121.77533,
+      "latitude": 39.84407,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-358-1861",
+      "longitude": -121.74932,
+      "latitude": 39.84489,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-358-1862",
+      "longitude": -121.7233,
+      "latitude": 39.8457,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-359-1861",
+      "longitude": -121.75649,
+      "latitude": 39.81741,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    },
+    {
+      "reference_id": "fdcc-359-1862",
+      "longitude": -121.73048,
+      "latitude": 39.81822,
+      "mask_code": 30,
+      "source": "GOES-18 ABI-L2-FDCC"
+    }
+  ],
+  "evaluation": {
+    "reference_product": "GOES-18 ABI-L2-FDCC",
+    "matching_tolerance_pixels": 1,
+    "detected_pixel_count": 70,
+    "reference_fire_pixel_count": 44,
+    "matched_detected_pixel_count": 66,
+    "matched_reference_pixel_count": 44,
+    "precision": 0.9429,
+    "recall": 1.0,
+    "f1": 0.9706
+  },
+  "preview_legend": {
+    "red": "threshold candidate",
+    "cyan": "GOES FDCC reference",
+    "yellow": "matched candidate and reference"
+  },
+  "slot_index": 2,
+  "assets": {
+    "C07": {
+      "asset_id": "goes18-park-fire-2024-20240725T2020Z-c07",
+      "product": "ABI-L1b-RadC",
+      "channel": "C07",
+      "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C07_G18_s20242072021176_e20242072023560_c20242072024020.nc",
+      "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C07/OR_ABI-L1b-RadC-M6C07_G18_s20242072021176_e20242072023560_c20242072024020.nc",
+      "mime_type": "application/x-netcdf4",
+      "size_bytes": 3962088,
+      "acquired_at": "2024-07-25T20:24:27.000Z",
+      "coverage_bbox": [
+        -125.0,
+        24.0,
+        -66.0,
+        50.0
+      ],
+      "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+    },
+    "C14": {
+      "asset_id": "goes18-park-fire-2024-20240725T2020Z-c14",
+      "product": "ABI-L1b-RadC",
+      "channel": "C14",
+      "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L1b-RadC/2024/207/20/OR_ABI-L1b-RadC-M6C14_G18_s20242072021176_e20242072023549_c20242072024028.nc",
+      "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/C14/OR_ABI-L1b-RadC-M6C14_G18_s20242072021176_e20242072023549_c20242072024028.nc",
+      "mime_type": "application/x-netcdf4",
+      "size_bytes": 3938413,
+      "acquired_at": "2024-07-25T20:24:27.000Z",
+      "coverage_bbox": [
+        -125.0,
+        24.0,
+        -66.0,
+        50.0
+      ],
+      "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+    },
+    "FDCC": {
+      "asset_id": "goes18-park-fire-2024-20240725T2020Z-fdcc",
+      "product": "ABI-L2-FDCC",
+      "channel": "FDCC",
+      "uri": "https://noaa-goes18.s3.amazonaws.com/ABI-L2-FDCC/2024/207/20/OR_ABI-L2-FDCC-M6_G18_s20242072021176_e20242072023549_c20242072024125.nc",
+      "local_path": "data/raw/realtime_demo/goes18/park_fire_2024/FDCC/OR_ABI-L2-FDCC-M6_G18_s20242072021176_e20242072023549_c20242072024125.nc",
+      "mime_type": "application/x-netcdf4",
+      "size_bytes": 267345,
+      "acquired_at": "2024-07-25T20:24:32.000Z",
+      "coverage_bbox": [
+        -125.0,
+        24.0,
+        -66.0,
+        50.0
+      ],
+      "crs": "GOES-R ABI fixed grid (NetCDF projection metadata)"
+    }
+  },
+  "processed_at": "2026-09-15T00:27:39Z",
+  "preview_file": "processed/realtime_demo/previews/slot_02.png"
+}

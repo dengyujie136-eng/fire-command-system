@@ -1,0 +1,119 @@
+{
+    "schema_version":  "fire.forefire.input.manifest.v0.1",
+    "event_id":  "dixie_fire_2021",
+    "event_name":  "Dixie Fire",
+    "generated_at":  "2026-09-10T01:15:46.6752423Z",
+    "input_status":  "ready_for_member_c_preparation",
+    "purpose":  "Input contract and reproducibility manifest for preparing a Dixie Fire ForeFire case.",
+    "ignition":  {
+                     "rule":  "earliest candidate hotspot returned by the ordered candidate API",
+                     "candidate_id":  "dixie_fire_2021-firms-viirs_snpp-20210714T091100Z-39.871940--121.382410",
+                     "observed_at":  "2021-07-14T09:11:00Z",
+                     "longitude":  -121.38241,
+                     "latitude":  39.87194,
+                     "crs":  "EPSG:4326",
+                     "precision":  "candidate coordinate rounded to 6 decimal places",
+                     "note":  "This is a satellite thermal-anomaly candidate, not a surveyed ignition location."
+                 },
+    "spatial_reference":  {
+                              "exchange_crs":  "EPSG:4326",
+                              "raster_processing_crs":  "EPSG:32610",
+                              "raster_resolution_m":  30,
+                              "aoi":  {
+                                          "west":  -121.720069,
+                                          "south":  39.7271,
+                                          "east":  -120.00918,
+                                          "north":  40.918238,
+                                          "buffer_m":  15000
+                                      }
+                          },
+    "weather":  {
+                    "source":  "NASA_POWER_HOURLY",
+                    "interval_minutes":  60,
+                    "is_interpolated":  false,
+                    "endpoint":  "/api/data/events/dixie_fire_2021/weather-hourly",
+                    "raw_path":  "data/raw/weather/dixie_fire_2021_nasa_power_hourly.json",
+                    "normalized_path":  "data/processed/weather/dixie_fire_2021_nasa_power_hourly.csv",
+                    "time_standard":  "UTC",
+                    "precipitation_status":  "missing_in_source",
+                    "note":  "Hourly temperature, relative humidity, wind speed and wind direction are available; hourly precipitation is null in the NASA POWER response."
+                },
+    "inputs":  [
+                   {
+                       "role":  "terrain_elevation",
+                       "path":  "data/processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif",
+                       "container_path":  "/app/data/processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif",
+                       "format":  "GeoTIFF",
+                       "crs":  "EPSG:32610",
+                       "size_bytes":  61949429,
+                       "sha256":  "9580ad5b7226d28a5586c8f258ba3e699f48332df90c4cbddd050f1d3d96543f"
+                   },
+                   {
+                       "role":  "terrain_slope_degrees",
+                       "path":  "data/processed/dem/dixie_fire_2021_slope_deg_30m_utm10.tif",
+                       "container_path":  "/app/data/processed/dem/dixie_fire_2021_slope_deg_30m_utm10.tif",
+                       "format":  "GeoTIFF",
+                       "crs":  "EPSG:32610",
+                       "size_bytes":  75671326,
+                       "sha256":  "83d6faeda8d79a0c9463a8dcfb5eae15a8746a8bba005ee591ec38b866afbfef"
+                   },
+                   {
+                       "role":  "terrain_aspect_degrees",
+                       "path":  "data/processed/dem/dixie_fire_2021_aspect_deg_30m_utm10.tif",
+                       "container_path":  "/app/data/processed/dem/dixie_fire_2021_aspect_deg_30m_utm10.tif",
+                       "format":  "GeoTIFF",
+                       "crs":  "EPSG:32610",
+                       "size_bytes":  75047139,
+                       "sha256":  "654a850399f83f6a24960d121de321448aad6ddf40d030ebe4ea971bf55cd3de"
+                   },
+                   {
+                       "role":  "land_cover_worldcover",
+                       "path":  "data/processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif",
+                       "container_path":  "/app/data/processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif",
+                       "format":  "GeoTIFF",
+                       "crs":  "EPSG:32610",
+                       "size_bytes":  1553351,
+                       "sha256":  "9a844264250e59cc22a4b0826296bdc6be2a6f7698fd50f41c488823d3a530ac"
+                   },
+                   {
+                       "role":  "fuel_class_proxy",
+                       "path":  "data/processed/fuel/dixie_fire_2021_fuel_class_30m_utm10.tif",
+                       "container_path":  "/app/data/processed/fuel/dixie_fire_2021_fuel_class_30m_utm10.tif",
+                       "format":  "GeoTIFF",
+                       "crs":  "EPSG:32610",
+                       "size_bytes":  1298390,
+                       "sha256":  "52e1f79ce51dae9321d26a9f0e5537f9d6414d132aaefd63b2e9fcf3d2695af6"
+                   },
+                   {
+                       "role":  "weather_hourly_observations",
+                       "path":  "data/processed/weather/dixie_fire_2021_nasa_power_hourly.csv",
+                       "container_path":  "/app/data/processed/weather/dixie_fire_2021_nasa_power_hourly.csv",
+                       "format":  "CSV",
+                       "crs":  "EPSG:4326",
+                       "size_bytes":  386493,
+                       "sha256":  "1e7cbe49a34a3df1fe46b84effbb78c9a84e26b5b83c05e7e305196b8b90df12"
+                   }
+               ],
+    "required_transformations":  [
+                                     "Read the GeoTIFFs in EPSG:32610 at 30 m resolution and crop to the selected simulation domain.",
+                                     "Map fuel_class_proxy values to the ForeFire fuel table selected by member C.",
+                                     "Convert hourly wind speed and direction to windU and windV if required by the ForeFire NetCDF adapter.",
+                                     "Keep the original hourly observations and mark any future resampled values as is_interpolated=true.",
+                                     "Use the ignition candidate timestamp as the historical replay start time unless member C documents another case start."
+                                 ],
+    "validation":  {
+                       "event_api_verified":  true,
+                       "candidate_api_verified":  true,
+                       "selected_candidate":  "dixie_fire_2021-firms-viirs_snpp-20210714T091100Z-39.871940--121.382410",
+                       "burned_area_api":  "/api/data/events/dixie_fire_2021/burned-area?include_geometry=true",
+                       "hourly_weather_api":  "/api/data/events/dixie_fire_2021/weather-hourly",
+                       "forefire_case_generated":  false,
+                       "forefire_run_verified":  false
+                   },
+    "limitations":  [
+                        "FIRMS VIIRS coordinates represent approximately 375 m thermal-anomaly pixels, not surveyed ignition coordinates.",
+                        "WorldCover-derived fuel classes are a course-demo proxy and are not calibrated LANDFIRE fuel models.",
+                        "NASA POWER hourly data is a representative point series, not a spatially varying weather field.",
+                        "This manifest does not claim that a Dixie Fire ForeFire simulation has already been run."
+                    ]
+}
