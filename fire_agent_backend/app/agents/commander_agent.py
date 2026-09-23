@@ -9,6 +9,34 @@ from app.agents.base import AgentResult, BaseAgent, agent_result
 from app.agents.context import AgentAnalysisContext
 
 
+RESOURCE_TYPE_LABELS = {
+    "fire_team": "灭火队伍",
+    "fire_engine": "消防车辆",
+    "firefighter_unit": "消防单元",
+    "uav": "无人机",
+    "medical": "医疗保障",
+    "water_supply": "供水保障",
+    "evacuation_support": "疏散保障",
+    "ground_vehicle": "地面保障车辆",
+}
+
+
+def _resource_label(item: Mapping[str, Any]) -> str:
+    return RESOURCE_TYPE_LABELS.get(str(item.get("resource_type") or ""), str(item.get("name") or item.get("resource_id") or "演练资源"))
+
+
+def _status_label(value: Any) -> str:
+    return {"completed": "已完成", "partial": "部分完成", "unavailable": "不可用"}.get(str(value), str(value or "暂无"))
+
+
+def _risk_label(value: Any) -> str:
+    return {"low": "低", "medium": "中", "high": "高", "extreme": "极高"}.get(str(value), str(value or "暂无"))
+
+
+def _route_eta(route: Mapping[str, Any]) -> Any:
+    return route.get("eta_minutes") if route.get("eta_minutes") is not None else route.get("estimated_travel_time_minutes")
+
+
 def build_structured_command_summary(
     *,
     situation_summary: Mapping[str, Any] | None = None,
@@ -32,21 +60,20 @@ def build_structured_command_summary(
             **source,
             "risk_level": risk_summary.get("risk_level"),
         }
-    event_name = (situation_summary or {}).get("event", {}).get("name") or source.get("event_name", "Current fire event")
+    event_name = (situation_summary or {}).get("event", {}).get("name") or source.get("event_name", "当前火情事件")
     summary = (
-        f"{event_name}: projected burned area is about {source.get('final_area_km2', '--')} km2; "
-        f"risk level is {source.get('risk_level', '--')}. "
-        "Prioritize downwind reconnaissance, protected-target resource pre-positioning, "
-        "and evacuation route readiness."
+        f"{event_name}：预测过火面积约 {source.get('final_area_km2', '--')} km²，"
+        f"当前空间风险为 {_risk_label(source.get('risk_level'))}。"
+        "应优先关注模型传播方向、重点保护目标以及救援路线的可达性。"
     )
     if planning_summary:
         selected = planning_summary.get("selected_resources") or []
         eta = planning_summary.get("eta_minutes") or {}
-        selected_ids = ", ".join(str(item.get("resource_id")) for item in selected) or "none"
+        selected_labels = "、".join(_resource_label(item) for item in selected) or "暂无"
         summary = (
-            f"{summary} Planning status is {planning_summary.get('status', '--')}; "
-            f"selected resources: {selected_ids}; "
-            f"earliest ETA {eta.get('earliest')}, max ETA {eta.get('max')} minutes."
+            f"{summary} 演练调度状态为 {_status_label(planning_summary.get('status'))}；"
+            f"已纳入计划的资源为 {selected_labels}；"
+            f"预计最早到达 {eta.get('earliest')} 分钟，最晚到达 {eta.get('max')} 分钟。"
         )
     return summary
 
@@ -83,7 +110,7 @@ def build_planning_summary(planning_result: Mapping[str, Any] | None) -> dict[st
     selected = list(planning_result.get("selected_resources") or [])
     operational_routes = list(planning_result.get("operational_routes") or [])
     shortages = list(planning_result.get("resource_shortage") or [])
-    eta_values = [route.get("eta_minutes") for route in operational_routes if route.get("eta_minutes") is not None]
+    eta_values = [_route_eta(route) for route in operational_routes if _route_eta(route) is not None]
     risk_values = [route.get("risk_score") for route in operational_routes if route.get("risk_score") is not None]
     return {
         "status": planning_result.get("status"),
@@ -104,8 +131,9 @@ def build_planning_summary(planning_result: Mapping[str, Any] | None) -> dict[st
         "operational_routes": [
             {
                 "resource_id": item.get("resource_id"),
+                "resource_label": item.get("resource_label") or "演练灭火队伍 1",
                 "route_source": item.get("route_source"),
-                "eta_minutes": item.get("eta_minutes"),
+                "eta_minutes": _route_eta(item),
                 "risk_score": item.get("risk_score"),
                 "distance_km": item.get("distance_km"),
                 "geometry": item.get("geometry"),
@@ -143,27 +171,27 @@ def _planning_actions(planning_summary: Mapping[str, Any] | None) -> list[str]:
         return []
     if planning_summary.get('status') == 'unavailable':
         return [
-            'Obtain a verified resource inventory before issuing dispatch orders.',
-            'Load a validated road network before recommending operational routes.',
+            '在下达真实调度命令前核验资源库存。',
+            '在推荐真实行动路线前接入已验证道路路网。',
         ]
     actions: list[str] = []
     selected = list(planning_summary.get("selected_resources") or [])
     routes = list(planning_summary.get("operational_routes") or [])
     if selected:
         actions.append(
-            "Dispatch selected planning resources: "
-            + ", ".join(str(item.get("resource_id")) for item in selected)
+            "建议调度演练资源："
+            + "、".join(_resource_label(item) for item in selected)
             + "."
         )
     for route in routes:
         actions.append(
-            "Use operational route for "
-            f"{route.get('resource_id')} with ETA {route.get('eta_minutes')} min "
-            f"and route risk {route.get('risk_score')}."
+            "建议使用演练灭火作业路线："
+            f"{route.get('resource_label')}，预计到达 {route.get('eta_minutes')} 分钟，"
+            f"路线风险值 {route.get('risk_score')}。"
         )
     shortage = dict(planning_summary.get("shortage") or {})
     if shortage.get("total"):
-        actions.append(f"Escalate resource shortage total {shortage.get('total')} for command review.")
+        actions.append(f"当前资源存在 {shortage.get('total')} 项缺口，需提交人工指挥复核。")
     return actions
 
 
@@ -171,19 +199,19 @@ def _planning_reasons(planning_summary: Mapping[str, Any] | None) -> list[str]:
     if not planning_summary:
         return []
     reasons = [
-        f"Planning status: {planning_summary.get('status')}",
-        f"Selected resource count: {planning_summary.get('selected_resource_count')}",
-        f"Operational route count: {planning_summary.get('operational_route_count')}",
+        f"调度状态：{_status_label(planning_summary.get('status'))}",
+        f"已选资源类型：{planning_summary.get('selected_resource_count')}",
+        f"作业路线数量：{planning_summary.get('operational_route_count')}",
     ]
     eta = dict(planning_summary.get("eta_minutes") or {})
     risk = dict(planning_summary.get("route_risk") or {})
     if eta.get("earliest") is not None or eta.get("max") is not None:
-        reasons.append(f"Planning ETA minutes: earliest {eta.get('earliest')}, max {eta.get('max')}")
+        reasons.append(f"预计到达时间：最早 {eta.get('earliest')} 分钟，最晚 {eta.get('max')} 分钟")
     if risk.get("min") is not None or risk.get("max") is not None:
-        reasons.append(f"Planning route risk: min {risk.get('min')}, max {risk.get('max')}")
+        reasons.append(f"路线风险：最低 {risk.get('min')}，最高 {risk.get('max')}")
     shortage = dict(planning_summary.get("shortage") or {})
     if shortage.get("total"):
-        reasons.append(f"Resource shortage total: {shortage.get('total')}")
+        reasons.append(f"资源缺口：{shortage.get('total')}")
     return reasons
 
 
@@ -220,23 +248,23 @@ class CommanderAgent(BaseAgent):
         recommended_plan = {
             "plan_id": "plan_priority_containment_recon",
             "name": (
-                "Route-resource coordinated incident response"
+                "火场作业与资源协同建议"
                 if planning_summary and planning_summary.get('success')
-                else "Downwind reconnaissance and protected-target pre-positioning"
+                else "传播方向侦察与重点目标保护建议"
             ),
             "score": _score_for_risk(risk_level),
             "priority": _priority_for_risk(risk_level),
             "actions": [
-                "Dispatch UAV reconnaissance along the downwind axis.",
-                "Pre-position suppression resources near protected targets.",
-                "Keep evacuation and route clearance plans ready for escalation.",
+                "沿模型主要传播方向开展侦察，复核火线变化。",
+                "将演练灭火资源部署至火场作业接近点附近，避免进入当前过火区。",
+                "保持重点目标保护和撤离准备，并根据火线变化调整。",
             ]
             + planning_actions,
-            "strategy": "Use the trusted fire point as the decision anchor; verify downwind fireline growth, pre-position protected-target resources, and keep evacuation routes available.",
+            "strategy": "以已确认火点为决策锚点，结合火势推演、空间风险、资源库存和演练可达性路线给出辅助建议。",
             "reasons": [
-                f"Projected final area: {final_area:.2f} km2",
-                f"Wind speed {wind_speed:.1f} m/s, direction {wind_direction:.0f} deg",
-                f"Fire weather index {fire_weather_index:.1f}",
+                f"预测过火面积：{final_area:.2f} km²",
+                f"风速 {wind_speed:.1f} m/s，风向 {wind_direction:.0f}°",
+                f"火险天气指数：{fire_weather_index:.1f}",
             ]
             + planning_reasons,
         }
@@ -252,8 +280,8 @@ class CommanderAgent(BaseAgent):
             "recommended_plan": recommended_plan,
             "candidate_plans": [
                 recommended_plan,
-                {"plan_id": "plan_recon_first", "name": "Reconnaissance-first plan", "score": max(60, recommended_plan["score"] - 7)},
-                {"plan_id": "plan_resource_forward", "name": "Resource-forward plan", "score": max(60, recommended_plan["score"] - 10)},
+                {"plan_id": "plan_recon_first", "name": "侦察优先方案", "score": max(60, recommended_plan["score"] - 7)},
+                {"plan_id": "plan_resource_forward", "name": "资源前置方案", "score": max(60, recommended_plan["score"] - 10)},
             ],
         }
         fallback_summary = build_structured_command_summary(
@@ -288,7 +316,8 @@ class CommanderAgent(BaseAgent):
             model_name = getattr(llm, "model", getattr(provider, "model", model_name))
             raw_llm_output = getattr(llm, "content", fallback_summary)
             used_remote = bool(getattr(llm, "used_remote", False))
-            summary = _parse_llm_summary(raw_llm_output) or fallback_summary
+            candidate_summary = _parse_llm_summary(raw_llm_output)
+            summary = candidate_summary if candidate_summary and any("\u4e00" <= char <= "\u9fff" for char in candidate_summary) else fallback_summary
         except Exception as exc:
             if planning_summary:
                 raw_llm_output = fallback_summary
@@ -299,7 +328,7 @@ class CommanderAgent(BaseAgent):
                     from app.llm.providers import StructuredFallbackProvider
 
                     fallback = await StructuredFallbackProvider().generate(
-                        "Generate a structured fallback wildfire command summary.",
+                        "生成中文结构化森林火灾辅助决策摘要。",
                         {
                             "input_summary": {
                                 "final_area_km2": final_area,
@@ -315,7 +344,7 @@ class CommanderAgent(BaseAgent):
                     used_remote = False
                     summary = _parse_llm_summary(raw_llm_output) or fallback_summary
                 except Exception:
-                    raw_llm_output = f"{fallback_summary} CommanderAgent LLM fallback reason: {exc}"
+                    raw_llm_output = f"{fallback_summary}；语言模型不可用，已使用结构化中文规则摘要。"
 
         recommendation_packet = {
             "summary": summary,

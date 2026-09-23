@@ -49,6 +49,7 @@
       </div>
     </section>
 
+    <Teleport defer to="#business-panel">
     <aside class="evidence-panel">
       <template v-if="selectedCase">
         <header>
@@ -74,12 +75,24 @@
           </label>
         </section>
 
-        <button class="analyze-button" type="button" :disabled="analyzing || !selectedAssetId" @click="runAnalysis">
+        <button class="analyze-button" type="button" :disabled="analyzing || !selectedAssetId || terminalCase" @click="runAnalysis">
           {{ analyzing ? analysisStage : '生成标准图并调用 Qwen-VL' }}
         </button>
 
+        <div v-if="terminalCase" class="notice warning">该候选版本已{{ selectedCase.status === "confirmed" ? "确认" : "排除" }}，不能再次运行目标检测与 Qwen-VL。需要重新核验时，请从基础算法生成新的候选版本。</div>
         <div v-if="analysisError" class="notice error">{{ analysisError }}</div>
 
+        <section v-if="currentResult" class="result-card detector-card">
+          <div class="decision-row"><span>目标识别算法</span><strong>{{ detectorLabel(currentResult.professional) }}</strong></div>
+          <dl>
+            <dt>模型</dt><dd>{{ currentResult.professional_run?.model_name || '未运行' }}</dd>
+            <dt>火焰 / 烟雾目标框</dt><dd>{{ currentResult.professional_run?.detections?.length ?? '--' }}</dd>
+            <dt>目标置信度</dt><dd>{{ probabilityText(currentResult.professional?.confidence) }}</dd>
+            <dt>运行状态</dt><dd>{{ currentResult.professional_run?.run_status || '不可用' }}</dd>
+          </dl>
+          <p>{{ currentResult.professional?.summary || '当前没有可用的目标识别结果。' }}</p>
+          <p v-for="(warning,index) in currentResult.warnings" :key="index" class="detector-warning">{{ warning }}</p>
+        </section>
         <section v-if="currentResult" class="result-card" :class="resultClass(currentResult)">
           <div class="decision-row">
             <span>视觉结论</span>
@@ -101,14 +114,20 @@
       </template>
       <div v-else class="empty-detail">等待候选点数据</div>
     </aside>
+    </Teleport>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import CesiumMap from '../components/CesiumMap.vue'
 import { visualVerificationAPI } from '../api/modules'
+import { useIncidentContextStore } from '../stores/incidentContextStore'
+import { useRoute } from 'vue-router'
 
+const props = defineProps<{ eventId?: string }>()
+const incident=useIncidentContextStore(),route=useRoute()
+const emit = defineEmits<{ reviewed: [caseId: string] }>()
 const candidates = ref<any[]>([])
 const selectedId = ref('')
 const selectedCase = ref<any>(null)
@@ -124,6 +143,7 @@ const analysisError = ref('')
 const mapRef = ref<InstanceType<typeof CesiumMap> | null>(null)
 
 const currentResult = computed(() => results.value[selectedId.value] || null)
+const terminalCase = computed(() => ['confirmed', 'rejected'].includes(selectedCase.value?.status))
 const analyzedCount = computed(() => Object.keys(results.value).length)
 
 function compactId(value: string) {
@@ -133,11 +153,12 @@ function compactId(value: string) {
 }
 function coordinateText(item: any) { return `${Number(item.longitude).toFixed(4)}, ${Number(item.latitude).toFixed(4)}` }
 function boolText(value: boolean | null) { return value === true ? '存在' : value === false ? '未发现' : '--' }
-function probabilityText(value: any) { return Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(0)}%` : '--' }
+function probabilityText(value: any) { return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(0)}%` : '--' }
 function decisionLabel(result: any) {
   if (result?.run_status && result.run_status !== 'succeeded') return '分析失败'
   return ({ confirmed: '确认火情', rejected: '排除火情', uncertain: '需要复核' } as any)[result?.decision] || '等待分析'
 }
+function detectorLabel(result: any) { return ({ supports_fire: '支持火点', against_fire: '未发现火点', unavailable: '算法不可用' } as any)[result?.support] || '待检测' }
 function resultText(result: any, status: string) { return result ? decisionLabel(result) : ({ imagery_ready: '影像就绪', received: '待影像' } as any)[status] || '待复核' }
 function resultClass(result: any) {
   if (!result) return 'pending'
@@ -172,7 +193,8 @@ async function selectCandidate(visualCaseId: string) {
 }
 
 async function runAnalysis() {
-  if (!selectedCase.value || !selectedAssetId.value) return
+  if (!selectedCase.value || terminalCase.value) return
+  if (!selectedAssetId.value){analysisError.value='当前候选点尚无真实可用影像，请先由数据智能体获取同期影像。';return}
   analyzing.value = true
   analysisError.value = ''
   try {
@@ -187,13 +209,18 @@ async function runAnalysis() {
     const review = await visualVerificationAPI.review(selectedCase.value.visual_case_id, [derivative.derivative_id])
     const result = {
       ...review.visual,
+      professional: review.professional,
+      professional_run: review.professional_run,
+      warnings: review.warnings || [],
       decision: review.confirmation?.status || review.visual?.decision,
       confirmation_id: review.confirmation_id,
       fusion_run_id: review.fusion_run_id
     }
     results.value = { ...results.value, [selectedCase.value.visual_case_id]: result }
+    emit('reviewed', selectedCase.value.visual_case_id)
+    await loadCandidates()
   } catch (cause: any) {
-    analysisError.value = `视觉复核失败：${cause?.message || '未知错误'}`
+    analysisError.value = cause?.message?.includes('409') ? '该候选点已完成核验，不能重复分析；请选择新候选版本。' : `视觉复核失败：${cause?.message || '未知错误'}`
   } finally {
     analyzing.value = false
   }
@@ -203,8 +230,9 @@ async function loadCandidates() {
   loadingCandidates.value = true
   loadError.value = ''
   try {
-    candidates.value = await visualVerificationAPI.getCandidates()
-    if (candidates.value.length) await selectCandidate(candidates.value[0].visual_case_id)
+    candidates.value = await visualVerificationAPI.getCandidates(props.eventId)
+    const active=candidates.value.find((item:any)=>item.visual_case_id===incident.visualCaseId)||candidates.value[0]
+    if (active) await selectCandidate(active.visual_case_id)
   } catch (cause: any) {
     loadError.value = `候选点加载失败：${cause?.message || '未知错误'}`
   } finally {
@@ -212,7 +240,21 @@ async function loadCandidates() {
   }
 }
 
-onMounted(loadCandidates)
+async function handleImageryReady(){
+  await incident.refreshWorkflow().catch(()=>{})
+  await loadCandidates()
+  if(route.query.auto_review==='1'&&selectedAssetId.value&&!terminalCase.value&&!analyzing.value)await runAnalysis()
+}
+onMounted(async()=>{window.addEventListener('fire:imagery-ready',handleImageryReady);if(!incident.visualCaseId)await incident.loadLatestWorkflow().catch(()=>{});await loadCandidates();if(route.query.auto_review==='1')await runAnalysis()})
+onBeforeUnmount(()=>window.removeEventListener('fire:imagery-ready',handleImageryReady))
+watch(()=>incident.visualCaseId,async(id)=>{if(id&&id!==selectedId.value&&candidates.value.some((item:any)=>item.visual_case_id===id)){await selectCandidate(id);if(route.query.auto_review==='1')await runAnalysis()}})
+watch(() => props.eventId, () => {
+  selectedId.value = ''
+  selectedCase.value = null
+  assets.value = []
+  results.value = {}
+  void loadCandidates()
+})
 </script>
 
 <style scoped>
@@ -233,7 +275,17 @@ header p, .result-card p { color: #9db0c5; font-size: 12px; line-height: 1.55; }
 .asset-section, .result-card { display: grid; gap: 9px; margin-bottom: 10px; padding: 11px; border: 1px solid #263d51; border-radius: 8px; background: #0a1a28; } .section-title span { color: #8fa6bd; font-size: 10px; }
 .asset-option { display: flex; gap: 8px; align-items: start; cursor: pointer; } .asset-option span { min-width: 0; display: grid; gap: 2px; } .asset-option strong { font-size: 11px; } .asset-option small { color: #8299b1; font-size: 9px; overflow-wrap: anywhere; }
 .analyze-button { width: 100%; min-height: 38px; margin-bottom: 10px; border: 1px solid #0891b2; border-radius: 7px; color: #ecfeff; background: #0e7490; font-weight: 700; cursor: pointer; } .analyze-button:disabled { opacity: .55; cursor: wait; }
-.result-card { border-color: #334155; } .decision-row span, .probability span, dt { color: #8fa6bd; font-size: 10px; } .decision-row strong { font-size: 16px; } .probability b { font-size: 20px; }
+.result-card { border-color: #334155; } .detector-card { border-color:#256a74; } .detector-warning { color:#fbbf24 !important; } .decision-row span, .probability span, dt { color: #8fa6bd; font-size: 10px; } .decision-row strong { font-size: 16px; } .probability b { font-size: 20px; }
 .result-card dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; } .result-card dd { margin: 0; text-align: right; font-size: 11px; overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .verification-page { grid-template-columns: 260px minmax(420px, 1fr) 310px; } } @media (max-width: 820px) { .verification-page { height: auto; overflow: auto; grid-template-columns: 1fr; } .map-panel { height: 50vh; min-height: 380px; } .candidate-panel, .evidence-panel { overflow: visible; } }
+
+.verification-page { grid-template-columns: minmax(220px, 20vw) minmax(0, 1fr) minmax(280px, 25vw); }
+.candidate-panel, .evidence-panel { min-width: 0; }
+@media (max-width: 1000px) { .verification-page { grid-template-columns: 210px minmax(0, 1fr) 260px; } }
+@media (max-width: 820px) { .verification-page { grid-template-columns: 1fr; } }
+
+
+.verification-page { grid-template-columns: minmax(210px, 25%) minmax(0,1fr); }
+.evidence-panel { width:100%;height:100%; }
+@media (max-width: 1000px) { .verification-page { grid-template-columns: minmax(190px, 28%) minmax(0,1fr); } }
 </style>

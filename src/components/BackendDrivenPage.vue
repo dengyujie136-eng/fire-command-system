@@ -70,6 +70,7 @@
       </div>
     </section>
 
+    <Teleport defer to="#business-panel">
     <aside class="side-panel right-panel">
       <header class="panel-header">
         <span class="panel-kicker">{{ config.agentKicker }}</span>
@@ -132,6 +133,7 @@
         </div>
       </section>
     </aside>
+    </Teleport>
   </main>
 </template>
 
@@ -1051,4 +1053,8 @@ button:disabled {
     max-width: none;
   }
 }
+
+.ops-page { grid-template-columns: minmax(220px, 24%) minmax(0, 1fr); }
+.right-panel { width:100%;height:100%; }
+@media (max-width: 1000px) { .ops-page { grid-template-columns: minmax(190px, 27%) minmax(0,1fr); } }
 </style>

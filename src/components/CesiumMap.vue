@@ -1,8 +1,8 @@
 ﻿<template>
   <div class="cesium-map-shell">
     <div ref="containerRef" class="cesium-map"></div>
-    <canvas ref="windHeatCanvasRef" class="wind-heat-canvas" aria-hidden="true"></canvas>
-    <canvas ref="windCanvasRef" class="wind-field-canvas" aria-hidden="true"></canvas>
+    <canvas v-if="showWindField" ref="windHeatCanvasRef" class="wind-heat-canvas" aria-hidden="true"></canvas>
+    <canvas v-if="showWindField" ref="windCanvasRef" class="wind-field-canvas" aria-hidden="true"></canvas>
   </div>
 </template>
 
@@ -20,12 +20,14 @@ const props = withDefaults(
     latitude?: number
     height?: number
     sceneId?: string
+    showWindField?: boolean
   }>(),
   {
     longitude: WIND_VIEW_CENTER[0],
     latitude: WIND_VIEW_CENTER[1],
     height: WIND_VIEW_HEIGHT,
     sceneId: 'dixie_fire_2021',
+    showWindField: true,
   },
 )
 
@@ -54,11 +56,13 @@ let vectorOverlayLayer: Cesium.ImageryLayer | null = null
 let nirEntities: Cesium.Entity[] = []
 let windField: WindFieldResponse | null = null
 let activeWindStepIndex = 0
-let windVisible = true
+let windVisible = props.showWindField
 let windAnimationFrame: number | null = null
 let windParticles: WindParticle[] = []
 let windHeatFrameCounter = 0
 let terrainEnabled = true
+let mapClickHandler: Cesium.ScreenSpaceEventHandler | null = null
+let mapEditMode: 'NORMAL' | 'SELECT_COMMAND_POST' | 'SELECT_STAGING_AREA' | 'ADD_RESOURCE_POINT' = 'NORMAL'
 
 type FireFrame = {
   rings: LngLat[][]
@@ -143,6 +147,7 @@ function flyTo(options?: { center?: [number, number]; zoom?: number; height?: nu
 }
 
 function focusWindField(options?: { center?: [number, number]; zoom?: number }) {
+  if (!props.showWindField) return
   windVisible = true
   windHeatCanvasRef.value?.classList.remove('is-hidden')
   windCanvasRef.value?.classList.remove('is-hidden')
@@ -191,6 +196,35 @@ function clearDemoEntities() {
   demoEntities = []
 }
 
+function cancelMapPointSelection() {
+  mapClickHandler?.destroy()
+  mapClickHandler = null
+  mapEditMode = 'NORMAL'
+}
+
+function beginMapPointSelection(
+  mode: 'SELECT_COMMAND_POST' | 'SELECT_STAGING_AREA' | 'ADD_RESOURCE_POINT',
+  callback: (point: { longitude: number; latitude: number; mode: string }) => void,
+) {
+  if (!viewer) return
+  cancelMapPointSelection()
+  mapEditMode = mode
+  mapClickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+  mapClickHandler.setInputAction((movement: { position: Cesium.Cartesian2 }) => {
+    if (!viewer || mapEditMode === 'NORMAL') return
+    const ray = viewer.camera.getPickRay(movement.position)
+    const cartesian = ray ? viewer.scene.globe.pick(ray, viewer.scene) : undefined
+    if (!cartesian) return
+    const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+    callback({
+      longitude: Cesium.Math.toDegrees(cartographic.longitude),
+      latitude: Cesium.Math.toDegrees(cartographic.latitude),
+      mode: mapEditMode,
+    })
+    cancelMapPointSelection()
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+}
+
 function addHotspotGeoJson(geojson: any) {
   if (!viewer || !geojson?.features?.length) return
   clearHotspots()
@@ -226,20 +260,39 @@ function addHotspotGeoJson(geojson: any) {
     })
 }
 
-function addDemoPoint(options: { name: string; position: LngLat; color?: string; label?: string; size?: number }) {
+function addDemoPoint(options: {
+  name: string
+  position: LngLat
+  color?: string
+  label?: string
+  size?: number
+  symbol?: 'point' | 'command' | 'staging' | 'team' | 'approach' | 'target'
+}) {
   if (!viewer) return
   const color = Cesium.Color.fromCssColorString(options.color || '#38bdf8')
+  const symbol = options.symbol || 'point'
   const entity = viewer.entities.add({
     name: options.name,
     position: Cesium.Cartesian3.fromDegrees(options.position[0], options.position[1], 120),
-    point: {
-      pixelSize: options.size || 12,
-      color: color.withAlpha(0.95),
-      outlineColor: Cesium.Color.WHITE.withAlpha(0.85),
-      outlineWidth: 2,
-      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-      disableDepthTestDistance: Number.POSITIVE_INFINITY,
-    },
+    ...(symbol === 'point' ? {
+      point: {
+        pixelSize: options.size || 12,
+        color: color.withAlpha(0.95),
+        outlineColor: Cesium.Color.WHITE.withAlpha(0.85),
+        outlineWidth: 2,
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    } : {
+      billboard: {
+        image: operationalSymbolTexture(symbol, options.color || '#38bdf8'),
+        width: options.size || 24,
+        height: options.size || 24,
+        verticalOrigin: Cesium.VerticalOrigin.CENTER,
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    }),
     label: {
       text: options.label || options.name,
       font: '12px sans-serif',
@@ -253,6 +306,36 @@ function addDemoPoint(options: { name: string; position: LngLat; color?: string;
     },
   })
   demoEntities.push(entity)
+}
+
+function operationalSymbolTexture(symbol: 'command' | 'staging' | 'team' | 'approach' | 'target', color: string) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 64
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return canvas
+  ctx.clearRect(0, 0, 64, 64)
+  ctx.shadowColor = color
+  ctx.shadowBlur = 12
+  ctx.fillStyle = color
+  ctx.strokeStyle = 'rgba(255,255,255,0.94)'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  if (symbol === 'command') {
+    ctx.moveTo(32, 7); ctx.lineTo(56, 32); ctx.lineTo(32, 57); ctx.lineTo(8, 32)
+  } else if (symbol === 'staging') {
+    ctx.rect(12, 12, 40, 40)
+  } else if (symbol === 'team') {
+    ctx.moveTo(32, 8); ctx.lineTo(57, 53); ctx.lineTo(7, 53)
+  } else if (symbol === 'approach') {
+    ctx.moveTo(32, 7); ctx.lineTo(52, 19); ctx.lineTo(52, 45); ctx.lineTo(32, 57); ctx.lineTo(12, 45); ctx.lineTo(12, 19)
+  } else {
+    ctx.moveTo(32, 7); ctx.lineTo(54, 16); ctx.lineTo(49, 50); ctx.lineTo(32, 58); ctx.lineTo(15, 50); ctx.lineTo(10, 16)
+  }
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  return canvas
 }
 
 function addDemoRoute(options: { name: string; coordinates: LngLat[]; color?: string; width?: number; arrow?: boolean }) {
@@ -906,6 +989,8 @@ function drawWindFrame() {
   context.lineCap = 'round'
   context.lineJoin = 'round'
   const animationTime = performance.now() / 1000
+  const cameraHeight = viewer.camera.positionCartographic.height
+  const closeZoom = Math.max(0, Math.min(1, (26000 - cameraHeight) / 22000))
 
   for (const particle of windParticles) {
     const vector = vectorAt(particle.lng, particle.lat)
@@ -917,13 +1002,28 @@ function drawWindFrame() {
     const screenAngle = Math.atan2(directionProbe.y - start.y, directionProbe.x - start.x)
     const flowProgress = (animationTime * 0.16 + particle.phase) % 1
     const edgeFade = Math.min(1, flowProgress / 0.14, (1 - flowProgress) / 0.14)
-    const travelDistance = 28
-    const arrowLength = 12
+    const travelDistance = 28 + closeZoom * 34
+    const arrowLength = 12 + closeZoom * 9
     const travelOffset = (flowProgress - 0.5) * travelDistance
     const arrowStartX = start.x + Math.cos(screenAngle) * travelOffset
     const arrowStartY = start.y + Math.sin(screenAngle) * travelOffset
     const endX = arrowStartX + Math.cos(screenAngle) * arrowLength
     const endY = arrowStartY + Math.sin(screenAngle) * arrowLength
+    if (closeZoom > 0.15) {
+      const trailLength = 12 + closeZoom * 26
+      const tailX = arrowStartX - Math.cos(screenAngle) * trailLength
+      const tailY = arrowStartY - Math.sin(screenAngle) * trailLength
+      const trail = context.createLinearGradient(tailX, tailY, endX, endY)
+      trail.addColorStop(0, 'rgba(34, 211, 238, 0)')
+      trail.addColorStop(0.65, 'rgba(34, 211, 238, 0.25)')
+      trail.addColorStop(1, 'rgba(224, 242, 254, 0.75)')
+      context.beginPath()
+      context.moveTo(tailX, tailY)
+      context.lineTo(endX, endY)
+      context.strokeStyle = trail
+      context.lineWidth = 1.5 + closeZoom * 1.4
+      context.stroke()
+    }
     const arrowColor = `rgba(224, 242, 254, ${0.3 + edgeFade * 0.62})`
     context.beginPath()
     context.moveTo(arrowStartX, arrowStartY)
@@ -980,7 +1080,7 @@ function setWindFieldElapsedMinutes(elapsedMinutes: number) {
 }
 
 function setWindFieldVisible(visible: boolean) {
-  windVisible = visible
+  windVisible = props.showWindField && visible
   windHeatCanvasRef.value?.classList.toggle('is-hidden', !visible)
   windCanvasRef.value?.classList.toggle('is-hidden', !visible)
   if (visible && windField && !windAnimationFrame) startWindAnimation()
@@ -1086,7 +1186,7 @@ function getCurrentWindSummary() {
 }
 
 async function loadWindField() {
-  if (!viewer) return
+  if (!viewer || !props.showWindField) return
   // 使用相对路径，让 ZeroTier 远程访问者也通过当前前端服务代理到本机后端。
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
   const params = new URLSearchParams({
@@ -1455,6 +1555,8 @@ defineExpose({
   addDemoRoute,
   addDemoArea,
   clearDemoEntities,
+  beginMapPointSelection,
+  cancelMapPointSelection,
   setImageryOverlayVisible,
   setVectorOverlayVisible,
   setNirSimulationVisible,
@@ -1512,6 +1614,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  cancelMapPointSelection()
   clearFireFronts()
   setImageryOverlayVisible(false)
   setVectorOverlayVisible(false)

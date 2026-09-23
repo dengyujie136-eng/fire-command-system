@@ -1,0 +1,12 @@
+version: commander-rules-v0.2
+source: internal-provisional
+status: provisional
+rules:
+  - rule_id: R-CMD-001
+    type: hard_constraint
+    description: Commander output must cite persisted upstream identifiers and preserve missing inputs.
+    requires: [workflow_provenance]
+  - rule_id: R-CMD-002
+    type: hard_constraint
+    description: A decision remains advisory until a human explicitly approves it.
+    requires: [human_review]

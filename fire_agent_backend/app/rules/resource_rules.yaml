@@ -1,0 +1,12 @@
+version: resource-rules-v0.3
+source: internal-exercise-model
+status: exercise-provisional
+rules:
+  - rule_id: R-RES-001
+    type: soft_score
+    description: 根据模型过火面积、风险等级和传播尺度生成可追溯的演练资源库存。
+    requires: [final_area_km2, risk_level]
+  - rule_id: R-RES-002
+    type: hard_constraint
+    description: 资源调度智能体只能从已确认场景的演练库存中分配资源。
+    requires: [scenario_inventory]

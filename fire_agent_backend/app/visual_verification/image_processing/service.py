@@ -137,13 +137,19 @@ def _plain_image(path: Path, max_dimension: int) -> tuple[Image.Image, dict[str,
     }
 
 
-def _select_band_indexes(count: int, requested: list[int] | None) -> list[int]:
+def _select_band_indexes(count: int, requested: list[int] | None, descriptions: tuple[str | None, ...] = ()) -> list[int]:
     if requested is not None:
         if any(index > count for index in requested):
             raise InvalidRasterBandError(
                 f"requested raster bands {requested} exceed available band count {count}"
             )
         return requested
+    names = {name.strip().upper(): index for index, name in enumerate(descriptions, start=1) if name}
+    red = names.get("B4") or names.get("B04")
+    green = names.get("B3") or names.get("B03")
+    blue = names.get("B2") or names.get("B02")
+    if red and green and blue:
+        return [red, green, blue]
     if count == 1:
         return [1]
     if count in (3, 4):
@@ -254,7 +260,7 @@ def _geotiff_image(
             column_stop - column_start,
             row_stop - row_start,
         )
-        band_indexes = _select_band_indexes(dataset.count, request.band_indexes)
+        band_indexes = _select_band_indexes(dataset.count, request.band_indexes, dataset.descriptions)
         raster_data = dataset.read(band_indexes, window=window, masked=True)
         rgb, nodata_ratio = _stretch_to_uint8(
             raster_data,

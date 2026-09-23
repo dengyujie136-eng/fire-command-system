@@ -3,21 +3,9 @@
     <div class="header-left">
       <div class="logo">
         <img class="logo-image" src="../assets/system-logo.png" alt="星火智援" />
-        <h1>智慧消防指挥系统</h1>
+        <h1>星火智援</h1>
       </div>
     </div>
-    <nav class="header-nav">
-      <router-link
-        v-for="item in navItems"
-        :key="item.path"
-        :to="item.path"
-        class="nav-item"
-        active-class="active"
-      >
-        <span class="nav-icon">{{ item.icon }}</span>
-        <span class="nav-label">{{ item.label }}</span>
-      </router-link>
-    </nav>
     <div class="header-right">
       <button
         class="archive-btn"
@@ -71,19 +59,6 @@ const wsStatusText = computed(() => {
   if (fireEvent.hasPredictedFire) return '已模拟'
   return wsStatus.value ? '已连接' : '待命'
 })
-
-const navItems = [
-  { path: '/', label: '首页', icon: '首' },
-  { path: '/realtime-monitor', label: '监测', icon: '测' },
-  { path: '/visual-verification', label: '复核', icon: '核' },
-  { path: '/fire-predict', label: '推演', icon: '火' },
-  { path: '/multi-source-fusion', label: '融合', icon: '融' },
-  { path: '/uav-dispatch', label: '无人机', icon: '空' },
-  { path: '/emergency-route', label: '路径', icon: '路' },
-  { path: '/resource-dispatch', label: '资源', icon: '资' },
-  { path: '/disaster-assess', label: '评估', icon: '评' },
-  { path: '/command-center', label: '指挥', icon: '令' },
-]
 
 let timer: ReturnType<typeof setInterval>
 let syncTimer: ReturnType<typeof setInterval>
@@ -232,7 +207,7 @@ onUnmounted(() => {
   border-radius: 6px;
   text-decoration: none;
   color: #94a3b8;
-  font-size: clamp(11px, 0.72vw, 13px);
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   transition: all 0.25s ease;
@@ -262,7 +237,7 @@ onUnmounted(() => {
 }
 
 .nav-icon {
-  font-size: 11px;
+  font-size: 13px;
   width: 18px;
   height: 18px;
   border-radius: 6px;
@@ -318,7 +293,7 @@ onUnmounted(() => {
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(15, 23, 42, 0.62);
   color: #94a3b8;
-  font-size: clamp(11px, 0.7vw, 12px);
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.25s ease;
   white-space: nowrap;
@@ -531,4 +506,12 @@ onUnmounted(() => {
     gap: 8px;
   }
 }
+
+.app-header { height: 46px; flex-basis: 46px; }
+.logo-image { width: 29px; height: 29px; }
+.logo h1 { font-size: 14px; }
+.nav-item { font-size: 12px; padding: 5px 8px; }
+.header-right { gap: 9px; }
+@media (max-width: 1400px) { .nav-item { font-size: 11px; padding: 5px 6px; } }
+
 </style>

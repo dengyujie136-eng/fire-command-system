@@ -1,5 +1,8 @@
 # 星火智援——森林火灾应急指挥系统
 
+> member/heimini 完整部署、数据安装和使用说明：[docs/MEMBER_HEIMINI_SETUP_PROMPT.md](docs/MEMBER_HEIMINI_SETUP_PROMPT.md)
+
+
 本项目是《GIS 综合实习》选题 8 的小组项目。当前阶段以一条统一事件链组织火情观测、证据融合、火势推演、辅助决策、资源推荐、情景重算和报告输出。
 
 ## 统一架构

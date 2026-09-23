@@ -1,0 +1,16 @@
+version: scenario-rules-v0.3
+source: internal-exercise-model
+status: exercise-provisional
+rules:
+  - rule_id: R-SCN-001
+    type: hard_constraint
+    description: 指挥点、集结区和火场作业接近点必须在模型火线与安全缓冲区之外。
+    requires: [ignition, spread_radius]
+  - rule_id: R-SCN-002
+    type: soft_score
+    description: 优先选择主传播方向反侧且具备额外空间余量的位置；作业接近点仅用于演练可达性。
+    requires: [spread_direction, spread_radius]
+  - rule_id: R-SCN-003
+    type: advisory
+    description: 未接入核验道路或坡度图层时，必须明确标注可达性和地形限制未知。
+    requires: [dem_slope, road_network]

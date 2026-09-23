@@ -8,14 +8,17 @@ from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.session import init_db
 from app.routers import (
+    assistant,
     clock,
     command_workflow,
     data_agent,
+    imagery_agent,
     decisions,
     events,
     fire_data,
     health,
     observations,
+    planning_preview,
     recalculations,
     recommendations,
     reports,
@@ -25,6 +28,7 @@ from app.routers import (
     spatial_analysis,
     spread,
     system,
+    workflow_runtime,
     websocket,
 )
 from app.visual_verification.router import router as visual_verification_router
@@ -58,6 +62,8 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(system.router, prefix=settings.api_prefix)
+    app.include_router(assistant.router, prefix=settings.api_prefix)
+    app.include_router(planning_preview.router, prefix=settings.api_prefix)
     app.include_router(events.router, prefix=settings.api_prefix)
     app.include_router(clock.router, prefix=settings.api_prefix)
     app.include_router(observations.router, prefix=settings.api_prefix)
@@ -65,10 +71,12 @@ def create_app() -> FastAPI:
     app.include_router(realtime.router, prefix=settings.api_prefix)
     app.include_router(realtime_demo.router, prefix=settings.api_prefix)
     app.include_router(data_agent.router, prefix=settings.api_prefix)
+    app.include_router(imagery_agent.router, prefix=settings.api_prefix)
     app.include_router(scenarios.router, prefix=settings.api_prefix)
     app.include_router(spread.router, prefix=settings.api_prefix)
     app.include_router(spatial_analysis.router, prefix=settings.api_prefix)
     app.include_router(command_workflow.router, prefix=settings.api_prefix)
+    app.include_router(workflow_runtime.router, prefix=settings.api_prefix)
     app.include_router(decisions.router, prefix=settings.api_prefix)
     app.include_router(recommendations.router, prefix=settings.api_prefix)
     app.include_router(recalculations.router, prefix=settings.api_prefix)

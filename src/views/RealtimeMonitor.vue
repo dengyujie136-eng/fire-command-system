@@ -2,7 +2,7 @@
   <main class="realtime-page">
     <aside class="data-panel">
       <header class="panel-header">
-        <span class="eyebrow">FIRE MONITORING CENTER</span>
+        <span class="eyebrow">火情监测中心</span>
         <div class="mode-control">
           <label for="monitor-mode">监测模式</label>
           <select id="monitor-mode" v-model="monitorMode" @change="handleModeChange">
@@ -52,20 +52,9 @@
         <label class="submode-field"><span>实时数据类型</span><select v-model="realtimeView" class="region-select">
           <option value="firms">FIRMS 近实时火点</option>
           <option value="firms_archive">FIRMS 三个月演示</option>
-          <option value="imagery">卫星影像检测演示</option>
         </select></label>
-        <div v-if="realtimeView === 'imagery'" class="demo-panel">
-          <div class="section-heading"><h2>GOES-18 影像检测</h2><span>10 分钟时次</span></div>
-          <p class="demo-label">真实历史卫星影像 · 模拟实时接收 · Park Fire 2024</p>
-          <select v-model.number="demoSlotIndex" class="region-select" :disabled="demoLoading">
-            <option v-for="(slot, index) in demoSlots" :key="slot.observed_at" :value="index">{{ formatRealtimeStamp(slot.observed_at) }} UTC</option>
-          </select>
-          <div class="demo-actions"><button class="refresh-button" type="button" :disabled="demoLoading || !demoSlots.length" @click="runDemoDetection">{{ demoLoading ? '检测中...' : '运行影像检测' }}</button><span v-if="demoResult" class="demo-score">F1 {{ demoResult.evaluation?.f1 ?? '--' }}</span></div>
-          <img v-if="demoResult" class="demo-preview" :src="demoPreviewUrl" alt="GOES-18 热异常检测预览" />
-          <p v-if="demoError" class="realtime-note error-note">{{ demoError }}</p>
-          <p class="realtime-note">C07 3.9 μm 与 C14 11.2 μm 亮温差提取候选点，使用官方 FDCC 产品进行课程演示验证。</p>
-        </div>
-        <div v-else-if="realtimeView === 'firms_archive'" class="demo-panel">
+        <div class="focus-actions"><button type="button" @click="setFocus('global')">全球总览</button><button type="button" @click="setFocus('california')">聚焦加州</button></div>
+        <div v-if="realtimeView === 'firms_archive'" class="demo-panel">
           <div class="section-heading"><h2>FIRMS 火点回放</h2><span>约 3 个月</span></div>
           <p class="demo-label">真实 FIRMS VIIRS 历史产品 · 模拟近实时接收 · 加州北部及内华达西部</p>
           <input v-model="archiveDate" class="date-input" type="date" :min="archiveManifest?.start_date" :max="archiveManifest?.end_date" @change="syncArchiveDateInput" />
@@ -108,7 +97,7 @@
     </aside>
 
     <section class="map-panel">
-      <CesiumMap v-if="mapReady" :key="`${monitorMode}-${selectedRegionId}`" ref="mapRef" class="map" :longitude="mapCenter[0]" :latitude="mapCenter[1]" :height="monitorMode === 'history' ? 65000 : 120000" :scene-id="monitorMode === 'history' ? 'dixie_fire_2021' : selectedRegionId" />
+      <CesiumMap v-if="mapReady" :key="`${monitorMode}-${selectedRegionId}`" ref="mapRef" class="map" :longitude="mapCenter[0]" :latitude="mapCenter[1]" :height="monitorMode === 'history' ? 65000 : 120000" :scene-id="monitorMode === 'history' ? 'dixie_fire_2021' : selectedRegionId" :show-wind-field="monitorMode === 'history'" />
       <div v-else class="map-loading">{{ monitorMode === 'history' ? '正在准备 Dixie Fire 研究区' : '正在准备实时监测区域' }}</div>
       <div v-if="monitorMode === 'history'" class="map-overlay map-title"><span>历史事件回放 · {{ currentReplayDate }}</span><strong>Dixie Fire · California · 2021</strong></div>
       <div v-else class="map-overlay map-title"><span>{{ realtimeView === 'imagery' ? '卫星影像检测演示 · GOES-18 ABI' : realtimeView === 'firms_archive' ? 'FIRMS 三个月火点演示' : `实时卫星监测 · ${selectedRealtimeRegion?.satellite || '--'}` }}</span><strong>{{ realtimeView === 'imagery' ? 'Park Fire 2024 · 美国加州' : realtimeView === 'firms_archive' ? '加州北部及内华达西部 · 按日回放' : (selectedRealtimeRegion?.label || '实时监测区域') }}</strong></div>
@@ -123,7 +112,7 @@
       >
         <div class="archive-map-dock-header">
           <div>
-            <span class="dock-kicker">FIRMS THREE-MONTH ARCHIVE</span>
+            <span class="dock-kicker">FIRMS 三个月历史档案</span>
             <strong>{{ archiveDate || '--' }}</strong>
             <small>{{ archiveDates.length ? `${archiveIndex + 1} / ${archiveDates.length} days` : 'Waiting for dates' }}</small>
           </div>
@@ -143,14 +132,13 @@
         <div class="replay-scale"><span>{{ archiveManifest?.start_date || '--' }}</span><span>{{ archiveManifest?.end_date || '--' }}</span></div>
       </section>
       <div v-if="monitorMode === 'history'" class="weather-simulation" :class="{ 'is-visible': simulationVisible }" :style="weatherLayerStyle" aria-hidden="true">
-        <div v-if="showWind" class="weather-effect wind-effect"></div>
         <div v-if="showCloud" class="weather-effect cloud-effect"></div>
         <div v-if="showRain && hasRain" class="weather-effect rain-effect"></div>
       </div>
       <section v-if="monitorMode === 'history'" class="replay-dock" aria-label="历史火情日回放">
         <div class="replay-dock-header">
           <div>
-            <span class="dock-kicker">HISTORICAL FIRE MONITORING</span>
+            <span class="dock-kicker">历史火灾监测</span>
             <strong>{{ currentReplayDate }}</strong>
             <small>{{ replayFrames.length ? `${replayIndex + 1} / ${replayFrames.length} 天` : '等待数据' }}</small>
           </div>
@@ -184,7 +172,7 @@
       </section>
       <section v-else-if="monitorMode === 'realtime' && realtimeView !== 'firms_archive'" class="realtime-map-dock" aria-label="实时卫星监测状态">
         <div class="realtime-map-dock-header">
-          <div><span class="dock-kicker">LIVE SATELLITE MONITORING</span><strong>{{ realtimeView === 'imagery' ? 'GOES-18 ABI DEMO' : (selectedRealtimeRegion?.satellite || '--') }}</strong></div>
+          <div><span class="dock-kicker">实时卫星监测</span><strong>{{ realtimeView === 'imagery' ? 'GOES-18 ABI 影像演示' : (selectedRealtimeRegion?.satellite || '--') }}</strong></div>
           <span class="live-indicator" :class="{ ready: realtimeReady }"><i></i>{{ realtimeView === 'imagery' || realtimeView === 'firms_archive' ? '模拟数据' : (realtimeReady ? '在线数据' : '等待服务') }}</span>
         </div>
         <div class="realtime-map-stats"><span>候选火点 <b>{{ formatNumber(realtimeHotspotTotal) }}</b></span><span>观测时间 <b>{{ realtimeObservedAtText }}</b></span><span>更新时间 <b>{{ realtimeFetchedAtText }}</b></span></div>
@@ -192,21 +180,33 @@
       </section>
     </section>
 
-    <aside class="evidence-panel">
-      <header class="panel-header compact"><span class="eyebrow">DATA AGENT HANDOFF</span><h2>数据交接状态</h2><p>此页面展示数据源头，不代表视觉确认或火势推演已经完成。</p></header>
-      <section class="handoff-card"><span class="card-label">乙 · 视觉核验</span><strong>{{ clusterTotal ? '候选点可供 Qwen-VL 核验' : '等待候选点' }}</strong><p>使用聚合火点坐标和影像引用字段，不把 FIRMS 候选直接标记为真实火灾。</p></section>
-      <section class="handoff-card"><span class="card-label">丙 · ForeFire 输入</span><strong>{{ rasterReady ? '地形与燃料栅格已就绪' : '等待栅格数据' }}</strong><p>DEM、坡度、坡向和 WorldCover 简化燃料栅格均为 30 m、EPSG:32610。</p></section>
-      <section class="handoff-card"><span class="card-label">丁 · 影响分析</span><strong>{{ burnedArea ? '过火边界和气象可调用' : '等待基础数据' }}</strong><p>后续叠加道路、建筑、居民点和火势推演结果，生成资源与疏散方案。</p></section>
-      <section v-if="monitorMode === 'history'" class="source-section"><h3>事件信息</h3><dl><dt>事件状态</dt><dd>{{ event?.status || '--' }}</dd><dt>观测时段</dt><dd>{{ eventPeriod }}</dd><dt>起火参考点</dt><dd>{{ ignitionText }}</dd><dt>数据检索</dt><dd>deterministic manifest</dd><dt>大模型依赖</dt><dd>当前不需要 API Key</dd></dl></section>
-      <section v-else class="source-section"><h3>{{ realtimeView === 'imagery' ? '影像演示说明' : '实时数据说明' }}</h3><dl><dt>监测区域</dt><dd>{{ realtimeView === 'imagery' ? 'Park Fire 2024' : (selectedRealtimeRegion?.label || '--') }}</dd><dt>卫星数据</dt><dd>{{ realtimeView === 'imagery' ? 'GOES-18 ABI C07/C14' : (selectedRealtimeRegion?.satellite || '--') }}</dd><dt>观测时间</dt><dd>{{ realtimeObservedAtText }}</dd><dt>数据获取</dt><dd>{{ realtimeView === 'imagery' ? '本地预下载，模拟接收' : realtimeFetchedAtText }}</dd><dt>候选点状态</dt><dd>{{ realtimeDetectionText }}</dd></dl></section>
-    </aside>
+    <Teleport defer to="#business-panel">
+      <aside class="monitor-business">
+        <span class="dock-kicker">DATA PREPARATION</span><h2>监测数据与事件准备</h2>
+        <p>当前事件：{{ incident.eventName }}</p>
+        <p>监测信息为候选火点，需到核验页完成影像和人工确认。</p>
+        <div class="data-needs"><strong>加州火情所需数据</strong><span>卫星影像与热异常</span><span>逐时气象：风、温度、湿度、降水</span><span>地形 DEM 与植被燃料</span><span>道路、水源与消防队伍位置</span></div>
+        <div class="readiness-list"><strong>当前数据目录</strong><div v-for="item in incident.readiness?.items || []" :key="item.name"><span>{{ item.name }}</span><b :class="{missing:item.status!=='Available'}">{{ item.status }}</b></div><p v-if="!incident.readiness">事件数据目录尚未读取。</p></div>
+        <button class="workflow-start" type="button" :disabled="incident.loading" @click="startIncidentWorkflow">{{ incident.workflowRunId ? '重新准备工作流' : '启动事件工作流' }}</button>
+        <p v-if="workflowError" class="workflow-error">{{ workflowError }}</p>
+      </aside>
+    </Teleport>
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import CesiumMap from '../components/CesiumMap.vue'
+import { useIncidentContextStore } from '../stores/incidentContextStore'
+import { useRoute, useRouter } from 'vue-router'
 
+const incident = useIncidentContextStore()
+const route = useRoute(), router = useRouter()
+const workflowError = ref('')
+const focus = ref<'global'|'california'|'region'>('region')
+async function startIncidentWorkflow(){workflowError.value='';try{await incident.startWorkflow(360)}catch(cause:any){workflowError.value=cause?.message||'工作流启动失败'}}
+function setFocus(value:'global'|'california'){focus.value=value;void router.replace({path:'/realtime-monitor',query:{mode:'realtime',focus:value}});renderRealtimeMap()}
+function applyNavigation(){const next=route.query.focus;focus.value=next==='global'||next==='california'?next:'region';if(route.query.mode==='realtime'&&monitorMode.value!=='realtime'){monitorMode.value='realtime';handleModeChange()}if(monitorMode.value==='realtime')void nextTick(renderRealtimeMap)}
 const apiBase = String(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const eventId = 'dixie_fire_2021'
 const mapRef = ref<InstanceType<typeof CesiumMap> | null>(null)
@@ -231,7 +231,7 @@ const replayFrames = ref<Array<{ observed_at: string, rows: any[], point_count: 
 const replayIndex = ref(0)
 const isPlaying = ref(false)
 let replayTimer: ReturnType<typeof setInterval> | null = null
-const showWind = ref(false)
+const showWind = ref(true)
 const showCloud = ref(false)
 const showRain = ref(false)
 type MonitorMode = 'history' | 'realtime'
@@ -418,10 +418,9 @@ const currentWeather = computed(() => {
   return weatherRows.value.find((row) => String(row.observed_on).slice(0, 10) === date) || latestWeather.value
 })
 const hasRain = computed(() => Number(currentWeather.value?.precipitation_mm) > 0)
-const simulationVisible = computed(() => showWind.value || showCloud.value || (showRain.value && hasRain.value))
+const simulationVisible = computed(() => showCloud.value || (showRain.value && hasRain.value))
 const weatherLayerStyle = computed(() => ({
   '--weather-opacity': `${Math.min(0.7, Math.max(0.12, Number(currentWeather.value?.relative_humidity_percent || 0) / 140))}`,
-  '--wind-angle': `${Number(currentWeather.value?.wind_direction_deg || 0)}deg`,
   '--rain-opacity': `${Math.min(0.68, Math.max(0.22, Number(currentWeather.value?.precipitation_mm || 0) / 12))}`,
 }))
 
@@ -442,11 +441,23 @@ function updateReplayGeoJson() {
   }
 }
 
+function syncReplayWind() {
+  const map = mapRef.value
+  if (!map || monitorMode.value !== 'history') return
+  const speed = Number(currentWeather.value?.wind_speed_m_s)
+  const direction = Number(currentWeather.value?.wind_direction_deg)
+  if (showWind.value && Number.isFinite(speed) && Number.isFinite(direction)) {
+    map.setManualWindField({ longitude: mapCenter.value[0], latitude: mapCenter.value[1], speed, directionDeg: direction, radiusKm: 38 })
+  }
+  map.setWindFieldVisible(showWind.value && Number.isFinite(speed) && Number.isFinite(direction))
+}
+
 function renderReplayHotspots() {
   updateReplayGeoJson()
   if (!mapReady.value || !mapRef.value) return
   mapRef.value.clearHotspots()
   if (hotspotGeoJson.value) mapRef.value.addHotspotGeoJson(hotspotGeoJson.value)
+  syncReplayWind()
 }
 
 function stopReplay() {
@@ -500,6 +511,7 @@ function renderMap() {
     if (ring.length >= 3) map.addDemoArea({ name: `MTBS 过火边界 ${index + 1}`, coordinates: ring, color: '#f97316', label: index === 0 ? 'MTBS 过火边界' : '' })
   }
   map.flyTo({ center: mapCenter.value, height: 72000 })
+  syncReplayWind()
 }
 
 function regionCenter(region: RealtimeRegion | undefined): [number, number] {
@@ -592,7 +604,7 @@ function renderRealtimeMap() {
     mapRef.value.flyTo({ center: [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2], height: Math.max(50000, Math.min(500000, span * 60000)) })
     return
   }
-  mapRef.value.flyTo({ center: realtimeView.value === 'imagery' ? [-121.15, 40.05] : regionCenter(selectedRealtimeRegion.value), height: realtimeView.value === 'imagery' ? 100000 : 120000 })
+  mapRef.value.flyTo({ center: focus.value === 'global' ? [-105, 30] : focus.value === 'california' ? [-119, 37] : regionCenter(selectedRealtimeRegion.value), height: focus.value === 'global' ? 18000000 : focus.value === 'california' ? 1300000 : 120000 })
 }
 
 async function syncRealtimeData() {
@@ -753,8 +765,10 @@ async function loadData() {
   }
 }
 
-onMounted(loadData)
+onMounted(async()=>{await loadData();try{await incident.loadEvents();await incident.loadReadiness();await incident.loadLatestWorkflow()}catch{/* keep monitoring available */}applyNavigation()})
+watch(() => [route.query.mode,route.query.focus],applyNavigation)
 watch(replayIndex, renderReplayHotspots)
+watch(showWind, () => nextTick(syncReplayWind))
 watch(realtimeView, (view) => {
   if (monitorMode.value !== 'realtime') return
   stopRealtimePolling()
@@ -777,9 +791,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.realtime-page { width: 100%; height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(290px, 23vw) minmax(520px, 1fr) minmax(300px, 25vw); background: #07111b; color: #edf6ff; overflow: hidden; }
-.data-panel, .evidence-panel { min-width: 0; min-height: 0; overflow: auto; padding: 16px; background: linear-gradient(180deg, rgba(14, 29, 45, .98), rgba(7, 17, 27, .99)); }
-.data-panel { border-right: 1px solid rgba(115, 139, 173, .22); } .evidence-panel { border-left: 1px solid rgba(115, 139, 173, .22); }
+.realtime-page { width: 100%; height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(290px, 23vw) minmax(0, 1fr); background: #07111b; color: #edf6ff; overflow: hidden; }
+.data-panel { min-width: 0; min-height: 0; overflow: auto; padding: 16px; border-right: 1px solid rgba(115, 139, 173, .22); background: linear-gradient(180deg, rgba(14, 29, 45, .98), rgba(7, 17, 27, .99)); }
 .panel-header { display: grid; gap: 6px; margin-bottom: 14px; } .panel-header.compact { margin-bottom: 16px; }
 .mode-control { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin: 2px 0 4px; } .mode-control label { color: #9fb0c7; font-size: 11px; } .mode-control select, .region-select { min-height: 32px; padding: 0 9px; border: 1px solid rgba(125, 211, 252, .3); border-radius: 5px; color: #e5f0ff; background: #102438; font: inherit; font-size: 12px; } .mode-control select:focus, .region-select:focus { outline: 2px solid rgba(45, 212, 191, .45); outline-offset: 1px; }
 .eyebrow { color: #7dd3fc; font-size: 10px; font-weight: 800; letter-spacing: .08em; } h1, h2, h3, p { margin: 0; letter-spacing: 0; } h1 { font-size: 22px; } h2 { font-size: 17px; } h3 { font-size: 14px; }
@@ -802,7 +815,6 @@ onUnmounted(() => {
 .map-legend { position: absolute; right: 16px; bottom: 184px; z-index: 5; display: grid; gap: 6px; padding: 9px 11px; border: 1px solid rgba(191, 219, 254, .2); border-radius: 7px; color: #e5f0ff; font-size: 11px; background: rgba(2, 8, 23, .72); } .map-legend span { display: flex; align-items: center; gap: 6px; } .map-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; } .hotspot-key { background: #ef4444; box-shadow: 0 0 8px #ef4444; } .burned-key { border-radius: 2px !important; background: #f97316; }
 .source-key { border-radius: 2px !important; background: #22d3ee; }
 .weather-simulation { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity .25s ease; overflow: hidden; } .weather-simulation.is-visible { opacity: 1; } .weather-effect { position: absolute; inset: 0; }
-.wind-effect { opacity: .22; background: repeating-linear-gradient(calc(var(--wind-angle) + 25deg), transparent 0 18px, rgba(147, 232, 255, .5) 19px 20px, transparent 21px 46px); mix-blend-mode: screen; animation: wind-drift 2.8s linear infinite; }
 .cloud-effect { opacity: var(--weather-opacity); background: radial-gradient(ellipse at 20% 18%, rgba(226, 241, 255, .24), transparent 30%), radial-gradient(ellipse at 78% 28%, rgba(191, 219, 254, .2), transparent 32%), linear-gradient(180deg, rgba(148, 163, 184, .12), transparent 42%); mix-blend-mode: screen; }
 .rain-effect { opacity: var(--rain-opacity); background: repeating-linear-gradient(105deg, transparent 0 12px, rgba(147, 197, 253, .6) 13px 14px, transparent 15px 25px); animation: rain-fall .55s linear infinite; }
 .replay-dock { position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 6; display: grid; gap: 8px; padding: 11px 13px; border: 1px solid rgba(125, 211, 252, .26); border-radius: 8px; color: #e5f0ff; background: rgba(2, 8, 23, .84); backdrop-filter: blur(10px); box-shadow: 0 12px 34px rgba(0, 0, 0, .25); }
@@ -810,8 +822,24 @@ onUnmounted(() => {
 .replay-dock .replay-slider { margin: 0 2px; } .replay-dock-footer { align-items: center; flex-wrap: wrap; } .simulation-toggles { display: flex; align-items: center; gap: 10px; } .simulation-toggles label { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; color: #dbeafe; font-size: 11px; cursor: pointer; } .simulation-toggles label.disabled { color: #64748b; cursor: not-allowed; } .simulation-toggles input { accent-color: #22d3ee; }
 .realtime-map-dock { position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 6; display: grid; gap: 8px; padding: 12px 14px; border: 1px solid rgba(34, 211, 238, .28); border-radius: 8px; color: #e5f0ff; background: rgba(2, 8, 23, .86); backdrop-filter: blur(10px); box-shadow: 0 12px 34px rgba(0, 0, 0, .25); } .realtime-map-dock-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; } .realtime-map-dock-header > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; } .realtime-map-dock-header strong { font-size: 15px; } .live-indicator { display: inline-flex; align-items: center; gap: 6px; color: #fbbf24; font-size: 10px; } .live-indicator.ready { color: #5eead4; } .live-indicator i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; } .realtime-map-stats { display: flex; flex-wrap: wrap; gap: 10px 18px; color: #9fb0c7; font-size: 10px; } .realtime-map-stats b { color: #f8fafc; font-size: 11px; } .realtime-map-dock p { color: #8ea3bb; font-size: 10px; line-height: 1.4; }
 .archive-map-dock { position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 7; display: grid; gap: 8px; padding: 12px 14px; border: 1px solid rgba(34, 211, 238, .28); border-radius: 8px; color: #e5f0ff; background: rgba(2, 8, 23, .88); backdrop-filter: blur(10px); box-shadow: 0 12px 34px rgba(0, 0, 0, .25); } .archive-map-dock-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; } .archive-map-dock-header > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; } .archive-map-dock-header strong { font-size: 15px; } .archive-map-dock-header small, .archive-map-dock-header > span { color: #9fb0c7; font-size: 11px; }
-@keyframes wind-drift { from { transform: translateX(-18px); } to { transform: translateX(18px); } } @keyframes rain-fall { from { transform: translateY(-24px); } to { transform: translateY(24px); } }
+@keyframes rain-fall { from { transform: translateY(-24px); } to { transform: translateY(24px); } }
 .handoff-card { display: grid; gap: 7px; margin-bottom: 10px; padding: 12px; border: 1px solid rgba(45, 212, 191, .2); border-radius: 8px; background: rgba(8, 29, 39, .78); } .handoff-card strong { color: #ccfbf1; font-size: 13px; }
 .source-section dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; margin: 0; font-size: 12px; } .source-section dd { margin: 0; color: #f8fafc; text-align: right; overflow-wrap: anywhere; }
-@media (max-width: 1100px) { .realtime-page { grid-template-columns: minmax(260px, 28vw) minmax(420px, 1fr) minmax(260px, 27vw); } } @media (max-width: 900px) { .realtime-page { height: auto; overflow: auto; grid-template-columns: 1fr; } .map-panel { order: -1; height: 66vh; min-height: 500px; } .data-panel, .evidence-panel { overflow: visible; } .replay-dock, .realtime-map-dock { left: 10px; right: 10px; bottom: 10px; } .map-legend { right: 10px; bottom: 230px; } .simulation-note { width: 100%; } }
+@media (max-width: 1100px) { .realtime-page { grid-template-columns: minmax(260px, 28vw) minmax(0, 1fr); } } @media (max-width: 900px) { .realtime-page { height: auto; overflow: auto; grid-template-columns: 1fr; } .map-panel { order: -1; height: 66vh; min-height: 500px; } .data-panel { overflow: visible; } .replay-dock, .realtime-map-dock { left: 10px; right: 10px; bottom: 10px; } .map-legend { right: 10px; bottom: 230px; } .simulation-note { width: 100%; } }
+
+.data-panel { padding: 11px; }
+.data-panel h1 { font-size: 19px; }
+.data-panel h2 { font-size: 15px; }
+.map-title { top: 10px; left: 10px; padding: 8px 10px; }
+.map-title strong { font-size: 13px; }
+.replay-dock, .realtime-map-dock, .archive-map-dock { left: 10px; right: 10px; bottom: 10px; padding: 8px 10px; gap: 5px; }
+.map-legend { right: 10px; bottom: 140px; }
+
+
+.focus-actions {display:flex;gap:6px;margin:7px 0}.focus-actions button {min-height:28px;padding:0 8px;border:1px solid #315669;border-radius:5px;background:#123848;color:#cbe9f1;font-size:10px;cursor:pointer}
+.monitor-business {height:100%;overflow:auto;padding:13px;background:#081521;color:#eaf4ff}
+.monitor-business h2 {margin:4px 0 10px;font-size:16px}.monitor-business p {margin:7px 0;color:#9ab2c0;font-size:11px;line-height:1.5}
+.data-needs,.readiness-list {display:grid;gap:6px;margin:12px 0;padding:10px;border:1px solid #29465a;border-radius:6px;background:#102638;font-size:11px}.data-needs strong,.readiness-list strong {color:#d8f5ee;font-size:12px}.data-needs span {color:#acc8d5}
+.readiness-list div {display:flex;justify-content:space-between;gap:7px}.readiness-list b {color:#5eead4;font-size:10px}.readiness-list b.missing {color:#f2b76b}
+.workflow-start {width:100%;min-height:33px;border:1px solid #2dd4bf;border-radius:5px;background:#0f766e;color:white;font-size:11px;cursor:pointer}.workflow-start:disabled {opacity:.5}.monitor-business .workflow-error {color:#ffb3b3}
 </style>

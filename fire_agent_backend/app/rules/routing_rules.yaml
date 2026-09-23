@@ -1,0 +1,12 @@
+version: routing-rules-v0.3
+source: internal-exercise-model
+status: exercise-provisional
+rules:
+  - rule_id: R-RTE-001
+    type: hard_constraint
+    description: 未接入核验道路图时，不能提供真实道路导航路线。
+    requires: [road_network]
+  - rule_id: R-RTE-002
+    type: advisory
+    description: 场景图结果必须标记为演练可达性路线，不能表述为真实道路导航。
+    requires: [scenario_graph]

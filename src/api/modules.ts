@@ -134,6 +134,34 @@ export const commandWorkflowAPI = {
   getLatest: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/command-workflow/latest`)
 }
 
+export const workflowRuntimeAPI = {
+  events: () => fireAgentRequest('/api/workflow/events'),
+  rerunSpread: (workflowRunId: string, data: any) => fireAgentRequest('/api/workflow-runs/' + encodeURIComponent(workflowRunId) + '/spread-reruns', {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  readiness: (eventId: string) => fireAgentRequest(`/api/events/${encodeURIComponent(eventId)}/workflow-readiness`),
+  create: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${encodeURIComponent(eventId)}/workflow-runs`, {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  latest: (eventId: string) => fireAgentRequest(`/api/events/${encodeURIComponent(eventId)}/workflow-runs/latest`),
+  get: (workflowRunId: string) => fireAgentRequest(`/api/workflow-runs/${encodeURIComponent(workflowRunId)}`),
+  verify: (workflowRunId: string, data: any) => fireAgentRequest(`/api/workflow-runs/${encodeURIComponent(workflowRunId)}/verification`, {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  generateScenario: (workflowRunId: string, data: any) => fireAgentRequest(`/api/workflow-runs/${encodeURIComponent(workflowRunId)}/scenario`, {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  confirmScenario: (workflowRunId: string, data: any) => fireAgentRequest(`/api/workflow-runs/${encodeURIComponent(workflowRunId)}/scenario/confirm`, {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  reviewCommander: (workflowRunId: string, data: any) => fireAgentRequest(`/api/workflow-runs/${encodeURIComponent(workflowRunId)}/commander/review`, {
+    method: 'POST', body: JSON.stringify(data)
+  }),
+  resume: (workflowRunId: string) => fireAgentRequest(`/api/workflow-runs/${encodeURIComponent(workflowRunId)}/resume`, {
+    method: 'POST', body: JSON.stringify({})
+  })
+}
+
 export const recommendationAPI = {
   getLatest: (eventId: string) => fireAgentRequest(`/api/events/${eventId}/recommendations/latest`),
   regenerate: (eventId: string, data: any = {}) => fireAgentRequest(`/api/events/${eventId}/recommendations/regenerate`, {

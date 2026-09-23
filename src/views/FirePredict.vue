@@ -3,32 +3,28 @@
     <aside class="predict-panel control-panel">
       <header class="panel-heading">
         <span>AGENT TOOL + GIS</span>
-        <h1>火势推演与空间决策</h1>
-        <p>动态环境时间序列驱动的智能体工具</p>
+        <h1>火情推演</h1>
+        <p>基于已确认火点和可调气象条件进行火势传播推演</p>
       </header>
 
       <section class="work-section">
-        <label for="scenario">研究场景</label>
-        <select id="scenario" v-model="scenarioId">
-          <option v-for="item in fireEvent.scenarios" :key="item.scenario_id" :value="item.scenario_id">
-            {{ item.name || item.scenario_id }}
-          </option>
-        </select>
+        <div class="current-incident"><span>当前事件</span><strong>{{ incident.eventName }}</strong><small>{{ hasConfirmedPoint ? '使用核验确认火点' : '等待核验阶段完成' }}</small></div>
         <div class="input-source">
           <span class="source-dot"></span>
           <div>
-            <strong>上游模拟输入</strong>
-            <small>火点可替换，风速、风向、湿度和燃料含水率按时步更新</small>
+            <strong>{{ hasConfirmedPoint ? "已接收核验火点" : "等待核验确认火点" }}</strong>
+            <small>风速、风向、湿度和燃料含水率可人工修改</small>
           </div>
         </div>
+        <div v-if="!hasConfirmedPoint" class="verification-hint">请先在核验页确认火点。当前坐标仅供查看，不能作为已确认火点启动推演。<router-link to="/visual-verification">前往核验</router-link></div>
         <div class="coordinate-grid">
           <label>
             <span>经度</span>
-            <input v-model.number="mockPoint.longitude" type="number" step="0.000001" />
+            <input v-model.number="mockPoint.longitude" type="number" step="0.000001" :readonly="hasConfirmedPoint" />
           </label>
           <label>
             <span>纬度</span>
-            <input v-model.number="mockPoint.latitude" type="number" step="0.000001" />
+            <input v-model.number="mockPoint.latitude" type="number" step="0.000001" :readonly="hasConfirmedPoint" />
           </label>
         </div>
         <div class="section-title input-title">
@@ -38,7 +34,7 @@
         <div class="weather-window-head">
           <div>
             <strong>滚动气象窗口</strong>
-            <small>当前气象持续生效至下一次更新时间</small>
+            <small>本轮按当前气象运行；自动逐时换帧待接入</small>
           </div>
           <span class="weather-window-status ready">输入完整</span>
         </div>
@@ -118,14 +114,28 @@
             <input v-model.number="environmentInput.fireWeatherIndex" type="number" min="0" max="100" step="1" />
           </label>
           <label class="weather-update-input">
-            <span>距下次气象更新（分钟）</span>
-            <input v-model.number="environmentInput.nextWeatherUpdateMinutes" type="number" min="1" max="1440" step="1" />
+            <span>气象检查提醒（分钟）</span>
+            <input v-model.number="environmentInput.nextWeatherUpdateMinutes" type="number" min="60" max="1440" step="1" />
           </label>
+        </div>
+        <div class="forecast-horizon">
+          <strong>预测总时长</strong>
+          <div class="horizon-presets">
+            <button v-for="hours in [1,2,4,6,12,24]" :key="hours" type="button" :class="{active:forecastHours===hours}" @click="forecastHours=hours">{{ hours }} 小时</button>
+          </div>
+          <label>自定义小时数 <input v-model.number="forecastHours" type="number" min="1" max="24" step="1" /></label>
+          <small>本轮将推演至 T+{{ Math.round(Number(forecastHours || 1) * 60) }} 分钟；气象更新间隔与预测总时长分别设置。</small>
+        </div>
+        <div class="weather-interval">
+          <span>气象检查间隔</span>
+          <button type="button" :class="{active:environmentInput.nextWeatherUpdateMinutes===60}" @click="environmentInput.nextWeatherUpdateMinutes=60">每小时</button>
+          <button type="button" :class="{active:environmentInput.nextWeatherUpdateMinutes===120}" @click="environmentInput.nextWeatherUpdateMinutes=120">每两小时</button>
+          <small>也可在上方输入自定义分钟数</small>
         </div>
         <div class="forecast-timeline">
           <div class="forecast-timeline-head">
             <span>本轮有效气象</span>
-            <span>T+0 至 T+{{ environmentInput.nextWeatherUpdateMinutes }} min</span>
+            <span>当前气象保持不变 · 预测 {{ forecastHours }} 小时</span>
           </div>
           <div v-for="frame in forecastFrames" :key="frame.id" class="forecast-frame current">
             <div class="forecast-frame-label">
@@ -158,32 +168,11 @@
           </div>
           <b>90 m</b>
         </div>
-        <button class="primary-command" :disabled="busy" @click="runWorkflow">
-          {{ busy ? '正在计算...' : '按当前气象开始栅格推演' }}
+        <button class="primary-command" :disabled="busy || incident.loading || (!canRerunConfirmed && incident.eventId !== 'dixie_fire_2021')" @click="runWorkflow()">
+          {{ busy ? '正在提交...' : canRerunConfirmed ? '按当前气象重新推演' : '重新运行历史气象推演' }}
         </button>
-        <details class="historical-command">
-          <summary>使用真实小时气象推演（可选）</summary>
-          <div>
-            <strong>Dixie Fire 小时气象回放</strong>
-            <small>从 PostGIS 读取真实小时气象，逐小时推进火线</small>
-          </div>
-          <label>
-            <span>时长</span>
-            <select v-model.number="historicalInput.horizonHours">
-              <option :value="6">6 小时</option>
-              <option :value="12">12 小时</option>
-              <option :value="24">24 小时</option>
-            </select>
-          </label>
-          <button :disabled="busy" @click="runHistoricalWorkflow">开始真实气象推演</button>
-          <button :disabled="busy" @click="runCalibrationWorkflow">标定 6/12/24 小时参数</button>
-        </details>
-        <button class="continue-command" :disabled="!canContinue" @click="continueWorkflow">
-          {{ continueButtonLabel }}
-        </button>
-        <button class="secondary-command" :disabled="busy || !fireEvent.spatialAnalysisRun" @click="replanForBlockedRoad">
-          {{ roadBlocked ? '恢复道路并重算' : '模拟道路阻断并重算' }}
-        </button>
+        <p v-if="!canRerunConfirmed && incident.eventId === 'dixie_fire_2021'" class="operation-message">当前只有历史栅格推演结果。这里可按所选时长重新运行数据库逐时气象；自定义风速风向需要先完成影像火点核验与人工确认。</p>
+        <p v-if="hasConfirmedPoint && !incident.spreadRunId" class="operation-message">已确认火点的首次推演正在现有工作流中运行，完成后可调整气象重新推演。</p>
         <div v-if="fireEvent.spreadRun" class="run-lineage">
           <span>{{ runModeLabel }}</span>
           <strong>{{ currentRunWindow }}</strong>
@@ -416,8 +405,6 @@
       <CesiumMap ref="mapRef" class="map" :scene-id="scenarioId" />
       <div class="map-toolbar">
         <button :class="{ active: layerState.fire }" @click="toggleLayer('fire')">火线</button>
-        <button :class="{ active: layerState.impact }" @click="toggleLayer('impact')">影响对象</button>
-        <button :class="{ active: layerState.route }" @click="toggleLayer('route')">应急路线</button>
         <button :class="{ active: windLayerVisible }" @click="toggleWindLayer">风场</button>
         <button class="wind-focus" @click="focusWindField">定位风场</button>
       </div>
@@ -436,147 +423,23 @@
           <strong>{{ formatNumber(displayedWeather.humidity_percent, 0) }}%</strong>
         </div>
       </div>
-      <div class="map-legend">
-        <strong>地图图例</strong>
-        <span>
-          <i class="fireline"></i>
-          当前火线
-        </span>
-        <span>
-          <i class="fire"></i>
-          火场范围
-        </span>
-        <span>
-          <i class="risk-high"></i>
-          高风险区
-        </span>
-        <span>
-          <i class="risk-medium"></i>
-          中风险区
-        </span>
-        <span>
-          <i class="risk-low"></i>
-          低风险区
-        </span>
-        <span>
-          <i class="wind-low"></i>
-          低速风场
-        </span>
-        <span>
-          <i class="wind-medium"></i>
-          中速风场
-        </span>
-        <span>
-          <i class="wind-high"></i>
-          高速风场
-        </span>
-        <span>
-          <i class="critical"></i>
-          受威胁目标
-        </span>
-        <small>风险区：火线范围及边缘缓冲内的综合风险</small>
-      </div>
-      <div v-if="roadBlocked" class="map-alert">林区巡护道路已设置为阻断，路线已重新规划</div>
+      <div class="map-legend"><strong>推演图例</strong><span><i class="fireline"></i>当前火线</span><span><i class="fire"></i>火场范围</span><small>结果来自当前火势模型运行</small></div>
     </section>
 
-    <aside class="predict-panel analysis-panel">
-      <header class="panel-heading">
-        <span>RISK ASSESSMENT</span>
-        <h1>风险评估</h1>
-        <p>最终火线、遥感与地物暴露的综合评估</p>
-      </header>
-
-      <div class="risk-model-note">
-        <strong>演示级综合风险指数</strong>
-        <span>用于方案比较，尚未经过历史火灾样本校准，不作为官方灾害等级。</span>
-      </div>
-
-      <section class="impact-summary">
-        <article>
-          <span>受影响居民点</span>
-          <strong>{{ summary.affected_settlement_count || 0 }}</strong>
-        </article>
-        <article>
-          <span>受影响人口</span>
-          <strong>{{ summary.affected_population || 0 }}</strong>
-        </article>
-        <article>
-          <span>中断道路</span>
-          <strong>{{ summary.interrupted_road_count || 0 }}</strong>
-        </article>
-        <article>
-          <span>受影响资源</span>
-          <strong>{{ summary.affected_resource_count || 0 }}</strong>
-        </article>
-      </section>
-
-      <section class="work-section list-section">
-        <div class="section-title">
-          <h2>影响对象</h2>
-          <span>{{ affectedImpacts.length }}</span>
+    <Teleport defer to="#business-panel">
+      <aside class="predict-panel analysis-panel">
+        <header class="panel-heading"><span>FIRE SPREAD</span><h1>推演依据</h1><p>火点、气象输入与时间序列</p></header>
+        <div class="simulation-facts">
+          <div><span>确认火点</span><strong>{{ hasConfirmedPoint ? incident.confirmationId : '等待核验' }}</strong></div>
+          <div><span>火点坐标</span><strong>{{ mockPoint.longitude.toFixed(4) }}, {{ mockPoint.latitude.toFixed(4) }}</strong></div>
+          <div><span>气象更新时间</span><strong>{{ environmentInput.nextWeatherUpdateMinutes }} 分钟</strong></div>
+          <div><span>推演引擎</span><strong>{{ engineLabel }}</strong></div>
+          <div><span>火线时步</span><strong>{{ fireEvent.spreadSteps.length }}</strong></div>
+          <div><span>最终面积</span><strong>{{ formatNumber(summary.final_fire_area_km2,3) }} km²</strong></div>
         </div>
-        <div v-if="affectedImpacts.length" class="result-list">
-          <article v-for="item in affectedImpacts" :key="item.record_id">
-            <div>
-              <strong>{{ item.name }}</strong>
-              <span>{{ impactTypeLabel(item.object_type) }} · 距火线 {{ formatNumber(item.distance_to_fire_km, 2) }} km</span>
-            </div>
-            <b :class="`severity-${item.severity}`">{{ severityLabel(item.severity) }}</b>
-          </article>
-        </div>
-        <p v-else class="empty-state">等待空间影响分析结果。</p>
-      </section>
-
-      <section class="work-section list-section risk-area-section">
-        <div class="section-title">
-          <h2>空间风险区域</h2>
-          <span>{{ riskAreas.length }}</span>
-        </div>
-        <div v-if="riskAreas.length" class="result-list">
-          <article v-for="area in riskAreas" :key="area.properties.object_id">
-            <div>
-              <strong>{{ riskLabel(area.properties.risk_level) }} · {{ riskRelationLabel(area.properties.zone_relation) }}</strong>
-              <span>
-                风险值 {{ formatNumber(area.properties.risk_score, 0) }} ·
-                {{ area.properties.grid_cell_count || area.properties.sector_count }}
-                个风险网格
-              </span>
-              <span>
-                平均火线强度
-                {{ formatNumber(area.properties.mean_fire_intensity_kw_m, 0) }}
-                kW/m · 最大
-                {{ formatNumber(area.properties.max_fire_intensity_kw_m, 0) }}
-                kW/m
-              </span>
-            </div>
-            <b :class="`severity-${area.properties.risk_level}`">{{ riskLabel(area.properties.risk_level) }}</b>
-          </article>
-        </div>
-        <p v-else class="empty-state">推演完成后生成空间风险区域。</p>
-      </section>
-
-      <section class="work-section list-section route-section">
-        <div class="section-title">
-          <h2>A* 应急路线</h2>
-          <span>{{ fireEvent.emergencyRoutes.length }}</span>
-        </div>
-        <div v-if="fireEvent.emergencyRoutes.length" class="route-list">
-          <article v-for="route in fireEvent.emergencyRoutes" :key="route.route_id">
-            <div class="route-head">
-              <strong>{{ route.name }}</strong>
-              <b :class="`risk-${route.risk_level}`">{{ riskLabel(route.risk_level) }}</b>
-            </div>
-            <div class="route-metrics">
-              <span>{{ formatNumber(route.distance_km, 2) }} km</span>
-              <span>{{ formatNumber(route.eta_minutes, 1) }} min</span>
-              <span>{{ route.status === 'replanned' ? '已重算' : '可用' }}</span>
-            </div>
-            <small>A* 代价面：火线距离、下风向、坡度、燃料与道路可达性</small>
-          </article>
-        </div>
-        <p v-else class="empty-state">等待路线规划结果。</p>
-      </section>
-    </aside>
+        <p class="simulation-note">更改风向盘或气象表后重新运行推演。路线与资源结果在规划页查看。</p>
+      </aside>
+    </Teleport>
   </main>
 </template>
 
@@ -584,10 +447,20 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import CesiumMap from '../components/CesiumMap.vue'
 import { useFireEventStore } from '../stores/fireEventStore'
+import { useIncidentContextStore } from '../stores/incidentContextStore'
+import { useAssistantTaskStore } from '../stores/assistantTaskStore'
+import { useRoute } from 'vue-router'
 
 type LayerName = 'fire' | 'impact' | 'route'
 
 const fireEvent = useFireEventStore()
+const incident = useIncidentContextStore()
+const task = useAssistantTaskStore()
+const contextLoaded = ref(false)
+const route = useRoute()
+const hasConfirmedPoint = computed(() => Boolean(incident.confirmationId && incident.workflow?.artifacts?.confirmed_point?.coordinates))
+const canRerunConfirmed = computed(() => hasConfirmedPoint.value && Boolean(incident.spreadRunId) && !incident.loading)
+function syncConfirmedPoint() { const coordinates=incident.workflow?.artifacts?.confirmed_point?.coordinates; if(Array.isArray(coordinates)&&coordinates.length===2){mockPoint.value={longitude:Number(coordinates[0]),latitude:Number(coordinates[1]),confidence:1}} }
 const mapRef = ref<InstanceType<typeof CesiumMap> | null>(null)
 const windDialRef = ref<HTMLButtonElement | null>(null)
 const scenarioId = ref(fireEvent.selectedScenarioId || 'dixie_fire_2021')
@@ -611,8 +484,9 @@ const playbackSpeedOptions = [
   { value: 'slow' as const, label: '慢速', durationMs: 8000 },
 ]
 let renderedFireRunId = ''
-const layerState = ref({ fire: true, impact: true, route: false })
+const layerState = ref({ fire: true, impact: false, route: false })
 const windLayerVisible = ref(true)
+const forecastHours = ref(4)
 const environmentInput = ref({
   temperatureC: 30,
   fuelMoisture: 0.16,
@@ -939,44 +813,8 @@ function renderMap(options: { replayFire?: boolean; autoPlay?: boolean } = {}) {
     })
   }
 
-  const riskDrawOrder: Record<string, number> = { low: 0, medium: 1, high: 2 }
-  ;[...riskAreas.value]
-    .sort((a: any, b: any) => (riskDrawOrder[a.properties?.risk_level] ?? 0) - (riskDrawOrder[b.properties?.risk_level] ?? 0))
-    .forEach((area: any) => {
-      const coordinates = area.geometry?.coordinates
-      if (!Array.isArray(coordinates) || !Array.isArray(coordinates[0]) || coordinates[0].length < 3) return
-      const colors: Record<string, string> = {
-        high: '#ef4444',
-        medium: '#f59e0b',
-        low: '#38bdf8',
-      }
-      map.addDemoArea?.({
-        name: `${riskLabel(area.properties?.risk_level)} · ${riskRelationLabel(area.properties?.zone_relation)}`,
-        coordinates,
-        color: colors[area.properties?.risk_level] || '#94a3b8',
-      })
-    })
-
-  if (layerState.value.route) {
-    const colors: Record<string, string> = {
-      rescue_approach: '#38bdf8',
-      evacuation: '#22c55e',
-      evacuation_backup: '#f59e0b',
-    }
-    fireEvent.emergencyRoutes.forEach((route: any) => {
-      const coordinates = routeCoordinates(route)
-      if (coordinates.length < 2) return
-      map.addDemoRoute?.({
-        name: route.name,
-        coordinates,
-        color: colors[route.route_type] || '#e2e8f0',
-        width: route.route_type === 'evacuation' ? 7 : 5,
-        arrow: true,
-      })
-    })
-  }
   // 风险面通常只覆盖火场周边几公里，使用研究区总览高度会让它几乎不可见。
-  map.flyTo?.({ center, zoom: riskAreas.value.length ? 14 : 11.5 })
+  map.flyTo?.({ center, zoom: 11.5 })
 }
 
 async function ensureEvent() {
@@ -987,44 +825,54 @@ async function ensureEvent() {
     name: '成员丙火势推演模拟事件',
     ignition_point: mockPoint.value,
     metadata: {
-      input_source: 'upstream_mock',
+      input_source: 'workflow_confirmed_point',
+      confirmation_id: incident.confirmationId,
       owner: 'member/wydze',
       simulated: true,
     },
   })
 }
 
-async function runWorkflow() {
+async function runWorkflow(fromTask = false) {
+  if(fromTask){
+    forecastHours.value=task.requestedHours
+    const overrides=task.weatherOverrides
+    if(overrides.wind_speed_m_s!==undefined)forecastFrames.value[0].wind_speed_m_s=overrides.wind_speed_m_s
+    if(overrides.wind_direction_deg!==undefined)forecastFrames.value[0].wind_direction_deg=overrides.wind_direction_deg
+    if(overrides.temperature_c!==undefined)environmentInput.value.temperatureC=overrides.temperature_c
+    if(overrides.humidity_percent!==undefined)forecastFrames.value[0].humidity_percent=overrides.humidity_percent
+  }
+  if (!canRerunConfirmed.value) {
+    if (incident.eventId === 'dixie_fire_2021') {
+      if (!fromTask) task.queue(forecastHours.value, fireEvent.spreadRun?.run_id || null, false)
+      task.start()
+      historicalInput.value.horizonHours = forecastHours.value
+      await runHistoricalWorkflow()
+    } else if(fromTask) task.fail('需要核验确认火点并完成首次推演。',true)
+    return
+  }
+  else task.queue(forecastHours.value,incident.spreadRunId,false)
+  task.start()
   busy.value = true
   hasError.value = false
-  message.value = '正在准备模拟火点与环境快照...'
+  message.value = '已提交确认火点与当前气象参数，正在运行栅格推演…'
   try {
-    await ensureEvent()
-    message.value = '正在调用动态火情推演工具...'
-    const weatherUpdateMinutes = Math.max(1, Number(environmentInput.value.nextWeatherUpdateMinutes || 1))
-    await fireEvent.createSpreadRun({
-      ignition_point: mockPoint.value,
-      input_source: 'upstream_mock',
-      run_mode: 'initial_forecast',
-      environment_timeline: environmentTimeline(weatherUpdateMinutes, 'manual_initial_forecast'),
-      initial_radius_m: 187.5,
-      raster_resolution_m: 90,
-      simulation_buffer_km: 25,
-      wind_direction_convention: 'spread_toward',
+    const frame = forecastFrames.value[0]
+    await incident.rerunSpread({
+      horizon_minutes: Math.max(60, Math.min(1440, Math.round(Number(forecastHours.value || 4) * 60))),
+      wind_speed_m_s: Number(frame.wind_speed_m_s),
+      wind_direction_deg: Number(frame.wind_direction_deg),
+      temperature_c: Number(environmentInput.value.temperatureC),
+      humidity_percent: Number(frame.humidity_percent),
+      precipitation_mm_h: Number(frame.precipitation_mm_h),
+      fuel_moisture: Number(environmentInput.value.fuelMoisture),
+      fire_weather_index: Number(environmentInput.value.fireWeatherIndex),
     })
-    message.value = '正在计算影响对象和 A* 应急路线...'
-    await fireEvent.createSpatialAnalysis({
-      include_routes: false,
-      threat_buffer_km: 0.55,
-      blocked_road_ids: roadBlocked.value ? ['road_forest_01'] : [],
-    })
-    selectedStep.value = 0
-    message.value = `计算已完成，正在快速播放至 ${weatherUpdateMinutes} 分钟后的火线。`
-    await nextTick()
-    renderMap({ autoPlay: true })
+    message.value = '模型正在后台计算；完成后地图和火线时间序列会自动更新。'
   } catch (error: any) {
     hasError.value = true
-    message.value = error?.message || '计算失败，请检查后端服务。'
+    message.value = error?.message || '推演提交失败，请检查确认火点和气象参数。'
+    task.fail(message.value)
   } finally {
     busy.value = false
   }
@@ -1035,11 +883,6 @@ async function runHistoricalWorkflow() {
   hasError.value = false
   message.value = '正在读取 Dixie Fire 小时气象与真实地形燃料栅格...'
   try {
-    mockPoint.value = {
-      longitude: -121.38241,
-      latitude: 39.87194,
-      confidence: 0.95,
-    }
     await fireEvent.createHistoricalSpreadRun(
       {
         horizon_hours: historicalInput.value.horizonHours,
@@ -1063,9 +906,11 @@ async function runHistoricalWorkflow() {
     message.value = `已使用 Dixie Fire 数据库小时气象完成 ${historicalInput.value.horizonHours} 小时推演。`
     await nextTick()
     renderMap({ autoPlay: true })
+    if (fireEvent.spreadRun?.run_id) task.complete(fireEvent.spreadRun.run_id)
   } catch (error: any) {
     hasError.value = true
     message.value = error?.message || '历史栅格回放失败，请检查数据和后端服务。'
+    task.fail(message.value)
   } finally {
     busy.value = false
   }
@@ -1206,22 +1051,54 @@ function focusWindField() {
   })
 }
 
+function runPendingTask(){ if(contextLoaded.value && task.status==='queued' && task.requestedByAgent) void runWorkflow(true) }
 onMounted(async () => {
+  try { await incident.loadEvents(); await incident.loadLatestWorkflow(); syncConfirmedPoint() } catch { /* confirmed point remains unavailable */ }
+  contextLoaded.value=true
+  if (route.query.weather_interval === '60' || route.query.weather_interval === '120') environmentInput.value.nextWeatherUpdateMinutes=Number(route.query.weather_interval)
+  const requestedHours=Number(route.query.forecast_hours); if(Number.isInteger(requestedHours)&&requestedHours>=1&&requestedHours<=24) forecastHours.value=requestedHours
+  const routeWindSpeed=Number(route.query.wind_speed_m_s);if(Number.isFinite(routeWindSpeed)&&routeWindSpeed>=0&&routeWindSpeed<=60)forecastFrames.value[0].wind_speed_m_s=routeWindSpeed
+  const routeWindDirection=Number(route.query.wind_direction_deg);if(Number.isFinite(routeWindDirection)&&routeWindDirection>=0&&routeWindDirection<360)forecastFrames.value[0].wind_direction_deg=routeWindDirection
+  const routeTemperature=Number(route.query.temperature_c);if(Number.isFinite(routeTemperature)&&routeTemperature>=-30&&routeTemperature<=65)environmentInput.value.temperatureC=routeTemperature
+  const routeHumidity=Number(route.query.humidity_percent);if(Number.isFinite(routeHumidity)&&routeHumidity>=0&&routeHumidity<=100)forecastFrames.value[0].humidity_percent=routeHumidity
   await nextTick()
   syncManualWindField()
   try {
     await fireEvent.loadScenarios()
-    if (fireEvent.eventId) {
-      await Promise.allSettled([fireEvent.loadLatestSpreadRun(), fireEvent.loadLatestSpatialAnalysis(), fireEvent.loadClockState()])
+    if (fireEvent.scenarios.some((item:any)=>item.scenario_id===incident.eventId)) scenarioId.value=incident.eventId
+    if (incident.eventId) {
+      await Promise.allSettled([fireEvent.loadLatestSpreadRun(incident.eventId), fireEvent.loadClockState()])
       await nextTick()
       renderMap({ autoPlay: false })
     }
   } catch (error) {
     console.warn('Backend scenario data is unavailable; keeping the local weather visualization active.', error)
   }
+  runPendingTask()
 })
 
+watch(() => incident.confirmationId, syncConfirmedPoint)
+watch(() => incident.spreadRunId, async (runId) => {
+  if (!runId || runId === fireEvent.spreadRun?.run_id) return
+  try {
+    await fireEvent.loadLatestSpreadRun(incident.eventId)
+    selectedStep.value = 0
+    await nextTick()
+    renderMap({autoPlay:true})
+    message.value = '确认火点的火线结果已更新；规划页会读取同一工作流的新结果。'
+    if(task.status==='running' && runId!==task.baseRunId) task.complete(runId)
+  } catch (cause:any) {
+    hasError.value = true
+    message.value = cause?.message || '火线结果加载失败。'
+    if(task.status==='running') task.fail(message.value)
+  }
+})
+watch(() => task.status, runPendingTask)
+watch(() => incident.workflow?.status, (value)=>{if(value==='FAILED' && task.status==='running') task.fail(incident.workflow?.error || '模型计算失败。')})
+watch(() => route.query.weather_interval, (value) => { if(value==='60'||value==='120') environmentInput.value.nextWeatherUpdateMinutes=Number(value) })
+watch(() => route.query.forecast_hours, (value) => { const hours=Number(value); if(Number.isInteger(hours)&&hours>=1&&hours<=24) forecastHours.value=hours })
 watch(scenarioId, (value) => {
+  if (hasConfirmedPoint.value) return
   const scenario = fireEvent.scenarios.find((item: any) => item.scenario_id === value)
   if (!scenario) return
   mockPoint.value = {
@@ -2323,4 +2200,31 @@ button:disabled {
     overflow: visible;
   }
 }
+
+.predict-workbench {grid-template-columns:minmax(270px,30%) minmax(0,1fr)}
+.analysis-panel {width:100%;height:100%}
+.analysis-panel .panel-heading h1 {font-size:17px}
+.analysis-panel .panel-heading h1::after {content:none}
+.verification-hint {padding:9px;border-left:3px solid #e6a93d;background:#2e2a20;color:#f1d79e;font-size:11px;line-height:1.5}
+.verification-hint a {display:block;color:#8dddf2}
+.weather-interval {display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:9px 0;color:#a9c5d1;font-size:11px}
+.weather-interval button {padding:5px 8px;border:1px solid #315b6d;border-radius:5px;background:#102b3b;color:#bddbe8;cursor:pointer}
+.weather-interval button.active {border-color:#2dd4bf;background:#145367;color:white}
+.forecast-horizon {display:grid;gap:7px;margin:10px 0;padding:10px;border:1px solid #2c6170;border-radius:7px;background:#0c2734}
+.forecast-horizon strong {font-size:12px}.forecast-horizon small,.forecast-horizon label {color:#9fc4d0;font-size:10px}
+.horizon-presets {display:flex;flex-wrap:wrap;gap:5px}.horizon-presets button {padding:5px 7px;border:1px solid #315b6d;border-radius:5px;background:#102b3b;color:#bddbe8;cursor:pointer;font-size:10px}
+.horizon-presets button.active {border-color:#2dd4bf;background:#145367;color:white}.forecast-horizon input {width:55px;margin-left:5px;padding:4px;border:1px solid #315b6d;border-radius:4px;background:#081d2b;color:white}
+
+.weather-interval small {color:#7e9ba9}
+.simulation-facts {display:grid;gap:7px;margin:12px 0}
+.simulation-facts div {display:grid;gap:3px;padding:9px;border:1px solid #29465a;border-radius:5px;background:#102638}
+.simulation-facts span {color:#8ea9b8;font-size:10px}
+.simulation-facts strong {overflow-wrap:anywhere;font-size:12px}
+.simulation-note {padding:9px;border-left:3px solid #2dd4bf;background:#103139;color:#a8c7d1;font-size:11px;line-height:1.5}
+@media(max-width:1180px){.predict-workbench {grid-template-columns:minmax(250px,33%) minmax(0,1fr)}}
+@media(max-width:900px){.predict-workbench {grid-template-columns:1fr}}
+
+.current-incident {display:grid;gap:3px;padding:9px;border:1px solid #2b495e;border-radius:5px;background:#102638}
+.current-incident span,.current-incident small {color:#9ab4c2;font-size:10px}
+.current-incident strong {font-size:13px}
 </style>

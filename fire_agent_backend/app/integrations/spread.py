@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Mapping
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -111,6 +111,9 @@ class SpreadAdapter:
         event_id: str,
         ignition: TrustedIgnition,
         horizon_minutes: int,
+        environment_overrides: Mapping[str, Any] | None = None,
+        input_source: str | None = None,
+        run_mode: str = "initial_forecast",
     ) -> tuple[SpreadRunPayload, list[SpreadEnvironmentFrame]]:
         weather = await load_hourly_weather(
             db,
@@ -118,6 +121,26 @@ class SpreadAdapter:
             observed_at=ignition.observed_at,
             horizon_minutes=horizon_minutes,
         )
+        if environment_overrides:
+            source = str(
+                environment_overrides.get("source")
+                or "command_center_parameter_adjustment"
+            )
+            weather = [
+                frame.model_copy(
+                    update={
+                        "temperature_c": float(environment_overrides.get("temperature_c", frame.temperature_c)),
+                        "humidity_percent": float(environment_overrides.get("humidity_percent", frame.humidity_percent)),
+                        "wind_speed_m_s": float(environment_overrides.get("wind_speed_m_s", frame.wind_speed_m_s)),
+                        "wind_direction_deg": float(environment_overrides.get("wind_direction_deg", frame.wind_direction_deg)) % 360,
+                        "fuel_moisture": float(environment_overrides.get("fuel_moisture", frame.fuel_moisture)),
+                        "fire_weather_index": float(environment_overrides.get("fire_weather_index", frame.fire_weather_index)),
+                        "precipitation_mm_h": float(environment_overrides.get("precipitation_mm_h", frame.precipitation_mm_h)),
+                        "source": source,
+                    }
+                )
+                for frame in weather
+            ]
         request = SpreadRunRequest(
             horizon_minutes=horizon_minutes,
             ignition_point=SpreadIgnitionPoint(
@@ -125,8 +148,9 @@ class SpreadAdapter:
                 latitude=ignition.latitude,
                 confidence=ignition.confidence,
             ),
-            input_source=f"visual_confirmation:{ignition.confirmation_id}",
+            input_source=input_source or f"visual_confirmation:{ignition.confirmation_id}",
             environment_timeline=weather,
+            run_mode=run_mode,
         )
         data = await create_spread_run(db, event_id, request)
         return (

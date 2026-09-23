@@ -4,12 +4,12 @@ const routes = [
   {
     path: '/',
     name: 'HomePage',
-    component: () => import('../views/HomePage.vue')
+    redirect: '/realtime-monitor'
   },
   {
     path: '/multi-source-fusion',
     name: 'MultiSourceFusion',
-    component: () => import('../views/MultiSourceFusion.vue')
+    redirect: '/visual-verification'
   },
   {
     path: '/realtime-monitor',
@@ -19,37 +19,42 @@ const routes = [
   {
     path: '/visual-verification',
     name: 'VisualVerification',
-    component: () => import('../views/VisualVerification.vue')
+    component: () => import('../views/VerificationWorkspace.vue')
   },
   {
     path: '/emergency-route',
     name: 'EmergencyRoute',
-    component: () => import('../views/EmergencyRoute.vue')
+    redirect: '/planning'
   },
   {
     path: '/command-center',
     name: 'CommandCenter',
-    component: () => import('../views/CommandCenter.vue')
+    component: () => import('../views/FirePredict.vue')
+  },
+  {
+    path: '/planning',
+    name: 'Planning',
+    component: () => import('../views/Planning.vue')
   },
   {
     path: '/uav-dispatch',
     name: 'UAVDispatch',
-    component: () => import('../views/UAVDispatch.vue')
+    redirect: '/planning'
   },
   {
     path: '/fire-predict',
     name: 'FirePredict',
-    component: () => import('../views/FirePredict.vue')
+    redirect: '/command-center'
   },
   {
     path: '/disaster-assess',
     name: 'DisasterAssess',
-    component: () => import('../views/DisasterAssess.vue')
+    component: () => import('../views/AssessmentWorkspace.vue')
   },
   {
     path: '/resource-dispatch',
     name: 'ResourceDispatch',
-    component: () => import('../views/ResourceDispatch.vue')
+    redirect: '/planning'
   }
 ]
 
