@@ -5,7 +5,7 @@ import asyncio
 import hashlib
 import io
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -214,6 +214,97 @@ async def _cached_response(db: AsyncSession, region: dict[str, Any], now: dateti
 async def sync_region(db: AsyncSession, region_id: str) -> dict[str, Any]:
     async with _sync_lock(region_id):
         return await _sync_region_unlocked(db, region_id)
+
+
+async def fetch_firms_area_hotspots(
+    *,
+    bbox: tuple[float, float, float, float],
+    start_date: date,
+    end_date: date,
+) -> dict[str, Any]:
+    """Fetch FIRMS observations for one WGS84 area and an explicit date range."""
+
+    settings = get_settings()
+    if not settings.firms_map_key:
+        raise RuntimeError("FIRMS_MAP_KEY 未配置，请在仓库根目录 .env 中配置 NASA FIRMS MAP KEY")
+    if end_date < start_date:
+        raise ValueError("FIRMS 查询结束日期不能早于开始日期")
+    if (end_date - start_date).days > 30:
+        raise ValueError("单次 FIRMS 影像候选查询最多支持 31 天")
+
+    today = _utc_now().date()
+    source = "VIIRS_SNPP_NRT" if end_date >= today - timedelta(days=10) else "VIIRS_SNPP_SP"
+    west, south, east, north = bbox
+    base = (
+        "https://firms.modaps.eosdis.nasa.gov/api/area/csv/"
+        f"{settings.firms_map_key}/{source}/{west:.6f},{south:.6f},{east:.6f},{north:.6f}"
+    )
+    current = start_date
+    rows_by_source: dict[str, dict[str, Any]] = {}
+    requests = 0
+    async with httpx.AsyncClient(
+        timeout=settings.realtime_http_timeout_seconds,
+        follow_redirects=True,
+    ) as client:
+        while current <= end_date:
+            days = min(5, (end_date - current).days + 1)
+            endpoint = f"{base}/{days}/{current.isoformat()}"
+            response: httpx.Response | None = None
+            last_error: Exception | None = None
+            for attempt in range(3):
+                try:
+                    response = await client.get(endpoint)
+                    response.raise_for_status()
+                    break
+                except (httpx.HTTPError, httpx.TimeoutException) as exc:
+                    last_error = exc
+                    response = None
+                    if attempt < 2:
+                        await asyncio.sleep(0.5 * (attempt + 1))
+            if response is None:
+                raise RuntimeError(f"FIRMS Area API 查询失败：{last_error}") from last_error
+
+            requests += 1
+            parsed = list(csv.DictReader(io.StringIO(response.text)))
+            for row in parsed:
+                longitude = _parse_float(row, "longitude")
+                latitude = _parse_float(row, "latitude")
+                observed_at = _parse_observed_at(row)
+                if longitude is None or latitude is None or observed_at is None:
+                    continue
+                if not (west <= longitude <= east and south <= latitude <= north):
+                    continue
+                if not (start_date <= observed_at.date() <= end_date):
+                    continue
+                source_record_id = _source_record_id(row)
+                rows_by_source[source_record_id] = {
+                    "source_record_id": source_record_id,
+                    "source": "NASA FIRMS",
+                    "source_product": source,
+                    "observed_at": observed_at,
+                    "longitude": longitude,
+                    "latitude": latitude,
+                    "confidence": _parse_confidence(row.get("confidence")),
+                    "frp_mw": _parse_float(row, "frp"),
+                    "brightness_ti4": _parse_float(row, "bright_ti4"),
+                    "brightness_ti5": _parse_float(row, "bright_ti5"),
+                    "satellite": row.get("satellite"),
+                    "instrument": row.get("instrument"),
+                    "daynight": row.get("daynight"),
+                }
+            current += timedelta(days=days)
+
+    return {
+        "source": "NASA FIRMS",
+        "source_product": source,
+        "bbox": [west, south, east, north],
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "request_count": requests,
+        "hotspots": list(rows_by_source.values()),
+        "total": len(rows_by_source),
+        "fetched_at": _utc_now(),
+    }
 
 
 async def _sync_region_unlocked(db: AsyncSession, region_id: str) -> dict[str, Any]:

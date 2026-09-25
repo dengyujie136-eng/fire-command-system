@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import base64
+import io
 import json
 import re
 from datetime import UTC, datetime, timedelta
@@ -9,10 +11,14 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
+import numpy as np
 import rasterio
+from affine import Affine
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
-from rasterio.warp import transform_bounds
+from PIL import Image
+from pydantic import BaseModel, Field, field_validator
+from rasterio.features import shapes, sieve
+from rasterio.warp import transform_bounds, transform_geom
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -537,7 +543,7 @@ async def _register_product_and_link(db: AsyncSession, task: ImageryAcquisitionT
             mime_type="image/tiff", time_start=acquired, time_end=acquired,
             content_uri=path.relative_to(root).as_posix(),
             footprint_geojson=scene.get("geometry"), crs=product["crs"],
-            resolution_m=None, bands=["B02", "B03", "B04", "B08", "B12"],
+            resolution_m=None, bands=["B04", "B03", "B02", "B08", "B12"],
             cloud_cover=scene.get("properties", {}).get("eo:cloud_cover"),
             quality_status="available", checksum_sha256=_sha256_file(path),
             metadata_json={"scene_id": scene["id"], "local_path": str(path),
@@ -598,6 +604,285 @@ class QwenRecoveryAssessment(BaseModel):
     limitations: list[str] = Field(default_factory=list, max_length=12)
 
 
+class QwenImageryPairRequest(BaseModel):
+    event_id: str = Field(min_length=1, max_length=80)
+    before_asset_id: str = Field(min_length=1, max_length=200)
+    after_asset_id: str = Field(min_length=1, max_length=200)
+
+
+class QwenImageryPairAssessment(BaseModel):
+    summary: str = Field(min_length=1, max_length=2000)
+    affected_region: list[str] = Field(default_factory=list, max_length=12)
+    affected_features: list[str] = Field(default_factory=list, max_length=12)
+    reconstruction_advice: list[str] = Field(default_factory=list, max_length=12)
+    limitations: list[str] = Field(default_factory=list, max_length=12)
+
+    @field_validator("affected_region", "affected_features", "reconstruction_advice", "limitations", mode="before")
+    @classmethod
+    def coerce_qwen_list(cls, value: object) -> list[str]:
+        """Qwen sometimes returns a paragraph instead of the requested JSON array."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            parts = [part.strip(" -•\t") for part in re.split(r"\r?\n|[；;]", value) if part.strip(" -•\t")]
+            return parts[:12]
+        if isinstance(value, (list, tuple)):
+            normalized: list[str] = []
+            for part in value:
+                if isinstance(part, dict):
+                    text = "；".join(f"{key}：{item}" for key, item in part.items() if str(item).strip())
+                else:
+                    text = str(part).strip()
+                if text:
+                    normalized.append(text)
+            return normalized[:12]
+        return [str(value).strip()]
+
+
+def _catalog_preview_data_url(path: Path, *, max_dimension: int = 1400) -> str:
+    """Convert a local catalog GeoTIFF into a compact RGB JPEG for Qwen."""
+    with rasterio.open(path) as raster:
+        if raster.count < 1:
+            raise ValueError("影像没有可读取的波段")
+        indexes = [1, 2, 3] if raster.count >= 3 else [1]
+        scale = min(1.0, max_dimension / max(raster.width, raster.height))
+        out_width = max(1, int(raster.width * scale))
+        out_height = max(1, int(raster.height * scale))
+        data = raster.read(indexes, out_shape=(len(indexes), out_height, out_width), resampling=rasterio.enums.Resampling.bilinear).astype("float32")
+    if data.shape[0] == 1:
+        data = np.repeat(data, 3, axis=0)
+    channels = []
+    for channel in data[:3]:
+        valid = channel[np.isfinite(channel)]
+        low, high = np.percentile(valid, [2, 98]) if valid.size else (0.0, 1.0)
+        if high <= low:
+            high = low + 1.0
+        channels.append(np.clip((channel - low) / (high - low) * 255, 0, 255).astype("uint8"))
+    image = Image.fromarray(np.moveaxis(np.stack(channels), 0, -1), mode="RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=88, optimize=True)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def _catalog_asset_path(row: ImageryAssetCatalogRecord) -> Path:
+    settings = get_settings()
+    metadata_path = (row.metadata_json or {}).get("local_path")
+    candidate = Path(str(metadata_path)) if metadata_path else settings.resolved_data_dir / row.content_uri
+    if not candidate.is_absolute():
+        candidate = settings.resolved_data_dir / candidate
+    resolved = candidate.resolve()
+    root = settings.resolved_data_dir.resolve()
+    if root not in resolved.parents and resolved != root:
+        raise ValueError("影像路径不在数据目录内")
+    if not resolved.is_file():
+        raise FileNotFoundError(str(resolved))
+    return resolved
+
+
+def _footprint_overlap_ratio(before: ImageryAssetCatalogRecord, after: ImageryAssetCatalogRecord) -> float | None:
+    """Return intersection over the smaller footprint using catalog bounds."""
+    def bounds(footprint: object) -> tuple[float, float, float, float] | None:
+        points: list[tuple[float, float]] = []
+        def collect(value: object) -> None:
+            if not isinstance(value, list):
+                return
+            if len(value) >= 2 and all(isinstance(item, (int, float)) for item in value[:2]):
+                points.append((float(value[0]), float(value[1])))
+                return
+            for item in value:
+                collect(item)
+        collect((footprint or {}).get("coordinates") if isinstance(footprint, dict) else None)
+        if not points:
+            return None
+        xs = [point[0] for point in points]
+        ys = [point[1] for point in points]
+        return min(xs), min(ys), max(xs), max(ys)
+
+    first, second = bounds(before.footprint_geojson), bounds(after.footprint_geojson)
+    if not first or not second:
+        return None
+    intersection = max(0.0, min(first[2], second[2]) - max(first[0], second[0])) * max(0.0, min(first[3], second[3]) - max(first[1], second[1]))
+    first_area = max(0.0, first[2] - first[0]) * max(0.0, first[3] - first[1])
+    second_area = max(0.0, second[2] - second[0]) * max(0.0, second[3] - second[1])
+    smaller = min(first_area, second_area)
+    return intersection / smaller if smaller else None
+
+
+def _window_sum(values: np.ndarray, radius: int) -> np.ndarray:
+    if radius <= 0:
+        return values.astype("float32")
+    padded = np.pad(values.astype("float32"), radius, mode="constant")
+    integral = np.pad(padded, ((1, 0), (1, 0)), mode="constant").cumsum(axis=0).cumsum(axis=1)
+    size = radius * 2 + 1
+    return integral[size:, size:] - integral[:-size, size:] - integral[size:, :-size] + integral[:-size, :-size]
+
+
+def _binary_close_open(mask: np.ndarray) -> np.ndarray:
+    close_radius = 3
+    close_size = (close_radius * 2 + 1) ** 2
+    dilated = _window_sum(mask, close_radius) > 0
+    closed = _window_sum(dilated, close_radius) >= close_size
+    open_radius = 1
+    open_size = (open_radius * 2 + 1) ** 2
+    eroded = _window_sum(closed, open_radius) >= open_size
+    return _window_sum(eroded, open_radius) > 0
+
+
+def _polygon_area(geometry: dict) -> float:
+    if geometry.get("type") != "Polygon":
+        return 0.0
+    ring = (geometry.get("coordinates") or [[]])[0]
+    if len(ring) < 4:
+        return 0.0
+    return abs(sum(
+        float(ring[index][0]) * float(ring[(index + 1) % len(ring)][1])
+        - float(ring[(index + 1) % len(ring)][0]) * float(ring[index][1])
+        for index in range(len(ring))
+    ) / 2.0)
+
+
+def _rgb_change_geojson(before_path: Path, after_path: Path) -> dict:
+    """Create a small set of broad qualitative change polygons from aligned RGB rasters."""
+    with rasterio.open(before_path) as before, rasterio.open(after_path) as after:
+        indexes_before = [1, 2, 3] if before.count >= 3 else [1]
+        indexes_after = [1, 2, 3] if after.count >= 3 else [1]
+        scale = min(1.0, 520 / max(before.width, before.height))
+        out_width = max(1, int(round(before.width * scale)))
+        out_height = max(1, int(round(before.height * scale)))
+        before_data = before.read(
+            indexes_before,
+            out_shape=(len(indexes_before), out_height, out_width),
+            resampling=rasterio.enums.Resampling.bilinear,
+            masked=True,
+        ).astype("float32")
+        after_data = after.read(
+            indexes_after,
+            out_shape=(len(indexes_after), out_height, out_width),
+            resampling=rasterio.enums.Resampling.bilinear,
+            masked=True,
+        ).astype("float32")
+        if before_data.shape[0] == 1:
+            before_data = np.repeat(before_data, 3, axis=0)
+        if after_data.shape[0] == 1:
+            after_data = np.repeat(after_data, 3, axis=0)
+        before_mask = np.ma.getmaskarray(before_data).any(axis=0)
+        after_mask = np.ma.getmaskarray(after_data).any(axis=0)
+        before_data = np.ma.filled(before_data, np.nan)
+        after_data = np.ma.filled(after_data, np.nan)
+        valid = np.isfinite(before_data).all(axis=0) & np.isfinite(after_data).all(axis=0)
+        valid &= ~before_mask & ~after_mask
+        if not valid.any():
+            raise ValueError("两期 RGB 影像没有共同有效像元")
+        normalized: list[np.ndarray] = [np.zeros_like(before_data), np.zeros_like(after_data)]
+        for channel_index in range(3):
+            combined = np.concatenate((before_data[channel_index][valid], after_data[channel_index][valid]))
+            low, high = np.percentile(combined, [2, 98])
+            if high <= low:
+                high = low + 1.0
+            for data_index, data in enumerate((before_data, after_data)):
+                normalized[data_index][channel_index] = np.clip((data[channel_index] - low) / (high - low), 0, 1)
+        before_intensity = np.mean(normalized[0], axis=0)
+        after_intensity = np.mean(normalized[1], axis=0)
+        before_chroma = normalized[0] / np.maximum(np.sum(normalized[0], axis=0, keepdims=True), 0.08)
+        after_chroma = normalized[1] / np.maximum(np.sum(normalized[1], axis=0, keepdims=True), 0.08)
+        chroma_change = np.mean(np.abs(before_chroma - after_chroma), axis=0)
+        intensity_change = np.abs(before_intensity - after_intensity)
+        raw_change = chroma_change * 0.72 + intensity_change * 0.28
+        change = _window_sum(np.where(valid, raw_change, 0.0), 2) / 25.0
+        support = _window_sum(valid, 2)
+        change = np.divide(change, np.maximum(support / 25.0, 0.4), out=np.zeros_like(change), where=support > 0)
+        scores = change[valid]
+        threshold = max(float(np.percentile(scores, 88)), float(scores.mean() + scores.std() * 0.85))
+        classes = np.zeros(change.shape, dtype="uint8")
+        classes[valid & (change >= threshold)] = 1
+        border_y = max(3, int(out_height * 0.025))
+        border_x = max(3, int(out_width * 0.025))
+        classes[:border_y, :] = 0
+        classes[-border_y:, :] = 0
+        classes[:, :border_x] = 0
+        classes[:, -border_x:] = 0
+        classes = _binary_close_open(classes > 0).astype("uint8")
+        minimum_pixels = max(120, int(classes.size * 0.0025))
+        classes = sieve(classes, size=minimum_pixels, connectivity=8)
+        analysis_transform = before.transform * Affine.scale(before.width / out_width, before.height / out_height)
+        candidates: list[tuple[float, dict]] = []
+        for shape, value in shapes(classes, mask=classes > 0, transform=analysis_transform):
+            severity = int(value)
+            if severity != 1:
+                continue
+            candidates.append((_polygon_area(shape), shape))
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        largest_area = candidates[0][0] if candidates else 0.0
+        selected = [item for item in candidates if item[0] >= largest_area * 0.08][:6]
+        features: list[dict] = []
+        for area, shape in selected:
+            geometry = shape
+            if before.crs and str(before.crs) != "EPSG:4326":
+                geometry = transform_geom(before.crs, "EPSG:4326", geometry, precision=6)
+            features.append({
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "change_score": "qualitative_change",
+                    "source": "rgb_pixel_change",
+                    "relative_area": round(area / largest_area, 4) if largest_area else 0.0,
+                },
+            })
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "properties": {
+            "classification": "qualitative_rgb_change",
+            "thresholds": {
+                "change_percentile": 88,
+                "minimum_component_pixels": minimum_pixels,
+                "maximum_regions": 6,
+            },
+            "feature_count": len(features),
+        },
+    }
+
+
+@router.post("/visual-assess")
+async def assess_catalog_pair_with_qwen(payload: QwenImageryPairRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    """Compare existing RGB catalog imagery when no five-band change product exists."""
+    settings = get_settings()
+    key = settings.qwen_vl_api_key.get_secret_value()
+    if not key:
+        raise HTTPException(status_code=503, detail="QWEN_VL_API_KEY is not configured")
+    rows = (await db.execute(select(ImageryAssetCatalogRecord).where(
+        ImageryAssetCatalogRecord.event_id == payload.event_id,
+        ImageryAssetCatalogRecord.asset_id.in_([payload.before_asset_id, payload.after_asset_id]),
+    ))).scalars().all()
+    by_id = {row.asset_id: row for row in rows}
+    before = by_id.get(payload.before_asset_id)
+    after = by_id.get(payload.after_asset_id)
+    if before is None or after is None:
+        raise HTTPException(status_code=404, detail="灾前或灾后影像不存在")
+    overlap = _footprint_overlap_ratio(before, after)
+    if overlap is None:
+        raise HTTPException(status_code=422, detail="灾前、灾后影像缺少可用地理范围，无法进行对比")
+    if overlap < 0.8:
+        raise HTTPException(status_code=422, detail=f"灾前、灾后影像地理范围重合度仅 {overlap * 100:.1f}%，低于 80%，请重新选择同一区域影像")
+    try:
+        before_path = _catalog_asset_path(before)
+        after_path = _catalog_asset_path(after)
+        before_url = _catalog_preview_data_url(before_path)
+        after_url = _catalog_preview_data_url(after_path)
+        affected_area_geojson = _rgb_change_geojson(before_path, after_path)
+        transport = HttpxQwenChatTransport(base_url=settings.qwen_vl_base_url, api_key=key, timeout_seconds=settings.qwen_vl_timeout_seconds)
+        completion = await transport.complete({"model": settings.qwen_vl_model, "response_format": {"type": "json_object"}, "messages": [{"role": "user", "content": [
+            {"type": "text", "text": "请直接对比这两张灾前和灾后全景卫星影像。必须只返回 JSON，字段为 summary、affected_region、affected_features、reconstruction_advice、limitations。所有字段内容必须使用简体中文。affected_region 只需给出一个或多个大致受灾区域，用影像相对方位或可见地貌描述，不要区分高、中、低等级；不要虚构坐标、精确面积、损失金额或影像中不可见的设施损坏。只描述可见证据，并说明云、分辨率和时相造成的不确定性。"},
+            {"type": "image_url", "image_url": {"url": before_url}},
+            {"type": "image_url", "image_url": {"url": after_url}},
+        ]}]})
+        content = completion["choices"][0]["message"]["content"]
+        assessment = QwenImageryPairAssessment.model_validate(json.loads(content)).model_dump()
+    except (QwenProviderError, KeyError, IndexError, ValueError, TypeError, OSError) as exc:
+        raise HTTPException(status_code=502, detail="Qwen imagery comparison failed: " + str(exc)) from exc
+    return {"ok": True, "data": {"assessment": assessment, "model": settings.qwen_vl_model, "before_asset_id": before.asset_id, "after_asset_id": after.asset_id, "overlap_ratio": overlap, "affected_area_geojson": affected_area_geojson}}
+
+
 @router.post("/assess/{analysis_id}")
 async def assess_change_with_qwen(analysis_id: str, db: AsyncSession = Depends(get_db)) -> dict:
     record = await db.scalar(select(RemoteSensingAnalysisRecord).where(RemoteSensingAnalysisRecord.analysis_id == analysis_id))
@@ -618,7 +903,7 @@ async def assess_change_with_qwen(analysis_id: str, db: AsyncSession = Depends(g
         before_url = _image_data_url(resolver.resolve_output(str(outputs["before_rgb"])), max_bytes=settings.qwen_vl_max_image_bytes)
         after_url = _image_data_url(resolver.resolve_output(str(outputs["after_rgb"])), max_bytes=settings.qwen_vl_max_image_bytes)
         transport = HttpxQwenChatTransport(base_url=settings.qwen_vl_base_url, api_key=key, timeout_seconds=settings.qwen_vl_timeout_seconds)
-        completion = await transport.complete({"model": settings.qwen_vl_model, "response_format": {"type": "json_object"}, "messages": [{"role": "user", "content": [{"type": "text", "text": "Compare the before and after wildfire satellite RGB images. Return JSON only with keys summary (string), affected_features (array of strings), reconstruction_advice (array of strings), limitations (array of strings). Describe visible evidence only. Do not invent damage area or exact loss amounts. Include uncertainty from cloud, time and resolution."}, {"type": "image_url", "image_url": {"url": before_url}}, {"type": "image_url", "image_url": {"url": after_url}}]}]})
+        completion = await transport.complete({"model": settings.qwen_vl_model, "response_format": {"type": "json_object"}, "messages": [{"role": "user", "content": [{"type": "text", "text": "请用简体中文比较灾前和灾后全景卫星影像。只返回 JSON，字段为 summary、affected_features、reconstruction_advice、limitations，所有字段值必须是中文。请指出一个或多个大致受灾区域和相对位置，不要区分高、中、低等级；只描述影像证据，不要虚构精确面积、坐标或不可见的损失，并说明云、时相和分辨率造成的不确定性。"}, {"type": "image_url", "image_url": {"url": before_url}}, {"type": "image_url", "image_url": {"url": after_url}}]}]})
         content = completion["choices"][0]["message"]["content"]
         assessment = QwenRecoveryAssessment.model_validate(json.loads(content)).model_dump()
     except (QwenProviderError, KeyError, IndexError, ValueError, TypeError, OSError) as exc:

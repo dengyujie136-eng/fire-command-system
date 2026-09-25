@@ -53,6 +53,8 @@ let lastFireAnimationTick = 0
 let fireTimelineCompletedNotified = false
 let imageryOverlayLayer: Cesium.ImageryLayer | null = null
 let vectorOverlayLayer: Cesium.ImageryLayer | null = null
+let verificationImageLayer: Cesium.ImageryLayer | null = null
+let verificationImageRequest = 0
 let nirEntities: Cesium.Entity[] = []
 let windField: WindFieldResponse | null = null
 let activeWindStepIndex = 0
@@ -60,8 +62,12 @@ let windVisible = props.showWindField
 let windAnimationFrame: number | null = null
 let windParticles: WindParticle[] = []
 let windHeatFrameCounter = 0
+let windVisualScale = 1
+let windCoverageMask: { centerLng: number; centerLat: number; longitudeRadius: number; latitudeRadius: number } | null = null
 let terrainEnabled = true
 let mapClickHandler: Cesium.ScreenSpaceEventHandler | null = null
+let demoPointClickHandler: Cesium.ScreenSpaceEventHandler | null = null
+const demoPointCallbacks = new Map<string, () => void>()
 let mapEditMode: 'NORMAL' | 'SELECT_COMMAND_POST' | 'SELECT_STAGING_AREA' | 'ADD_RESOURCE_POINT' = 'NORMAL'
 
 type FireFrame = {
@@ -107,6 +113,34 @@ type WindParticle = {
   phase: number
 }
 
+type ManualWindFieldOptions = {
+  longitude: number
+  latitude: number
+  speed: number
+  directionDeg?: number
+  radiusKm?: number
+  sparseDirectionFallback?: boolean
+  seed?: string | number
+  directionVariationDeg?: number
+  visualScale?: number
+  radialCoverage?: boolean
+}
+
+function createSeededRandom(seed: string | number) {
+  const value = String(seed)
+  let state = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    state = Math.imul(state ^ value.charCodeAt(index), 16777619)
+  }
+  return () => {
+    state += 0x6d2b79f5
+    let result = state
+    result = Math.imul(result ^ (result >>> 15), result | 1)
+    result ^= result + Math.imul(result ^ (result >>> 7), result | 61)
+    return ((result ^ (result >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 function featureElapsedSeconds(feature: any, fallback = 0) {
   const direct = Number(feature?.properties?.elapsed_seconds)
   if (Number.isFinite(direct)) return direct
@@ -142,6 +176,22 @@ function flyTo(options?: { center?: [number, number]; zoom?: number; height?: nu
       pitch: Cesium.Math.toRadians(-62),
       roll: 0,
     },
+    duration: 0.8,
+  })
+}
+
+function flyToBounds(bounds: [number, number, number, number], padding = 0.04) {
+  if (!viewer) return
+  const [west, south, east, north] = bounds
+  const longitudePadding = Math.max(0.001, Math.abs(east - west) * padding)
+  const latitudePadding = Math.max(0.001, Math.abs(north - south) * padding)
+  viewer.camera.flyTo({
+    destination: Cesium.Rectangle.fromDegrees(
+      west - longitudePadding,
+      south - latitudePadding,
+      east + longitudePadding,
+      north + latitudePadding,
+    ),
     duration: 0.8,
   })
 }
@@ -194,6 +244,7 @@ function clearDemoEntities() {
   if (!viewer) return
   demoEntities.forEach((entity) => viewer?.entities.remove(entity))
   demoEntities = []
+  demoPointCallbacks.clear()
 }
 
 function cancelMapPointSelection() {
@@ -225,9 +276,14 @@ function beginMapPointSelection(
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
-function addHotspotGeoJson(geojson: any) {
+type HotspotRenderOptions = {
+  showLabel?: boolean
+}
+
+function addHotspotGeoJson(geojson: any, options: HotspotRenderOptions = {}) {
   if (!viewer || !geojson?.features?.length) return
   clearHotspots()
+  const showLabel = options.showLabel !== false
 
   geojson.features
     .filter((feature: any) => feature?.geometry?.type === 'Point')
@@ -244,7 +300,7 @@ function addHotspotGeoJson(geojson: any) {
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
-        label: {
+        label: showLabel ? {
           text: '高危火点',
           font: '14px sans-serif',
           fillColor: Cesium.Color.WHITE,
@@ -254,7 +310,7 @@ function addHotspotGeoJson(geojson: any) {
           pixelOffset: new Cesium.Cartesian2(0, -28),
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        },
+        } : undefined,
       })
       hotspotEntities.push(entity)
     })
@@ -267,6 +323,7 @@ function addDemoPoint(options: {
   label?: string
   size?: number
   symbol?: 'point' | 'command' | 'staging' | 'team' | 'approach' | 'target'
+  onClick?: () => void
 }) {
   if (!viewer) return
   const color = Cesium.Color.fromCssColorString(options.color || '#38bdf8')
@@ -294,7 +351,7 @@ function addDemoPoint(options: {
       },
     }),
     label: {
-      text: options.label || options.name,
+      text: options.label === undefined ? options.name : options.label,
       font: '12px sans-serif',
       fillColor: Cesium.Color.WHITE,
       outlineColor: Cesium.Color.BLACK,
@@ -306,6 +363,18 @@ function addDemoPoint(options: {
     },
   })
   demoEntities.push(entity)
+  if (options.onClick) demoPointCallbacks.set(entity.id, options.onClick)
+}
+
+function enableDemoPointClicks() {
+  if (!viewer || demoPointClickHandler) return
+  demoPointClickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+  demoPointClickHandler.setInputAction((movement: { position: Cesium.Cartesian2 }) => {
+    if (!viewer || mapEditMode !== 'NORMAL') return
+    const picked = viewer.scene.pick(movement.position)
+    const entityId = picked?.id instanceof Cesium.Entity ? picked.id.id : picked?.id?.id
+    if (entityId) demoPointCallbacks.get(entityId)?.()
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
 function operationalSymbolTexture(symbol: 'command' | 'staging' | 'team' | 'approach' | 'target', color: string) {
@@ -510,6 +579,41 @@ function setVectorOverlayVisible(visible: boolean) {
   })
   vectorOverlayLayer = viewer.imageryLayers.addImageryProvider(provider)
   vectorOverlayLayer.alpha = 0.42
+}
+
+function clearVerificationImageOverlay() {
+  verificationImageRequest += 1
+  removeLayerIfPresent(verificationImageLayer)
+  verificationImageLayer = null
+}
+
+async function setVerificationImageOverlay(options: {
+  url: string
+  bounds: [number, number, number, number]
+  alpha?: number
+  credit?: string
+}) {
+  if (!viewer) return false
+  const [west, south, east, north] = options.bounds
+  if (![west, south, east, north].every(Number.isFinite) || west >= east || south >= north) return false
+  const requestId = ++verificationImageRequest
+  removeLayerIfPresent(verificationImageLayer)
+  verificationImageLayer = null
+  const provider = await Cesium.SingleTileImageryProvider.fromUrl(options.url, {
+    rectangle: Cesium.Rectangle.fromDegrees(west, south, east, north),
+    credit: options.credit || 'Candidate-centred verification imagery',
+  })
+  if (!viewer || requestId !== verificationImageRequest) return false
+  verificationImageLayer = viewer.imageryLayers.addImageryProvider(provider)
+  verificationImageLayer.alpha = Math.min(1, Math.max(0, options.alpha ?? 0.72))
+  verificationImageLayer.brightness = 1.05
+  verificationImageLayer.contrast = 1.08
+  return true
+}
+
+function setVerificationImageOpacity(alpha: number) {
+  if (!verificationImageLayer) return
+  verificationImageLayer.alpha = Math.min(1, Math.max(0, alpha))
 }
 
 function clearNirSimulationLayer() {
@@ -864,6 +968,8 @@ function clearWindField() {
   windField = null
   activeWindStepIndex = 0
   windParticles = []
+  windVisualScale = 1
+  windCoverageMask = null
 }
 
 function resizeWindCanvas() {
@@ -890,6 +996,15 @@ function currentWindStep() {
 
 function randomWindParticle(): WindParticle {
   const bounds = windField?.bounds ?? [props.longitude - 0.4, props.latitude - 0.3, props.longitude + 0.4, props.latitude + 0.3]
+  if (windCoverageMask) {
+    const angle = Math.random() * Math.PI * 2
+    const radius = Math.sqrt(Math.random())
+    return {
+      lng: windCoverageMask.centerLng + Math.cos(angle) * windCoverageMask.longitudeRadius * radius,
+      lat: windCoverageMask.centerLat + Math.sin(angle) * windCoverageMask.latitudeRadius * radius,
+      phase: Math.random(),
+    }
+  }
   return {
     lng: bounds[0] + Math.random() * (bounds[2] - bounds[0]),
     lat: bounds[1] + Math.random() * (bounds[3] - bounds[1]),
@@ -900,7 +1015,7 @@ function randomWindParticle(): WindParticle {
 function resetWindParticles() {
   const canvas = windCanvasRef.value
   const area = (canvas?.clientWidth ?? 900) * (canvas?.clientHeight ?? 600)
-  const particleCount = Math.max(1000, Math.min(1600, Math.round(area / 750)))
+  const particleCount = Math.max(1000, Math.min(1800, Math.round(area / 750)))
   windParticles = Array.from({ length: particleCount }, randomWindParticle)
 }
 
@@ -909,6 +1024,11 @@ function vectorAt(lng: number, lat: number) {
   const bounds = windField?.bounds
   if (!step?.vectors?.length || !bounds) return null
   if (lng < bounds[0] || lng > bounds[2] || lat < bounds[1] || lat > bounds[3]) return null
+  if (windCoverageMask) {
+    const normalizedLng = (lng - windCoverageMask.centerLng) / windCoverageMask.longitudeRadius
+    const normalizedLat = (lat - windCoverageMask.centerLat) / windCoverageMask.latitudeRadius
+    if (normalizedLng * normalizedLng + normalizedLat * normalizedLat > 1) return null
+  }
   let weightTotal = 0
   let u = 0
   let v = 0
@@ -1002,15 +1122,15 @@ function drawWindFrame() {
     const screenAngle = Math.atan2(directionProbe.y - start.y, directionProbe.x - start.x)
     const flowProgress = (animationTime * 0.16 + particle.phase) % 1
     const edgeFade = Math.min(1, flowProgress / 0.14, (1 - flowProgress) / 0.14)
-    const travelDistance = 28 + closeZoom * 34
-    const arrowLength = 12 + closeZoom * 9
+    const travelDistance = (28 + closeZoom * 34) * windVisualScale
+    const arrowLength = (12 + closeZoom * 9) * windVisualScale
     const travelOffset = (flowProgress - 0.5) * travelDistance
     const arrowStartX = start.x + Math.cos(screenAngle) * travelOffset
     const arrowStartY = start.y + Math.sin(screenAngle) * travelOffset
     const endX = arrowStartX + Math.cos(screenAngle) * arrowLength
     const endY = arrowStartY + Math.sin(screenAngle) * arrowLength
     if (closeZoom > 0.15) {
-      const trailLength = 12 + closeZoom * 26
+      const trailLength = (12 + closeZoom * 26) * windVisualScale
       const tailX = arrowStartX - Math.cos(screenAngle) * trailLength
       const tailY = arrowStartY - Math.sin(screenAngle) * trailLength
       const trail = context.createLinearGradient(tailX, tailY, endX, endY)
@@ -1021,7 +1141,7 @@ function drawWindFrame() {
       context.moveTo(tailX, tailY)
       context.lineTo(endX, endY)
       context.strokeStyle = trail
-      context.lineWidth = 1.5 + closeZoom * 1.4
+      context.lineWidth = (1.5 + closeZoom * 1.4) * Math.sqrt(windVisualScale)
       context.stroke()
     }
     const arrowColor = `rgba(224, 242, 254, ${0.3 + edgeFade * 0.62})`
@@ -1029,10 +1149,10 @@ function drawWindFrame() {
     context.moveTo(arrowStartX, arrowStartY)
     context.lineTo(endX, endY)
     context.strokeStyle = arrowColor
-    context.lineWidth = 1.4
+    context.lineWidth = 1.4 * Math.sqrt(windVisualScale)
     context.stroke()
 
-    const arrowSize = 4
+    const arrowSize = 4 * windVisualScale
     const wingAngle = Math.PI * 0.78
     context.beginPath()
     context.moveTo(endX, endY)
@@ -1086,24 +1206,42 @@ function setWindFieldVisible(visible: boolean) {
   if (visible && windField && !windAnimationFrame) startWindAnimation()
 }
 
-function setManualWindField(options: { longitude: number; latitude: number; speed: number; directionDeg: number; radiusKm?: number }) {
+function setManualWindField(options: ManualWindFieldOptions) {
   const latitude = Number(options.latitude)
   const longitude = Number(options.longitude)
   const speed = Math.max(0, Number(options.speed) || 0)
-  const directionDeg = (((Number(options.directionDeg) || 0) % 360) + 360) % 360
-  const radiusKm = Math.max(2, Math.min(90, Number(options.radiusKm) || 8))
+  const suppliedDirection = Number(options.directionDeg)
+  const hasSuppliedDirection = Number.isFinite(suppliedDirection)
+  const radiusKm = Math.max(2, Math.min(180, Number(options.radiusKm) || 8))
+  const sparseDirectionFallback = Boolean(options.sparseDirectionFallback)
+  const directionVariationDeg = Math.max(0, Math.min(180, Number(options.directionVariationDeg) || 65))
+  const random = createSeededRandom(options.seed ?? `${props.sceneId}:${longitude}:${latitude}:${speed}`)
+  const directionDeg = hasSuppliedDirection
+    ? ((suppliedDirection % 360) + 360) % 360
+    : random() * 360
   const latitudeRadius = radiusKm / 111.32
   const longitudeRadius = radiusKm / Math.max(20, 111.32 * Math.cos((latitude * Math.PI) / 180))
   const vectors: WindVector[] = []
   let maximumSpeed = speed
+  windVisualScale = Math.max(0.55, Math.min(1.8, Number(options.visualScale) || 1))
+  windCoverageMask = options.radialCoverage
+    ? { centerLng: longitude, centerLat: latitude, longitudeRadius, latitudeRadius }
+    : null
 
   for (let row = 0; row < 11; row += 1) {
     for (let col = 0; col < 15; col += 1) {
       const normalizedX = (col - 7) / 7
       const normalizedY = (row - 5) / 5
-      const directionOffset = 24 * Math.sin(normalizedX * Math.PI * 2.5) * Math.cos(normalizedY * Math.PI) - 18 * Math.sin(normalizedY * Math.PI * 2) * Math.cos(normalizedX * Math.PI)
+      if (options.radialCoverage && normalizedX * normalizedX + normalizedY * normalizedY > 1.04) continue
+      const modeledDirectionOffset = 24 * Math.sin(normalizedX * Math.PI * 2.5) * Math.cos(normalizedY * Math.PI) - 18 * Math.sin(normalizedY * Math.PI * 2) * Math.cos(normalizedX * Math.PI)
+      const directionOffset = sparseDirectionFallback
+        ? (random() * 2 - 1) * directionVariationDeg
+        : modeledDirectionOffset
       const localDirection = directionDeg + directionOffset
-      const localSpeed = Math.max(0, speed * (1 + 0.24 * Math.sin(normalizedX * Math.PI * 2) + 0.16 * Math.cos(normalizedY * Math.PI * 2.5) - 0.08 * normalizedX * normalizedY))
+      const speedFactor = sparseDirectionFallback
+        ? 0.78 + random() * 0.44
+        : 1 + 0.24 * Math.sin(normalizedX * Math.PI * 2) + 0.16 * Math.cos(normalizedY * Math.PI * 2.5) - 0.08 * normalizedX * normalizedY
+      const localSpeed = Math.max(0, speed * speedFactor)
       const radians = (localDirection * Math.PI) / 180
       maximumSpeed = Math.max(maximumSpeed, localSpeed)
       vectors.push({
@@ -1197,6 +1335,8 @@ async function loadWindField() {
     const response = await fetch(`${apiBaseUrl}/api/weather/wind-field?${params.toString()}`)
     if (!response.ok) throw new Error(`Wind field API failed with status ${response.status}`)
     windField = await response.json()
+    windVisualScale = 1
+    windCoverageMask = null
     renderWindFieldStep(activeWindStepIndex)
   } catch (error) {
     console.warn('Wind field layer unavailable:', error)
@@ -1545,6 +1685,7 @@ function remove() {}
 defineExpose({
   flyHome,
   flyTo,
+  flyToBounds,
   focusWindField,
   resize,
   zoomIn,
@@ -1559,6 +1700,9 @@ defineExpose({
   cancelMapPointSelection,
   setImageryOverlayVisible,
   setVectorOverlayVisible,
+  setVerificationImageOverlay,
+  setVerificationImageOpacity,
+  clearVerificationImageOverlay,
   setNirSimulationVisible,
   clearNirSimulationLayer,
   setTerrainEnabled,
@@ -1608,6 +1752,10 @@ onMounted(async () => {
   viewer.scene.skyAtmosphere.show = true
   viewer.scene.fxaa = true
   viewer.scene.screenSpaceCameraController.minimumZoomDistance = 2000
+  // Keep a useful basemap available on pages that do not explicitly toggle overlays.
+  // Cesium 1.141 no longer guarantees a default Ion imagery layer when no token is set.
+  setImageryOverlayVisible(true)
+  enableDemoPointClicks()
 
   flyHome()
   await setTerrainEnabled(terrainEnabled)
@@ -1615,9 +1763,13 @@ onMounted(async () => {
 
 onUnmounted(() => {
   cancelMapPointSelection()
+  demoPointClickHandler?.destroy()
+  demoPointClickHandler = null
+  demoPointCallbacks.clear()
   clearFireFronts()
   setImageryOverlayVisible(false)
   setVectorOverlayVisible(false)
+  clearVerificationImageOverlay()
   clearNirSimulationLayer()
   clearWindField()
   clearHotspots()

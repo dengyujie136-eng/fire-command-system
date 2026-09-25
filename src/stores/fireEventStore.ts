@@ -27,6 +27,7 @@ type ArchivePayload = {
 
 const ACTIVE_KEY = 'fire-command-active-event'
 const LOCAL_ARCHIVE_KEY = 'fire-command-local-archives'
+const SPREAD_STATE_KEY = 'fire-command-spread-state-v1'
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback
@@ -61,6 +62,9 @@ function numberOrFallback(value: any, fallback: number) {
 export const useFireEventStore = defineStore('fireEvent', () => {
   localStorage.removeItem(ACTIVE_KEY)
   const saved: any = {}
+  const savedSpread: any = typeof sessionStorage !== 'undefined'
+    ? safeParse(sessionStorage.getItem(SPREAD_STATE_KEY), {})
+    : {}
   const eventId = ref<string | null>(saved.eventId || saved.event_id || null)
   const eventStatus = ref<string>(saved.eventStatus || saved.event_status || '')
   const eventDetail = ref<any>(saved.eventDetail || null)
@@ -79,12 +83,24 @@ export const useFireEventStore = defineStore('fireEvent', () => {
   const trustedFirePoint = ref<any>(saved.trustedFirePoint || null)
   const observationLoading = ref(false)
   const observationError = ref('')
-  const forefireResult = ref<any>(saved.forefireResult || null)
-  const spreadRun = ref<any>(saved.spreadRun || null)
-  const spreadSteps = ref<any[]>(saved.spreadSteps || [])
-  const spatialAnalysisRun = ref<any>(saved.spatialAnalysisRun || null)
-  const spatialImpacts = ref<any[]>(saved.spatialImpacts || [])
-  const emergencyRoutes = ref<any[]>(saved.emergencyRoutes || [])
+  const forefireResult = ref<any>(savedSpread.forefireResult || null)
+  const spreadRun = ref<any>(savedSpread.spreadRun || null)
+  const spreadSteps = ref<any[]>(savedSpread.spreadSteps || [])
+  const submittedSpreadRunId = ref<string | null>(savedSpread.submittedSpreadRunId || null)
+  const submittedFireline = ref<any>(savedSpread.submittedFireline || null)
+  const submittedAt = ref<string | null>(savedSpread.submittedAt || null)
+  if (submittedFireline.value && !submittedFireline.value.finalGeojson) {
+    const restoredFinalStep = submittedFireline.value.steps?.at?.(-1)?.fireline_geojson
+    if (restoredFinalStep) {
+      submittedFireline.value = {
+        ...submittedFireline.value,
+        finalGeojson: { type: 'FeatureCollection', features: [restoredFinalStep] },
+      }
+    }
+  }
+  const spatialAnalysisRun = ref<any>(savedSpread.spatialAnalysisRun || null)
+  const spatialImpacts = ref<any[]>(savedSpread.spatialImpacts || [])
+  const emergencyRoutes = ref<any[]>(savedSpread.emergencyRoutes || [])
   const agentResult = ref<any>(saved.agentResult || null)
   const agentMessages = ref<any[]>(saved.agentMessages || [])
   const decisionRun = ref<any>(saved.decisionRun || null)
@@ -204,6 +220,23 @@ export const useFireEventStore = defineStore('fireEvent', () => {
 
   function persist() {
     localStorage.removeItem(ACTIVE_KEY)
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem(SPREAD_STATE_KEY, JSON.stringify({
+          spreadRun: spreadRun.value,
+          spreadSteps: spreadSteps.value,
+          forefireResult: forefireResult.value,
+          spatialAnalysisRun: spatialAnalysisRun.value,
+          spatialImpacts: spatialImpacts.value,
+          emergencyRoutes: emergencyRoutes.value,
+          submittedSpreadRunId: submittedSpreadRunId.value,
+          submittedFireline: submittedFireline.value,
+          submittedAt: submittedAt.value,
+        }))
+      } catch {
+        // Keep in-memory state usable if a browser storage quota is exceeded.
+      }
+    }
   }
 
   function applyBackendEvent(envelope: any) {
@@ -502,6 +535,50 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     return result?.data ? applySpreadRun(result) : null
   }
 
+  function submitFireline() {
+    if (!spreadRun.value || !forefireResult.value?.geojson) return false
+    submittedSpreadRunId.value = String(spreadRun.value.run_id || '') || null
+    const finalStep = spreadSteps.value.at(-1)?.fireline_geojson
+    const finalGeojson = finalStep
+      ? { type: 'FeatureCollection', features: [finalStep] }
+      : forefireResult.value.geojson
+    submittedFireline.value = {
+      spreadRunId: submittedSpreadRunId.value,
+      finalAreaKm2: Number(spreadRun.value.final_area_km2 || 0),
+      maxRadiusKm: Number(spreadRun.value.max_radius_km || 0),
+      geojson: forefireResult.value.geojson,
+      finalGeojson,
+      steps: spreadSteps.value,
+    }
+    submittedAt.value = new Date().toISOString()
+    persist()
+    return true
+  }
+
+  function clearSubmittedFireline() {
+    submittedSpreadRunId.value = null
+    submittedFireline.value = null
+    submittedAt.value = null
+    persist()
+  }
+
+  function clearSpreadState() {
+    forefireResult.value = null
+    spreadRun.value = null
+    spreadSteps.value = []
+    submittedSpreadRunId.value = null
+    submittedFireline.value = null
+    submittedAt.value = null
+    submittedSpreadRunId.value = null
+    submittedFireline.value = null
+    submittedAt.value = null
+    spatialAnalysisRun.value = null
+    spatialImpacts.value = []
+    emergencyRoutes.value = []
+    updatedAt.value = new Date().toISOString()
+    persist()
+  }
+
   function applySpatialAnalysis(envelope: any) {
     const data = envelope?.data || envelope
     if (!data?.run) return null
@@ -709,6 +786,7 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     updatedAt.value = ''
     resetSignal.value += 1
     localStorage.removeItem(ACTIVE_KEY)
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SPREAD_STATE_KEY)
   }
 
   async function archiveActiveFire() {
@@ -781,6 +859,9 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     forefireResult,
     spreadRun,
     spreadSteps,
+    submittedSpreadRunId,
+    submittedFireline,
+    submittedAt,
     spatialAnalysisRun,
     spatialImpacts,
     emergencyRoutes,
@@ -842,6 +923,9 @@ export const useFireEventStore = defineStore('fireEvent', () => {
     createHistoricalSpreadRun,
     calibrateHistoricalSpreadRun,
     loadLatestSpreadRun,
+    submitFireline,
+    clearSubmittedFireline,
+    clearSpreadState,
     applySpatialAnalysis,
     createSpatialAnalysis,
     loadLatestSpatialAnalysis,

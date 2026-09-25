@@ -21,6 +21,7 @@ class WorkflowSpreadRerunRequest(BaseModel):
     """Explicit Command Center what-if inputs for a confirmed workflow fire point."""
 
     horizon_minutes: int = Field(default=360, ge=60, le=1440)
+    weather_update_interval_minutes: int = Field(default=60, ge=1, le=1440)
     wind_speed_m_s: float = Field(ge=0, le=60)
     wind_direction_deg: float = Field(ge=0, lt=360)
     temperature_c: float = Field(ge=-30, le=65)
@@ -34,6 +35,24 @@ class HumanVerificationRequest(BaseModel):
     action: Literal["confirm", "reject", "uncertain"]
     confirmation_id: str | None = None
     note: str = Field(default="", max_length=1000)
+
+
+class VerificationProgressRequest(BaseModel):
+    substage: Literal[
+        "imagery_selection",
+        "firms_candidates",
+        "target_detection",
+        "qwen_review",
+        "human_confirmation",
+    ]
+    imagery_asset_id: str | None = None
+    visual_case_id: str | None = None
+    candidate_id: str | None = None
+    candidate_count: int | None = Field(default=None, ge=0)
+    detection_status: str | None = None
+    qwen_review_status: str | None = None
+    confirmation_id: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ScenarioGenerateRequest(BaseModel):

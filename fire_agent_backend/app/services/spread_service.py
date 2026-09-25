@@ -8,6 +8,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.integrations.trusted_ignition import TrustedIgnitionAdapter
 from app.models.observation import TrustedFirePoint
 from app.models.scenario import EnvironmentSnapshot, ScenarioDefinition
 from app.models.spread import FireFrontStep, SimulationRun
@@ -396,6 +397,16 @@ async def create_spread_run(
 
     trusted = await _latest_trusted_point(db, event_id)
     request_ignition = request.ignition_point
+    if not trusted and not request_ignition and not parent_run:
+        try:
+            await TrustedIgnitionAdapter().resolve(db, event_id=event_id)
+            trusted = await _latest_trusted_point(db, event_id)
+        except AppError as exc:
+            if exc.code not in {
+                "confirmed_fire_point_required",
+                "confirmed_fire_point_location_missing",
+            }:
+                raise
     if not trusted and not request_ignition and not parent_run:
         raise AppError(
             "Trusted fire point is required before spread prediction.",

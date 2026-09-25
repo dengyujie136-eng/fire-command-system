@@ -22,6 +22,7 @@ from app.services.recommendation_service import latest_recommendations, regenera
 from app.schemas.decision import DecisionRunRequest
 from app.schemas.recommendation import RecommendationRegenerateRequest
 from app.services.websocket_manager import websocket_manager
+from app.visual_verification.models import RemoteSensingAnalysisRecord
 
 
 def _font_name() -> str:
@@ -181,6 +182,7 @@ def _markdown(sections: dict[str, Any]) -> str:
     decision = sections["decision"]
     recommendation = sections["recommendations"]
     recalculation = sections.get("scenario_recalculation") or {}
+    assessment = sections.get("post_fire_assessment") or {}
     evidence = sections["evidence_chain"]
     lines = [
         f"# {sections['title']}",
@@ -236,6 +238,16 @@ def _markdown(sections: dict[str, Any]) -> str:
         f"- Recalculation ID: {recalculation.get('recalculation_id', '')}",
         f"- Change summary: {recalculation.get('change_summary', {})}",
         "",
+        "## Post-fire Remote Sensing Assessment",
+        f"- Analysis ID: {assessment.get('analysis_id', '')}",
+        f"- Method: {assessment.get('method', '')}",
+        f"- Extracted affected area: {assessment.get('area_hectares', '')} hectares",
+        f"- Qwen model: {assessment.get('qwen_model', '')}",
+        f"- Visible impact summary: {(assessment.get('qwen_assessment') or {}).get('summary', '')}",
+        _bullet([f"Affected feature: {item}" for item in (assessment.get('qwen_assessment') or {}).get('affected_features', [])]),
+        _bullet([f"Reconstruction advice: {item}" for item in (assessment.get('qwen_assessment') or {}).get('reconstruction_advice', [])]),
+        _bullet([f"Assessment limitation: {item}" for item in (assessment.get('qwen_assessment') or {}).get('limitations', [])]),
+        "",
         "## Assumptions And Limitations",
         "- This is an early command decision-support report.",
         "- It does not include actual firefighter execution completion, suppression outcome, or post-disaster official investigation conclusions.",
@@ -266,9 +278,21 @@ async def generate_report(db: AsyncSession, event_id: str, request: ReportCreate
     run: DecisionRun = decision_data["run"]
     packets = decision_data.get("packets") or []
     recalculation = await _latest(db, RecalculationRun, event_id) if request.include_recalculation else None
+    assessment_record = await db.scalar(
+        select(RemoteSensingAnalysisRecord)
+        .where(
+            RemoteSensingAnalysisRecord.event_id == event_id,
+            RemoteSensingAnalysisRecord.analysis_type == "burned_area",
+            RemoteSensingAnalysisRecord.run_status == "succeeded",
+            RemoteSensingAnalysisRecord.is_simulated.is_(False),
+        )
+        .order_by(desc(RemoteSensingAnalysisRecord.created_at))
+        .limit(1)
+    )
+    assessment = dict(assessment_record.result_payload or {}) if assessment_record else {}
 
     sections = {
-        "title": "Early Command Decision Support Report",
+        "title": "Comprehensive Wildfire Incident Report",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "event_summary": _event_section(event),
         "evidence_chain": {
@@ -301,6 +325,7 @@ async def generate_report(db: AsyncSession, event_id: str, request: ReportCreate
         }
         if recalculation
         else {},
+        "post_fire_assessment": assessment,
         "assumptions_and_limitations": [
             "Early command decision-support only.",
             "No actual firefighter execution completion is represented.",
@@ -314,9 +339,13 @@ async def generate_report(db: AsyncSession, event_id: str, request: ReportCreate
         decision_run_id=run.decision_run_id,
         recommendation_package_id=recommendation_data["package"].package_id,
         recalculation_id=recalculation.recalculation_id if recalculation else "",
-        title="Early Command Decision Support Report",
+        title="Comprehensive Wildfire Incident Report",
         format=request.format,
-        summary=f"Early command report for {event.name}; final area {sections['spread_prediction'].get('final_area_km2')} km2.",
+        summary=(
+            f"Comprehensive incident report for {event.name}; final modeled fire area "
+            f"{sections['spread_prediction'].get('final_area_km2')} km2; remote-sensing affected area "
+            f"{assessment.get('area_hectares')} hectares."
+        ),
         sections=sections,
         content_markdown=content,
     )
@@ -326,8 +355,8 @@ async def generate_report(db: AsyncSession, event_id: str, request: ReportCreate
         event_id=event_id,
         event_type="report.generated",
         status="reported",
-        title="Early command report generated",
-        message="A downloadable early command decision-support report has been generated.",
+        title="Comprehensive incident report generated",
+        message="A downloadable report covering verification, spread, planning and post-fire assessment has been generated.",
         payload={"report_id": report.report_id, "decision_run_id": run.decision_run_id},
         broadcast=True,
     )

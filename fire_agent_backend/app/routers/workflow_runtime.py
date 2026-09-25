@@ -10,6 +10,7 @@ from app.schemas.workflow import (
     WorkflowCreateRequest,
     WorkflowEnvelope,
     WorkflowSpreadRerunRequest,
+    VerificationProgressRequest,
 )
 from app.services.workflow_runtime_service import (
     _run_or_404,
@@ -28,6 +29,7 @@ from app.services.workflow_runtime_service import (
     review_commander,
     execute_spread_rerun,
     workflow_payload,
+    update_verification_progress,
 )
 
 
@@ -84,12 +86,19 @@ async def spread_rerun(
 async def verify(
     workflow_run_id: str,
     request: HumanVerificationRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowEnvelope:
     run = await human_verify(db, workflow_run_id, request)
-    if request.action == "confirm":
-        background_tasks.add_task(execute_analysis, workflow_run_id)
+    return WorkflowEnvelope(data=await workflow_payload(db, run))
+
+
+@router.post("/workflow-runs/{workflow_run_id}/verification-progress", response_model=WorkflowEnvelope)
+async def verification_progress(
+    workflow_run_id: str,
+    request: VerificationProgressRequest,
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowEnvelope:
+    run = await update_verification_progress(db, workflow_run_id, request)
     return WorkflowEnvelope(data=await workflow_payload(db, run))
 
 

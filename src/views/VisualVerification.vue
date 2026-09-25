@@ -1,291 +1,117 @@
 <template>
   <main class="verification-page">
-    <aside class="candidate-panel">
-      <header>
-        <span class="eyebrow">MEMBER B / QWEN-VL</span>
-        <h1>候选火点视觉复核</h1>
-        <p>候选异常不等于真实起火，逐点检查影像证据。</p>
-      </header>
-
-      <div class="summary-row">
-        <span>候选 {{ candidates.length }}</span>
-        <span>已分析 {{ analyzedCount }}</span>
-      </div>
-
-      <div v-if="loadError" class="notice error">{{ loadError }}</div>
-      <div v-else-if="loadingCandidates" class="notice">正在读取候选点…</div>
-
-      <button
-        v-for="item in candidates"
-        :key="item.visual_case_id"
-        class="candidate-card"
-        :class="{ active: item.visual_case_id === selectedId }"
-        type="button"
-        @click="selectCandidate(item.visual_case_id)"
-      >
-        <span class="candidate-title">{{ compactId(item.source_candidate_id) }}</span>
-        <span class="candidate-meta">{{ coordinateText(item) }}</span>
-        <span class="status-pill" :class="resultClass(results[item.visual_case_id])">
-          {{ resultText(results[item.visual_case_id], item.status) }}
-        </span>
-        <small v-if="item.is_simulated">模拟样例</small>
-      </button>
-    </aside>
-
-    <section class="map-panel">
-      <CesiumMap
-        v-if="selectedCase"
-        ref="mapRef"
-        class="map"
-        :longitude="selectedCase.longitude"
-        :latitude="selectedCase.latitude"
-        :height="22000"
-        scene-id="visual-verification"
-      />
-      <div v-else class="empty-map">请选择候选点</div>
-      <div v-if="selectedCase" class="map-caption">
-        <span>候选位置</span>
-        <strong>{{ coordinateText(selectedCase) }}</strong>
-      </div>
-    </section>
-
-    <Teleport defer to="#business-panel">
-    <aside class="evidence-panel">
-      <template v-if="selectedCase">
-        <header>
-          <span class="eyebrow">EVIDENCE CHAIN</span>
-          <h2>影像与模型结论</h2>
-          <p>{{ selectedCase.event_name }}</p>
-        </header>
-
-        <div v-if="selectedCase.is_simulated" class="notice warning">
-          当前记录为模拟样例，不得作为真实火点交付。
+    <aside class="workflow-panel">
+      <header class="panel-header"><span class="eyebrow">影像火点核验</span><h1>影像核验流程</h1><p>选择低云量影像，提取 FIRMS 候选，再由操作员依次启动目标检测和视觉复核。</p></header>
+      <section class="workflow-step active"><span class="step-number">1</span><div class="step-body">
+        <div class="step-heading"><strong>选择核验影像</strong><span>{{ eligibleImagery.length }} 幅可用</span></div>
+        <select v-model="selectedCatalogAssetId" class="field" :disabled="loadingImagery || extractingCandidates || detectingCandidates"><option v-for="asset in eligibleImagery" :key="asset.asset_id" :value="asset.asset_id">{{ asset.source_name || asset.asset_id }}</option></select>
+        <div v-if="selectedCatalogAsset" class="imagery-meta"><strong>{{ selectedCatalogAsset.source_name || selectedCatalogAsset.source_type }}</strong><span>{{ phaseLabel(selectedCatalogAsset.analysis_phase) }} · {{ selectedCatalogAsset.resolution_m ? `${selectedCatalogAsset.resolution_m} m` : '分辨率未知' }}</span><small>云量 {{ cloudText(selectedCatalogAsset.cloud_cover) }} · {{ formatTime(selectedCatalogAsset.time_start) }}</small></div>
+        <div v-if="showUploadForm" ref="uploadPanelRef" class="upload-fields">
+          <strong>补充核验影像</strong>
+          <label>场景名称<input v-model="uploadScene" class="field" placeholder="例如：dixie_sentinel_supplement"></label>
+          <label>拍摄时间<input v-model="uploadAcquiredAt" class="field" type="datetime-local"></label>
+          <label>影像波段<input v-model="uploadBands" class="field" placeholder="B02,B03,B04,B08,B12"></label>
+          <input class="file-input" type="file" accept=".tif,.tiff,image/tiff" @change="selectUploadFile">
+          <div class="upload-actions"><button type="button" :disabled="uploadingImagery || !uploadFile" @click="uploadSupplementImagery">{{ uploadingImagery ? '正在上传…' : '上传并加入影像目录' }}</button><button type="button" :disabled="uploadingImagery" @click="showUploadForm=false">取消</button></div>
         </div>
-
-        <section class="image-card">
-          <img v-if="selectedImageUrl" :src="selectedImageUrl" alt="候选点标准化影像" />
-          <div v-else class="image-placeholder">运行复核后显示标准化模型影像</div>
-        </section>
-
-        <section class="asset-section">
-          <div class="section-title"><h3>可用影像</h3><span>{{ assets.length }} 项</span></div>
-          <label v-for="asset in assets" :key="asset.source_asset_id" class="asset-option">
-            <input v-model="selectedAssetId" type="radio" :value="asset.source_asset_id" />
-            <span><strong>{{ asset.source_name || asset.source_type }}</strong><small>{{ asset.source_asset_id }}</small></span>
-          </label>
-        </section>
-
-        <button class="analyze-button" type="button" :disabled="analyzing || !selectedAssetId || terminalCase" @click="runAnalysis">
-          {{ analyzing ? analysisStage : '生成标准图并调用 Qwen-VL' }}
-        </button>
-
-        <div v-if="terminalCase" class="notice warning">该候选版本已{{ selectedCase.status === "confirmed" ? "确认" : "排除" }}，不能再次运行目标检测与 Qwen-VL。需要重新核验时，请从基础算法生成新的候选版本。</div>
+        <p v-if="uploadMessage" class="notice" :class="{ error: uploadFailed }">{{ uploadMessage }}</p>
+        <button class="primary-button" type="button" :disabled="!selectedCatalogAssetId || extractingCandidates || detectingCandidates" @click="extractCandidates">{{ extractingCandidates ? '正在提取 FIRMS 候选…' : '提取 FIRMS 候选' }}</button>
+      </div></section>
+      <section v-if="candidatesExtracted" class="workflow-step active"><span class="step-number">2</span><div class="step-body">
+        <div class="step-heading"><strong>候选火点</strong><span>{{ candidates.length }} 个</span></div>
+        <div v-if="candidateExtraction" class="summary-box"><span>影像时间 {{ formatTime(candidateExtraction.imagery_acquired_at) }}</span><span>FIRMS 返回 {{ candidateExtraction.api_observation_count || 0 }} 条，聚合为 {{ candidates.length }} 个候选</span></div>
+        <p v-if="!candidates.length" class="notice warning">所选影像范围和日期内没有 FIRMS 候选点。</p>
+        <button v-else class="primary-button" type="button" :disabled="detectingCandidates" @click="runTargetDetection">{{ detectingCandidates ? '正在运行目标检测…' : '使用目标检测' }}</button>
+      </div></section>
+      <section v-if="selectedCase" class="workflow-step active"><span class="step-number">3</span><div class="step-body">
+        <div class="step-heading"><strong>目标检测结果</strong><span>{{ detectorLabel(currentResult?.professional) }}</span></div>
+        <div class="detected-point"><i></i><div><strong>{{ coordinateText(selectedCase) }}</strong><small>{{ formatTime(selectedCase.observed_at) }} · NASA FIRMS</small></div></div>
+        <section v-if="currentResult" class="result-card detector" :class="currentResult.professional?.support"><div class="result-heading"><div><span>YOLO 检测</span><strong>{{ detectorLabel(currentResult.professional) }}</strong></div><b>{{ currentResult.professional_run?.detections?.length || 0 }}</b></div><dl><dt>模型</dt><dd>{{ currentResult.professional_run?.model_name || '--' }}</dd><dt>检测框</dt><dd>{{ currentResult.professional_run?.detections?.length || 0 }} 个</dd><dt>置信度</dt><dd>{{ probabilityText(currentResult.professional?.confidence) }}</dd><dt>状态</dt><dd>{{ currentResult.professional_run?.run_status || '--' }}</dd></dl><p>{{ currentResult.professional?.summary }}</p></section>
+      </div></section>
+      <section v-if="selectedCase && currentResult" class="workflow-step active"><span class="step-number">4</span><div class="step-body">
+        <div class="step-heading"><strong>千问视觉大模型复核</strong><span>{{ qwenReviewed ? '已完成' : '待执行' }}</span></div>
+        <p class="notice">结合目标检测证据与候选区域影像进行语义复核，不会自动执行。</p>
+        <button class="primary-button" type="button" :disabled="reviewing || qwenReviewed" @click="runQwenReview">{{ reviewing ? '复核中…' : qwenReviewed ? '千问复核已完成' : '使用千问视觉大模型复核' }}</button>
         <div v-if="analysisError" class="notice error">{{ analysisError }}</div>
-
-        <section v-if="currentResult" class="result-card detector-card">
-          <div class="decision-row"><span>目标识别算法</span><strong>{{ detectorLabel(currentResult.professional) }}</strong></div>
-          <dl>
-            <dt>模型</dt><dd>{{ currentResult.professional_run?.model_name || '未运行' }}</dd>
-            <dt>火焰 / 烟雾目标框</dt><dd>{{ currentResult.professional_run?.detections?.length ?? '--' }}</dd>
-            <dt>目标置信度</dt><dd>{{ probabilityText(currentResult.professional?.confidence) }}</dd>
-            <dt>运行状态</dt><dd>{{ currentResult.professional_run?.run_status || '不可用' }}</dd>
-          </dl>
-          <p>{{ currentResult.professional?.summary || '当前没有可用的目标识别结果。' }}</p>
-          <p v-for="(warning,index) in currentResult.warnings" :key="index" class="detector-warning">{{ warning }}</p>
-        </section>
-        <section v-if="currentResult" class="result-card" :class="resultClass(currentResult)">
-          <div class="decision-row">
-            <span>视觉结论</span>
-            <strong>{{ decisionLabel(currentResult) }}</strong>
-          </div>
-          <div class="probability">
-            <span>火灾概率</span><b>{{ probabilityText(currentResult.wildfire_likelihood) }}</b>
-          </div>
-          <dl>
-            <dt>火焰</dt><dd>{{ boolText(currentResult.flame_detected) }}</dd>
-            <dt>烟羽</dt><dd>{{ boolText(currentResult.smoke_detected) }}</dd>
-            <dt>火烧迹地</dt><dd>{{ boolText(currentResult.burn_scar_detected) }}</dd>
-            <dt>图像质量</dt><dd>{{ currentResult.image_quality || '--' }}</dd>
-            <dt>场景类型</dt><dd>{{ currentResult.scene_type || '--' }}</dd>
-            <dt>模型</dt><dd>{{ currentResult.model_name || '--' }}</dd>
-          </dl>
-          <p>{{ currentResult.reasoning_summary || currentResult.error_message }}</p>
-        </section>
-      </template>
-      <div v-else class="empty-detail">等待候选点数据</div>
+        <section v-if="qwenReviewed" class="result-card visual" :class="currentResult.decision"><div class="result-heading"><div><span>综合结论</span><strong>{{ decisionLabel(currentResult) }}</strong></div><b>{{ probabilityText(currentResult.wildfire_likelihood) }}</b></div><p>{{ currentResult.reasoning_summary || currentResult.error_message }}</p></section>
+      </div></section>
+      <section v-if="selectedCase && currentResult" class="workflow-step active"><span class="step-number">5</span><div class="step-body">
+        <div class="step-heading"><strong>人工复核</strong><span>{{ humanDecision === 'confirmed' ? '已确认火点' : qwenReviewed ? '可以确认' : '等待千问复核' }}</span></div>
+        <p class="notice">千问复核完成后，由操作员提交最终判断。</p>
+        <div class="manual-actions"><button type="button" :disabled="!qwenReviewed || manualBusy || humanDecision === 'confirmed'" @click="confirmFirePoint">{{ manualAction === 'confirm' ? '正在交付…' : humanDecision === 'confirmed' ? '火点已确认' : '确认火点' }}</button><button type="button" :disabled="!qwenReviewed || manualBusy" @click="openSupplementUpload">补充影像</button><button type="button" :disabled="!qwenReviewed || manualBusy || humanDecision === 'confirmed'" @click="rejectCandidate">{{ manualAction === 'reject' ? '正在排除…' : '排除候选' }}</button></div>
+      </div></section>
+      <div v-if="loadError" class="notice error">{{ loadError }}</div>
+      <div v-if="overlayError" class="notice error">{{ overlayError }}</div>
+      <div v-if="manualMessage" class="notice" :class="{ error: manualFailed }">{{ manualMessage }}</div>
     </aside>
-    </Teleport>
+    <section class="map-panel"><CesiumMap ref="mapRef" class="map" :longitude="mapCenter[0]" :latitude="mapCenter[1]" :height="15000" :show-wind-field="false" scene-id="visual-verification" /><div class="map-caption"><span>CESIUM 影像核验</span><strong v-if="selectedCase">当前候选 {{ coordinateText(selectedCase) }}</strong><strong v-else-if="candidatesExtracted">已提取 {{ candidates.length }} 个候选点</strong><strong v-else>请选择影像并提取候选</strong></div></section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import CesiumMap from '../components/CesiumMap.vue'
 import { visualVerificationAPI } from '../api/modules'
 import { useIncidentContextStore } from '../stores/incidentContextStore'
-import { useRoute } from 'vue-router'
 
 const props = defineProps<{ eventId?: string }>()
-const incident=useIncidentContextStore(),route=useRoute()
-const emit = defineEmits<{ reviewed: [caseId: string] }>()
-const candidates = ref<any[]>([])
-const selectedId = ref('')
-const selectedCase = ref<any>(null)
-const assets = ref<any[]>([])
-const selectedAssetId = ref('')
-const selectedImageUrl = ref('')
-const results = ref<Record<string, any>>({})
-const loadingCandidates = ref(false)
-const analyzing = ref(false)
-const analysisStage = ref('准备影像…')
-const loadError = ref('')
-const analysisError = ref('')
+const incident = useIncidentContextStore()
+const router = useRouter()
 const mapRef = ref<InstanceType<typeof CesiumMap> | null>(null)
+const uploadPanelRef = ref<HTMLElement | null>(null)
+const imageryCatalog = ref<any[]>([]), selectedCatalogAssetId = ref(''), candidates = ref<any[]>([])
+const loadingImagery = ref(false), extractingCandidates = ref(false), detectingCandidates = ref(false), candidatesExtracted = ref(false)
+const candidateExtraction = ref<any>(null), selectedCase = ref<any>(null), results = ref<Record<string, any>>({})
+const reviewing = ref(false), loadError = ref(''), overlayError = ref(''), analysisError = ref('')
+const showUploadForm = ref(false), uploadingImagery = ref(false), uploadFile = ref<File | null>(null)
+const uploadScene = ref(''), uploadAcquiredAt = ref(''), uploadBands = ref('B02,B03,B04,B08,B12'), uploadMessage = ref(''), uploadFailed = ref(false)
+const manualAction = ref<'confirm' | 'reject' | ''>(''), manualMessage = ref(''), manualFailed = ref(false)
+const humanDecision = ref<'confirmed' | ''>('')
+const overlayOpacity = 0.72
+let suppressAssetReset = false
 
+const selectedId = computed(() => selectedCase.value?.visual_case_id || '')
 const currentResult = computed(() => results.value[selectedId.value] || null)
-const terminalCase = computed(() => ['confirmed', 'rejected'].includes(selectedCase.value?.status))
-const analyzedCount = computed(() => Object.keys(results.value).length)
+const qwenReviewed = computed(() => Boolean(currentResult.value?.confirmation_id && currentResult.value?.run_status === 'succeeded'))
+const selectedCatalogAsset = computed(() => imageryCatalog.value.find((item: any) => item.asset_id === selectedCatalogAssetId.value) || null)
+const eligibleImagery = computed(() => { const items = imageryCatalog.value.filter((item: any) => { const bands = Array.isArray(item.bands) ? item.bands : []; return (item.analysis_phase === 'during' && bands.length >= 3) || (item.analysis_phase === 'primary' && ['analysis_composite', 'local_geotiff'].includes(item.source_type) && bands.length >= 3) }); const lowCloud = items.filter((item: any) => item.cloud_cover == null || Number(item.cloud_cover) <= 10); return [...(lowCloud.length ? lowCloud : items)].sort((a: any, b: any) => { const priority = (value: any) => value.source_type === 'local_geotiff' ? 2 : value.source_type === 'analysis_composite' ? 1 : 0; return priority(b) - priority(a) || Number(a.cloud_cover ?? 999) - Number(b.cloud_cover ?? 999) }) })
+const manualBusy = computed(() => Boolean(manualAction.value))
+const mapCenter = computed<[number, number]>(() => selectedCase.value ? [Number(selectedCase.value.longitude), Number(selectedCase.value.latitude)] : [-121.35, 39.95])
 
-function compactId(value: string) {
-  if (!value) return '未命名候选点'
-  const parts = value.split('-')
-  return parts.length > 5 ? parts.slice(-3).join('-') : value
-}
-function coordinateText(item: any) { return `${Number(item.longitude).toFixed(4)}, ${Number(item.latitude).toFixed(4)}` }
-function boolText(value: boolean | null) { return value === true ? '存在' : value === false ? '未发现' : '--' }
-function probabilityText(value: any) { return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(0)}%` : '--' }
-function decisionLabel(result: any) {
-  if (result?.run_status && result.run_status !== 'succeeded') return '分析失败'
-  return ({ confirmed: '确认火情', rejected: '排除火情', uncertain: '需要复核' } as any)[result?.decision] || '等待分析'
-}
-function detectorLabel(result: any) { return ({ supports_fire: '支持火点', against_fire: '未发现火点', unavailable: '算法不可用' } as any)[result?.support] || '待检测' }
-function resultText(result: any, status: string) { return result ? decisionLabel(result) : ({ imagery_ready: '影像就绪', received: '待影像' } as any)[status] || '待复核' }
-function resultClass(result: any) {
-  if (!result) return 'pending'
-  if (result.run_status !== 'succeeded') return 'failed'
-  return result.decision || 'pending'
-}
+function formatTime(value: string) { return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '时间未知' }
+function coordinateText(item: any) { return `${Number(item.longitude).toFixed(5)}, ${Number(item.latitude).toFixed(5)}` }
+function probabilityText(value: any) { return Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(0)}%` : '--' }
+function cloudText(value: any) { return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : '未知' }
+function phaseLabel(value: string) { return value === 'primary' ? '灾中多波段影像' : value === 'during' ? '灾中影像' : value || '影像' }
+function detectorLabel(result: any) { return result?.support === 'supports_fire' ? '检测到火焰或烟雾' : result?.support === 'against_fire' ? '未检测到目标' : '检测不可用' }
+function decisionLabel(result: any) { return result?.decision === 'confirmed' ? '支持确认火点' : result?.decision === 'rejected' ? '支持排除候选' : '证据不足' }
+function datetimeLocalValue(value: any) { const date = value ? new Date(value) : new Date(); if (Number.isNaN(date.getTime())) return ''; const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 16) }
+function boundsFromGeoJson(geojson: any): [number, number, number, number] | null { const pairs: number[][] = []; const visit = (value: any) => { if (Array.isArray(value) && value.length >= 2 && value.every(Number.isFinite)) pairs.push(value); else if (Array.isArray(value)) value.forEach(visit) }; visit(geojson?.coordinates); return pairs.length ? [Math.min(...pairs.map(p => p[0])), Math.min(...pairs.map(p => p[1])), Math.max(...pairs.map(p => p[0])), Math.max(...pairs.map(p => p[1]))] : null }
+async function showCatalogOverlay(fit = true) { const asset = selectedCatalogAsset.value, bounds = boundsFromGeoJson(asset?.footprint_geojson); overlayError.value = ''; if (!asset || !bounds) { mapRef.value?.clearVerificationImageOverlay(); return } try { await mapRef.value?.setVerificationImageOverlay({ url: visualVerificationAPI.imageryPreviewUrl(asset.asset_id), bounds, alpha: overlayOpacity, credit: asset.source_name || asset.asset_id }); if (fit) mapRef.value?.flyToBounds(bounds) } catch (cause: any) { mapRef.value?.clearVerificationImageOverlay(); overlayError.value = `影像预览加载失败：${cause?.message || '未知错误'}` } }
+function renderCandidates() { if (!mapRef.value) return; mapRef.value.clearDemoEntities(); for (const item of candidates.value) { const selected = item.visual_case_id === selectedId.value || (selectedCase.value?.source_candidate_id && item.source_candidate_id === selectedCase.value.source_candidate_id); mapRef.value.addDemoPoint({ name: item.source_candidate_id, position: [Number(item.longitude), Number(item.latitude)], color: selected ? '#ef4444' : '#fb923c', label: '', size: selected ? 16 : 10 }) } }
 
-function renderCandidate() {
-  const map = mapRef.value
-  if (!map || !selectedCase.value) return
-  const point: [number, number] = [selectedCase.value.longitude, selectedCase.value.latitude]
-  map.clearDemoEntities()
-  map.addDemoPoint({ name: '待复核候选点', position: point, color: '#fb923c', label: '待复核' })
-  map.flyTo({ center: point, height: 22000 })
-}
+function sessionKey(eventId = props.eventId) { return eventId ? `visual-verification-session:${eventId}` : '' }
+function readSession(eventId = props.eventId) { const key = sessionKey(eventId); if (!key) return null; try { return JSON.parse(sessionStorage.getItem(key) || 'null') } catch { sessionStorage.removeItem(key); return null } }
+function persistSession() { const key = sessionKey(); if (!key || !selectedCatalogAssetId.value) return; try { sessionStorage.setItem(key, JSON.stringify({ version: 1, asset_id: selectedCatalogAssetId.value, candidates: candidates.value, candidates_extracted: candidatesExtracted.value, candidate_extraction: candidateExtraction.value, selected_case: selectedCase.value, results: results.value, analysis_error: analysisError.value, manual_message: manualMessage.value, manual_failed: manualFailed.value, human_decision: humanDecision.value })) } catch { /* Keep the live page usable if browser storage is unavailable. */ } }
+function restoreSession(saved: any) { if (!saved || saved.asset_id !== selectedCatalogAssetId.value) return false; candidates.value = Array.isArray(saved.candidates) ? saved.candidates : []; candidatesExtracted.value = Boolean(saved.candidates_extracted); candidateExtraction.value = saved.candidate_extraction || null; selectedCase.value = saved.selected_case || null; results.value = saved.results && typeof saved.results === 'object' ? saved.results : {}; analysisError.value = saved.analysis_error || ''; manualMessage.value = saved.manual_message || ''; manualFailed.value = Boolean(saved.manual_failed); humanDecision.value = saved.human_decision === 'confirmed' ? 'confirmed' : ''; return true }
+function resetVerificationState() { candidates.value = []; candidatesExtracted.value = false; candidateExtraction.value = null; selectedCase.value = null; results.value = {}; analysisError.value = ''; manualMessage.value = ''; manualFailed.value = false; humanDecision.value = ''; mapRef.value?.clearDemoEntities() }
 
-async function selectCandidate(visualCaseId: string) {
-  selectedId.value = visualCaseId
-  selectedImageUrl.value = ''
-  analysisError.value = ''
-  try {
-    const detail = await visualVerificationAPI.getCandidate(visualCaseId)
-    selectedCase.value = detail.case
-    assets.value = detail.assets || []
-    selectedAssetId.value = assets.value[0]?.source_asset_id || ''
-    await nextTick()
-    mapRef.value?.on('load', renderCandidate)
-    renderCandidate()
-  } catch (cause: any) {
-    analysisError.value = `候选详情加载失败：${cause?.message || '未知错误'}`
-  }
-}
-
-async function runAnalysis() {
-  if (!selectedCase.value || terminalCase.value) return
-  if (!selectedAssetId.value){analysisError.value='当前候选点尚无真实可用影像，请先由数据智能体获取同期影像。';return}
-  analyzing.value = true
-  analysisError.value = ''
-  try {
-    analysisStage.value = '生成标准影像…'
-    const derivative = await visualVerificationAPI.prepareDerivative(
-      selectedCase.value.visual_case_id,
-      selectedAssetId.value,
-      { source_kind: 'auto', output_format: 'jpeg', max_dimension: 1536, thumbnail_dimension: 512, jpeg_quality: 90 }
-    )
-    selectedImageUrl.value = visualVerificationAPI.derivativeImageUrl(derivative.derivative_id)
-    analysisStage.value = 'Qwen-VL 分析中…'
-    const review = await visualVerificationAPI.review(selectedCase.value.visual_case_id, [derivative.derivative_id])
-    const result = {
-      ...review.visual,
-      professional: review.professional,
-      professional_run: review.professional_run,
-      warnings: review.warnings || [],
-      decision: review.confirmation?.status || review.visual?.decision,
-      confirmation_id: review.confirmation_id,
-      fusion_run_id: review.fusion_run_id
-    }
-    results.value = { ...results.value, [selectedCase.value.visual_case_id]: result }
-    emit('reviewed', selectedCase.value.visual_case_id)
-    await loadCandidates()
-  } catch (cause: any) {
-    analysisError.value = cause?.message?.includes('409') ? '该候选点已完成核验，不能重复分析；请选择新候选版本。' : `视觉复核失败：${cause?.message || '未知错误'}`
-  } finally {
-    analyzing.value = false
-  }
-}
-
-async function loadCandidates() {
-  loadingCandidates.value = true
-  loadError.value = ''
-  try {
-    candidates.value = await visualVerificationAPI.getCandidates(props.eventId)
-    const active=candidates.value.find((item:any)=>item.visual_case_id===incident.visualCaseId)||candidates.value[0]
-    if (active) await selectCandidate(active.visual_case_id)
-  } catch (cause: any) {
-    loadError.value = `候选点加载失败：${cause?.message || '未知错误'}`
-  } finally {
-    loadingCandidates.value = false
-  }
-}
-
-async function handleImageryReady(){
-  await incident.refreshWorkflow().catch(()=>{})
-  await loadCandidates()
-  if(route.query.auto_review==='1'&&selectedAssetId.value&&!terminalCase.value&&!analyzing.value)await runAnalysis()
-}
-onMounted(async()=>{window.addEventListener('fire:imagery-ready',handleImageryReady);if(!incident.visualCaseId)await incident.loadLatestWorkflow().catch(()=>{});await loadCandidates();if(route.query.auto_review==='1')await runAnalysis()})
-onBeforeUnmount(()=>window.removeEventListener('fire:imagery-ready',handleImageryReady))
-watch(()=>incident.visualCaseId,async(id)=>{if(id&&id!==selectedId.value&&candidates.value.some((item:any)=>item.visual_case_id===id)){await selectCandidate(id);if(route.query.auto_review==='1')await runAnalysis()}})
-watch(() => props.eventId, () => {
-  selectedId.value = ''
-  selectedCase.value = null
-  assets.value = []
-  results.value = {}
-  void loadCandidates()
-})
+async function loadImagery(preferredAssetId = '', restoreSavedState = false) { if (!props.eventId) return; loadingImagery.value = true; loadError.value = ''; try { await visualVerificationAPI.discoverLocalImagery(props.eventId).catch(() => {}); imageryCatalog.value = await visualVerificationAPI.getImageryCatalog(props.eventId); const saved = restoreSavedState ? readSession(props.eventId) : null; const savedAssetId = saved?.asset_id || ''; const nextAssetId = eligibleImagery.value.some((item: any) => item.asset_id === preferredAssetId) ? preferredAssetId : eligibleImagery.value.some((item: any) => item.asset_id === savedAssetId) ? savedAssetId : eligibleImagery.value[0]?.asset_id || ''; suppressAssetReset = true; selectedCatalogAssetId.value = nextAssetId; await nextTick(); suppressAssetReset = false; if (!restoreSavedState || !restoreSession(saved)) resetVerificationState(); mapRef.value?.on('load', () => { void showCatalogOverlay(true) }); await showCatalogOverlay(true); await nextTick(); renderCandidates() } catch (cause: any) { suppressAssetReset = false; loadError.value = `影像目录读取失败：${cause?.message || '未知错误'}` } finally { loadingImagery.value = false } }
+async function extractCandidates() { if (!selectedCatalogAssetId.value || extractingCandidates.value) return; extractingCandidates.value = true; loadError.value = ''; candidates.value = []; candidatesExtracted.value = false; selectedCase.value = null; results.value = {}; try { const response = await visualVerificationAPI.extractImageCandidates(selectedCatalogAssetId.value); candidateExtraction.value = response?.data || null; candidates.value = response?.data?.candidates || []; candidatesExtracted.value = true; await nextTick(); renderCandidates(); await showCatalogOverlay(false); await incident.updateVerificationProgress({ substage: 'firms_candidates', imagery_asset_id: selectedCatalogAssetId.value, candidate_count: candidates.value.length }).catch(() => {}) } catch (cause: any) { loadError.value = `FIRMS 候选提取失败：${cause?.message || '未知错误'}` } finally { extractingCandidates.value = false } }
+async function runTargetDetection() { if (!candidates.value.length || detectingCandidates.value) return; detectingCandidates.value = true; analysisError.value = ''; try { const response = await visualVerificationAPI.autoDetectCandidates(selectedCatalogAssetId.value, candidates.value.map((item: any) => item.visual_case_id), { max_candidates: 20, crop_radius_m: 3000 }); const selected = response?.selected; if (!selected?.visual_case_id) { analysisError.value = '目标检测未发现可用的火焰或烟雾证据。'; return } const detail = await visualVerificationAPI.getCandidate(selected.visual_case_id); selectedCase.value = detail.case; candidates.value = candidates.value.map((item: any) => item.source_candidate_id === detail.case.source_candidate_id ? detail.case : item); results.value = { [selected.visual_case_id]: { derivative: selected.derivative, professional: selected.professional.professional, professional_run: selected.professional, decision: 'pending' } }; await nextTick(); renderCandidates(); await showCatalogOverlay(false); await incident.updateVerificationProgress({ substage: 'target_detection', imagery_asset_id: selectedCatalogAssetId.value, visual_case_id: selected.visual_case_id }).catch(() => {}) } catch (cause: any) { analysisError.value = `目标检测失败：${cause?.message || '未知错误'}` } finally { detectingCandidates.value = false } }
+async function runQwenReview() { const derivativeId = currentResult.value?.derivative?.derivative_id; if (!selectedCase.value || !derivativeId || reviewing.value) return; reviewing.value = true; analysisError.value = ''; try { const review = await visualVerificationAPI.review(selectedCase.value.visual_case_id, [derivativeId]); const result = { ...currentResult.value, ...review.visual, professional: review.professional, professional_run: review.professional_run, warnings: review.warnings || [], decision: review.confirmation?.status || review.visual?.decision, confirmation_id: review.confirmation_id, fusion_run_id: review.fusion_run_id }; results.value = { ...results.value, [selectedCase.value.visual_case_id]: result }; await incident.updateVerificationProgress({ substage: 'qwen_review', visual_case_id: selectedCase.value.visual_case_id, confirmation_id: review.confirmation_id, qwen_review_status: review.visual?.run_status }).catch(() => {}) } catch (cause: any) { analysisError.value = `Qwen-VL 综合复核失败：${cause?.message || '未知错误'}。YOLO 检测结果已保留。` } finally { reviewing.value = false } }
+function selectUploadFile(event: Event) { const files = (event.target as HTMLInputElement).files; uploadFile.value = files?.[0] || null; if (uploadFile.value && !uploadScene.value.trim()) uploadScene.value = uploadFile.value.name.replace(/\.(tif|tiff)$/i, '') }
+async function openSupplementUpload() { showUploadForm.value = true; uploadFailed.value = false; uploadMessage.value = ''; uploadAcquiredAt.value ||= datetimeLocalValue(selectedCatalogAsset.value?.time_start); await nextTick(); uploadPanelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+async function uploadSupplementImagery() { if (!props.eventId || !uploadFile.value || !uploadScene.value.trim() || !uploadAcquiredAt.value || uploadingImagery.value) { uploadFailed.value = true; uploadMessage.value = '请填写场景名称、拍摄时间、波段并选择 GeoTIFF。'; return } uploadingImagery.value = true; uploadFailed.value = false; uploadMessage.value = ''; try { const params = new URLSearchParams({ event_id: props.eventId, phase: 'primary', scene_id: uploadScene.value.trim(), acquired_at: new Date(uploadAcquiredAt.value).toISOString(), bands: uploadBands.value }); const response = await fetch('/api/data-agent/imagery/upload?' + params, { method: 'POST', headers: { 'Content-Type': 'image/tiff' }, body: uploadFile.value }); const payload = await response.json(); if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : payload?.error?.message || '影像上传失败'); const assetId = payload?.data?.asset_id; await loadImagery(assetId); showUploadForm.value = false; uploadFile.value = null; uploadMessage.value = '补充影像已加入数据库，并已在“选择核验影像”中选中。' } catch (cause: any) { uploadFailed.value = true; uploadMessage.value = cause?.message || '影像上传失败' } finally { uploadingImagery.value = false } }
+async function confirmFirePoint() { const confirmationId = currentResult.value?.confirmation_id; if (!qwenReviewed.value || !confirmationId || manualBusy.value || humanDecision.value === 'confirmed') return; manualAction.value = 'confirm'; manualFailed.value = false; manualMessage.value = ''; try { if (!incident.workflowRunId) await incident.startWorkflow(); await incident.verify('confirm', '', confirmationId); if (!incident.confirmationId) throw new Error('火点未写入推演工作流'); humanDecision.value = 'confirmed'; manualMessage.value = '火点已确认并交付给火情推演。'; persistSession(); await router.push('/command-center') } catch (cause: any) { manualFailed.value = true; manualMessage.value = cause?.message || '确认火点失败' } finally { manualAction.value = '' } }
+async function rejectCandidate() { const visualCaseId = selectedCase.value?.visual_case_id; if (!visualCaseId || manualBusy.value) return; manualAction.value = 'reject'; manualFailed.value = false; manualMessage.value = ''; try { await visualVerificationAPI.excludeCandidate(visualCaseId); candidates.value = candidates.value.filter((item: any) => item.visual_case_id !== visualCaseId); selectedCase.value = null; results.value = {}; await nextTick(); renderCandidates(); await showCatalogOverlay(false); manualMessage.value = '该候选点已从核验候选中排除。' } catch (cause: any) { manualFailed.value = true; manualMessage.value = cause?.message || '排除候选失败' } finally { manualAction.value = '' } }
+watch(selectedCatalogAssetId, async () => { if (suppressAssetReset) return; resetVerificationState(); persistSession(); await nextTick(); renderCandidates(); await showCatalogOverlay(true) })
+watch([candidates, candidatesExtracted, candidateExtraction, selectedCase, results, analysisError, manualMessage, manualFailed, humanDecision], persistSession, { deep: true })
+watch(() => props.eventId, () => { void loadImagery('', true) })
+onMounted(() => { void loadImagery('', true) })
 </script>
 
 <style scoped>
-.verification-page { width: 100%; height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(280px, 22vw) minmax(480px, 1fr) minmax(340px, 27vw); color: #eaf4ff; background: #050c14; overflow: hidden; }
-.candidate-panel, .evidence-panel { min-width: 0; min-height: 0; overflow: auto; padding: 16px; background: linear-gradient(180deg, #0d1c2b, #07111b); }
-.candidate-panel { border-right: 1px solid #21364a; } .evidence-panel { border-left: 1px solid #21364a; }
-header { display: grid; gap: 6px; margin-bottom: 14px; } h1, h2, h3, p { margin: 0; } h1 { font-size: 21px; } h2 { font-size: 18px; } h3 { font-size: 13px; }
-header p, .result-card p { color: #9db0c5; font-size: 12px; line-height: 1.55; } .eyebrow { color: #67e8f9; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
-.summary-row, .section-title, .decision-row, .probability { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.summary-row { margin-bottom: 10px; color: #9db0c5; font-size: 11px; }
-.candidate-card { position: relative; width: 100%; display: grid; gap: 5px; margin-bottom: 8px; padding: 11px; text-align: left; color: inherit; border: 1px solid #20374b; border-radius: 8px; background: #0d2233; cursor: pointer; }
-.candidate-card:hover, .candidate-card.active { border-color: #38bdf8; background: #102b40; } .candidate-title { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; } .candidate-meta, .candidate-card small { color: #91a7bd; font-size: 10px; }
-.status-pill { justify-self: start; padding: 3px 7px; border-radius: 99px; color: #cbd5e1; background: #334155; font-size: 10px; } .status-pill.confirmed, .result-card.confirmed { color: #bbf7d0; border-color: #15803d; } .status-pill.rejected, .result-card.rejected { color: #bfdbfe; border-color: #2563eb; } .status-pill.uncertain, .result-card.uncertain { color: #fde68a; border-color: #d97706; } .status-pill.failed, .result-card.failed { color: #fecaca; border-color: #dc2626; }
-.map-panel { position: relative; min-width: 0; min-height: 0; background: #020712; } .map { position: absolute; inset: 0; } .empty-map, .empty-detail, .image-placeholder { display: grid; place-items: center; height: 100%; color: #7790a9; font-size: 12px; }
-.map-caption { position: absolute; top: 15px; left: 15px; z-index: 5; display: grid; gap: 3px; padding: 9px 11px; border: 1px solid #31485c; border-radius: 7px; background: rgba(3, 12, 22, .78); } .map-caption span { color: #7dd3fc; font-size: 10px; } .map-caption strong { font-size: 13px; }
-.notice { padding: 9px 10px; margin-bottom: 10px; border: 1px solid #334155; border-radius: 7px; color: #bfdbfe; background: #10243a; font-size: 11px; line-height: 1.45; } .notice.warning { color: #fde68a; border-color: #854d0e; background: #33240c; } .notice.error { color: #fecaca; border-color: #7f1d1d; background: #321414; }
-.image-card { height: 220px; overflow: hidden; margin-bottom: 10px; border: 1px solid #263d51; border-radius: 8px; background: #02070c; } .image-card img { width: 100%; height: 100%; object-fit: contain; }
-.asset-section, .result-card { display: grid; gap: 9px; margin-bottom: 10px; padding: 11px; border: 1px solid #263d51; border-radius: 8px; background: #0a1a28; } .section-title span { color: #8fa6bd; font-size: 10px; }
-.asset-option { display: flex; gap: 8px; align-items: start; cursor: pointer; } .asset-option span { min-width: 0; display: grid; gap: 2px; } .asset-option strong { font-size: 11px; } .asset-option small { color: #8299b1; font-size: 9px; overflow-wrap: anywhere; }
-.analyze-button { width: 100%; min-height: 38px; margin-bottom: 10px; border: 1px solid #0891b2; border-radius: 7px; color: #ecfeff; background: #0e7490; font-weight: 700; cursor: pointer; } .analyze-button:disabled { opacity: .55; cursor: wait; }
-.result-card { border-color: #334155; } .detector-card { border-color:#256a74; } .detector-warning { color:#fbbf24 !important; } .decision-row span, .probability span, dt { color: #8fa6bd; font-size: 10px; } .decision-row strong { font-size: 16px; } .probability b { font-size: 20px; }
-.result-card dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; } .result-card dd { margin: 0; text-align: right; font-size: 11px; overflow-wrap: anywhere; }
-@media (max-width: 1000px) { .verification-page { grid-template-columns: 260px minmax(420px, 1fr) 310px; } } @media (max-width: 820px) { .verification-page { height: auto; overflow: auto; grid-template-columns: 1fr; } .map-panel { height: 50vh; min-height: 380px; } .candidate-panel, .evidence-panel { overflow: visible; } }
-
-.verification-page { grid-template-columns: minmax(220px, 20vw) minmax(0, 1fr) minmax(280px, 25vw); }
-.candidate-panel, .evidence-panel { min-width: 0; }
-@media (max-width: 1000px) { .verification-page { grid-template-columns: 210px minmax(0, 1fr) 260px; } }
-@media (max-width: 820px) { .verification-page { grid-template-columns: 1fr; } }
-
-
-.verification-page { grid-template-columns: minmax(210px, 25%) minmax(0,1fr); }
-.evidence-panel { width:100%;height:100%; }
-@media (max-width: 1000px) { .verification-page { grid-template-columns: minmax(190px, 28%) minmax(0,1fr); } }
+.verification-page{width:100%;height:100%;min-height:0;display:grid;grid-template-columns:minmax(320px,25vw) minmax(0,1fr);color:#eaf4ff;background:#050c14;overflow:hidden}.workflow-panel{min-width:0;min-height:0;overflow:auto;padding:14px;background:#081724;border-right:1px solid #234056}.panel-header{display:grid;gap:5px;margin-bottom:12px}.panel-header h1,.panel-header p{margin:0}.panel-header h1{font-size:20px}.panel-header p{color:#91a9bb;font-size:11px;line-height:1.5}.eyebrow{color:#5eead4;font-size:9px;font-weight:800;letter-spacing:.1em}.workflow-step{display:grid;grid-template-columns:27px minmax(0,1fr);gap:10px;margin-bottom:10px;padding:11px;border:1px solid #29485d;border-radius:7px;background:#0b1d2b}.workflow-step.active{border-color:#28627a}.step-number{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;color:#06202a;background:#67e8f9;font-size:11px;font-weight:900}.step-body{display:grid;gap:9px;min-width:0}.step-heading{display:flex;justify-content:space-between;gap:8px}.step-heading strong{font-size:12px}.step-heading span{color:#67e8f9;font-size:10px;text-align:right}.field{width:100%;min-height:34px;padding:0 8px;border:1px solid #31546c;border-radius:5px;color:#eaf4ff;background:#071522}.imagery-meta,.summary-box{display:grid;gap:3px;padding:8px;border:1px solid #203d51;border-radius:5px;background:#0b2030}.imagery-meta strong{font-size:11px}.imagery-meta span,.imagery-meta small,.summary-box span{color:#9cb2c2;font-size:10px;line-height:1.4}.upload-fields{display:grid;gap:8px;padding:9px;border:1px solid #28627a;border-radius:5px;background:#071b28}.upload-fields>strong{font-size:11px}.upload-fields label{display:grid;gap:4px;color:#9cb2c2;font-size:9px}.file-input{width:100%;color:#b9d0df;font-size:9px}.upload-actions{display:grid;grid-template-columns:1fr auto;gap:6px}.upload-actions button{min-height:31px;padding:0 9px;border:1px solid #31546c;border-radius:5px;color:#dff6ff;background:#123249;cursor:pointer}.upload-actions button:disabled{opacity:.4;cursor:not-allowed}.primary-button{width:100%;min-height:34px;border:1px solid #1594ad;border-radius:5px;color:#fff;background:#0e7490;font-weight:700;cursor:pointer}.primary-button:disabled{opacity:.45;cursor:not-allowed}.notice{margin:0;padding:8px;border:1px solid #29485d;border-radius:5px;color:#b9d0df;background:#0a1b28;font-size:10px;line-height:1.5}.notice.warning{color:#fcd34d}.notice.error{color:#fecaca;border-color:#7f1d1d;background:#2a1117}.detected-point{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #22d3ee;border-radius:5px}.detected-point i{width:10px;height:10px;border-radius:50%;background:#2dd4bf;box-shadow:0 0 9px #2dd4bf}.detected-point div{display:grid;gap:3px}.detected-point strong{font-size:11px}.detected-point small{color:#9cb2c2;font-size:9px}.map-panel{position:relative;min-width:0;min-height:0;overflow:hidden;background:#020712}.map{position:absolute;inset:0}.map-caption{position:absolute;left:12px;top:12px;z-index:4;display:grid;gap:3px;padding:8px 10px;border:1px solid rgba(125,211,252,.25);border-radius:6px;background:rgba(2,8,23,.75)}.map-caption span{color:#67e8f9;font-size:9px}.map-caption strong{font-size:11px}.result-card{display:grid;gap:9px;padding:10px;border:1px solid #29485d;border-radius:6px;background:#0a1b28}.result-card.detector.supports_fire{border-color:#ef4444}.result-card.visual.confirmed{border-color:#22c55e}.result-heading{display:flex;justify-content:space-between;align-items:center;gap:8px}.result-heading div{display:grid;gap:3px}.result-heading span,.result-card dt{color:#91a9bb;font-size:9px}.result-heading strong{font-size:12px}.result-heading b{color:#67e8f9;font-size:20px}.result-card dl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;margin:0}.result-card dd{margin:0;text-align:right;font-size:10px}.result-card p{margin:0;color:#afc4d2;font-size:10px;line-height:1.55}.manual-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.manual-actions button{min-height:31px;padding:0 8px;border:1px solid #31546c;border-radius:5px;color:#dff6ff;background:#123249;cursor:pointer}.manual-actions button:disabled{opacity:.4;cursor:not-allowed}@media(max-width:900px){.verification-page{height:auto;grid-template-columns:1fr}.map-panel{height:58vh;min-height:430px}.workflow-panel{overflow:visible}.manual-actions{grid-template-columns:1fr}}
 </style>

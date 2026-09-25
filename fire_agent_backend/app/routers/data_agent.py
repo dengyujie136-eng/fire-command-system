@@ -1,17 +1,76 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from typing import Any
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.core.config import get_settings
 from app.services.realtime_service import list_regions
 
 
 router = APIRouter(prefix="/data-agent", tags=["data-agent"])
+
+UPLOAD_EXTENSIONS = {
+    "firms": {".csv", ".json"},
+    "mtbs": {".geojson", ".json", ".zip"},
+    "weather": {".csv", ".json"},
+    "dem": {".tif", ".tiff"},
+    "fuel": {".tif", ".tiff"},
+}
+
+
+@router.post("/events/{event_id}/datasets/{dataset_id}/upload")
+async def upload_event_dataset(
+    event_id: str,
+    dataset_id: str,
+    body: Request,
+    filename: str = Query(min_length=1, max_length=180),
+) -> dict[str, Any]:
+    allowed = UPLOAD_EXTENSIONS.get(dataset_id)
+    if allowed is None:
+        raise HTTPException(status_code=404, detail=f"Unsupported dataset: {dataset_id}")
+    suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if suffix not in allowed:
+        raise HTTPException(status_code=422, detail=f"Allowed file types: {', '.join(sorted(allowed))}")
+    safe_event = re.sub(r"[^A-Za-z0-9_.-]+", "_", event_id).strip("._") or "event"
+    safe_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", filename.rsplit(".", 1)[0]).strip("._") or dataset_id
+    target_dir = get_settings().resolved_data_dir / "raw" / "manual_uploads" / safe_event / dataset_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / f"{safe_stem}_{uuid4().hex[:12]}{suffix}"
+    received = 0
+    digest = hashlib.sha256()
+    try:
+        with target.open("wb") as destination:
+            async for chunk in body.stream():
+                received += len(chunk)
+                if received > 350 * 1024 * 1024:
+                    raise HTTPException(status_code=413, detail="File exceeds the 350 MB upload limit")
+                digest.update(chunk)
+                destination.write(chunk)
+        if received < 1:
+            raise HTTPException(status_code=422, detail="Uploaded file is empty")
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    return {
+        "ok": True,
+        "data": {
+            "event_id": event_id,
+            "dataset_id": dataset_id,
+            "filename": target.name,
+            "relative_path": target.relative_to(get_settings().resolved_data_dir).as_posix(),
+            "size_bytes": received,
+            "sha256": digest.hexdigest(),
+            "status": "uploaded_pending_validation",
+        },
+    }
 
 DATASET_ALIASES: dict[str, list[str]] = {
     "hotspots": ["firms"],

@@ -37,6 +37,22 @@ services:
       timeout: 5s
       retries: 12
 
+  visual-detector-api:
+    build:
+      context: ./backend/visual_detector_api
+    environment:
+      MODEL_PATH: /models/best.pt
+      MODEL_NAME: wildfire-detection-yolov8m
+    volumes:
+      - ${WILDFIRE_MODEL_PATH:-./third_party/wildfire-detection/weights/best.pt}:/models/best.pt:ro
+    ports:
+      - "8300:8300"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8300/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   fire-agent-api:
     build:
       context: ./fire_agent_backend
@@ -61,12 +77,16 @@ services:
       QWEN_VL_MAX_ATTEMPTS: ${QWEN_VL_MAX_ATTEMPTS:-2}
       QWEN_VL_MAX_IMAGE_BYTES: ${QWEN_VL_MAX_IMAGE_BYTES:-10485760}
       FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+      PROFESSIONAL_DETECTOR_API_URL: ${PROFESSIONAL_DETECTOR_API_URL:-http://visual-detector-api:8300}
+      PROFESSIONAL_DETECTOR_TIMEOUT_SECONDS: ${PROFESSIONAL_DETECTOR_TIMEOUT_SECONDS:-180}
     volumes:
       - ./environment:/app/environment:ro
       - ./data:/app/data
       - visual-derivatives:/app/visual-output
     depends_on:
       postgis:
+        condition: service_healthy
+      visual-detector-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8200/health')"]

@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.integrations.trusted_ignition import TrustedIgnitionAdapter
 from app.models.spread import FireFrontStep, SimulationRun
 from app.schemas.spread import HistoricalCalibrationRequest, HistoricalSpreadRunRequest
 from app.services.event_service import append_timeline, get_event_or_404
@@ -83,6 +84,7 @@ async def _weather_timeline(
     event_id: str,
     start_at: datetime,
     end_at: datetime,
+    update_interval_minutes: int = 60,
 ) -> list[dict[str, Any]]:
     result = await db.execute(
         text(
@@ -116,10 +118,11 @@ async def _weather_timeline(
             status_code=400,
         )
     valid_times = [start_at]
-    cursor = start_at.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    interval = timedelta(minutes=max(1, update_interval_minutes))
+    cursor = start_at + interval
     while cursor < end_at:
         valid_times.append(cursor)
-        cursor += timedelta(hours=1)
+        cursor += interval
     valid_times.append(end_at)
 
     timeline = []
@@ -411,16 +414,23 @@ async def create_historical_spread_run(
     calibration: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     event = await get_event_or_404(db, event_id)
+    trusted_ignition = await TrustedIgnitionAdapter().resolve(db, event_id=event_id)
     start_at = _utc(request.start_at or event.started_at)
     end_at = start_at + timedelta(hours=request.horizon_hours)
-    timeline = await _weather_timeline(db, event_id, start_at, end_at)
+    timeline = await _weather_timeline(
+        db,
+        event_id,
+        start_at,
+        end_at,
+        request.weather_update_interval_minutes,
+    )
     dem_path = "processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif"
     landcover_path = "processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif"
     try:
         tool_result = await asyncio.to_thread(
             run_raster_fire_spread,
-            ignition_longitude=event.ignition_longitude,
-            ignition_latitude=event.ignition_latitude,
+            ignition_longitude=trusted_ignition.longitude,
+            ignition_latitude=trusted_ignition.latitude,
             environment_timeline=timeline,
             dem_path=dem_path,
             landcover_path=landcover_path,
@@ -614,9 +624,16 @@ async def calibrate_historical_spread_run(
     request: HistoricalCalibrationRequest,
 ) -> dict[str, Any]:
     event = await get_event_or_404(db, event_id)
+    trusted_ignition = await TrustedIgnitionAdapter().resolve(db, event_id=event_id)
     start_at = _utc(request.start_at or event.started_at)
     end_at = start_at + timedelta(hours=request.horizon_hours)
-    timeline = await _weather_timeline(db, event_id, start_at, end_at)
+    timeline = await _weather_timeline(
+        db,
+        event_id,
+        start_at,
+        end_at,
+        request.weather_update_interval_minutes,
+    )
     calibration_hours = (6, 12, 24)
     dem_path = "processed/dem/dixie_fire_2021_copernicus_dem_30m_utm10.tif"
     landcover_path = "processed/fuel/dixie_fire_2021_worldcover_30m_utm10.tif"
@@ -631,8 +648,8 @@ async def calibrate_historical_spread_run(
     ) -> dict[str, Any]:
         tool_result = await asyncio.to_thread(
             run_raster_fire_spread,
-            ignition_longitude=event.ignition_longitude,
-            ignition_latitude=event.ignition_latitude,
+            ignition_longitude=trusted_ignition.longitude,
+            ignition_latitude=trusted_ignition.latitude,
             environment_timeline=timeline,
             dem_path=dem_path,
             landcover_path=landcover_path,
@@ -657,8 +674,8 @@ async def calibrate_historical_spread_run(
                 event_id,
                 start_at,
                 start_at + timedelta(hours=hours),
-                event.ignition_longitude,
-                event.ignition_latitude,
+                trusted_ignition.longitude,
+                trusted_ignition.latitude,
                 request.hotspot_comparison_radius_km,
                 step["area_km2"],
                 step["fireline_geojson"]["geometry"],

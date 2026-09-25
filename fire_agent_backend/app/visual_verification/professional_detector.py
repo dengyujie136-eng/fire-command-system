@@ -36,6 +36,12 @@ class ProfessionalDetectorClient:
         confidence_threshold: float,
         image_size: int,
     ) -> dict[str, Any]:
+        if not self.base_url:
+            raise ProfessionalDetectorError(
+                "professional_detector_not_configured",
+                "未配置外部目标检测服务地址 PROFESSIONAL_DETECTOR_API_URL",
+                status_code=503,
+            )
         files = []
         handles = []
         try:

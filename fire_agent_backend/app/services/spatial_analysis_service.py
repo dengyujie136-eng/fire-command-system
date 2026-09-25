@@ -469,13 +469,13 @@ def _risk_areas(
         sector_intensity_values.append(intensity_kw_m)
 
     # Classify a local grid instead of connecting the fireline vertices to the
-    # ignition point. This keeps risk areas spatially meaningful and avoids the
-    # old radial fan-shaped polygons.
-    grid_size = 24
+    # ignition point. Use an adaptive resolution so a compact fire does not
+    # collapse into only a handful of cells and one uniform risk polygon.
     # The requested threat buffer represents potential near-term spread beyond
     # the current perimeter. Keep it bounded for stable grid resolution.
     threat_buffer_km = _clamp(threat_buffer_km, 0.08, 1.0)
     extent = max_radius + threat_buffer_km
+    grid_size = max(32, min(72, math.ceil((extent * 2.0) / 0.3)))
     cell_size = (extent * 2.0) / grid_size
     # ``active_front`` is retained as an explanatory spatial attribute, but it
     # must not impose a minimum risk level.  A fireline can have low modeled
@@ -483,11 +483,21 @@ def _risk_areas(
     # still come from the fire-behaviour factors below.
     active_front_width_km = max(0.12, cell_size * 1.1)
 
+    sorted_intensities = sorted(sector_intensity_values)
+    intensity_low = sorted_intensities[max(0, int(len(sorted_intensities) * 0.2) - 1)]
+    intensity_high = sorted_intensities[min(len(sorted_intensities) - 1, int(len(sorted_intensities) * 0.8))]
+    intensity_span = max(1.0, intensity_high - intensity_low)
+    final_elapsed_minute = max(1.0, float(properties.get("elapsed_minutes") or 1.0))
+    previous_elapsed_minute = max(
+        0.0,
+        float(((previous_feature or {}).get("properties") or {}).get("elapsed_minutes") or 0.0),
+    )
+
     def classify_risk(score: float, intensity_kw_m: float) -> str:
-        # 500 kW/m is the transition from low to moderate Byram fireline
-        # intensity. A moderate-intensity cell becomes high risk only when its
-        # multi-factor score is also elevated; geometry is not a criterion.
-        if score >= 58.0 or (intensity_kw_m >= 500.0 and score >= 40.0):
+        # Absolute Byram intensity protects genuinely severe fronts from being
+        # diluted by relative normalization. The composite score supplies the
+        # within-fire gradient for moderate and low-intensity incidents.
+        if score >= 48.0 or (intensity_kw_m >= 2000.0 and score >= 40.0):
             return "high"
         if score >= 35.0:
             return "medium"
@@ -512,25 +522,78 @@ def _risk_areas(
                 ),
             )
             front_radius = max(0.05, radii[sector])
+            previous_radius = (
+                max(0.0, previous_radii[sector])
+                if sector < len(previous_radii)
+                else 0.0
+            )
             front_proximity = _clamp(
                 1.0 - boundary_distance / max(0.65, front_radius * 0.42),
                 0.0,
                 1.0,
             )
             base_score = risk_scores[sector]
-            # Proximity to the modeled front modulates the score, but does not
-            # override fire intensity.  This keeps the map continuous without
-            # turning every perimeter cell into a high-risk cell.
-            local_score = base_score * (0.62 + 0.38 * front_proximity)
+            intensity_kw_m = sector_intensity_values[sector]
+            relative_intensity = _clamp(
+                (intensity_kw_m - intensity_low) / intensity_span,
+                0.0,
+                1.0,
+            )
+            absolute_intensity = _clamp(intensity_kw_m / 2000.0, 0.0, 1.0)
+            if inside_fire:
+                radial_progress = _clamp(distance / front_radius, 0.0, 1.0)
+                if previous_radius > 0.0 and distance <= previous_radius:
+                    estimated_arrival = previous_elapsed_minute * _clamp(
+                        distance / previous_radius,
+                        0.0,
+                        1.0,
+                    )
+                else:
+                    interval_progress = _clamp(
+                        (distance - previous_radius) / max(0.05, front_radius - previous_radius),
+                        0.0,
+                        1.0,
+                    )
+                    estimated_arrival = previous_elapsed_minute + (
+                        final_elapsed_minute - previous_elapsed_minute
+                    ) * interval_progress
+                arrival_urgency = max(radial_progress, estimated_arrival / final_elapsed_minute)
+            else:
+                estimated_arrival = final_elapsed_minute * (
+                    1.0 + boundary_distance / max(0.05, threat_buffer_km)
+                )
+                arrival_urgency = _clamp(
+                    1.0 - boundary_distance / max(0.05, threat_buffer_km),
+                    0.0,
+                    1.0,
+                )
+            # The local score combines the sector fire-behaviour score with
+            # recency/arrival, relative intensity within this incident, and an
+            # absolute Byram-intensity contribution.
+            relative_intensity_exposure = relative_intensity * (
+                0.35 + 0.65 * arrival_urgency
+            )
+            local_score = (
+                0.30 * base_score
+                + 25.0 * arrival_urgency
+                + 15.0 * relative_intensity_exposure
+                + 25.0 * absolute_intensity
+            )
             local_score = _clamp(local_score, 0.0, 100.0)
-            level = classify_risk(local_score, sector_intensity_values[sector])
+            level = classify_risk(local_score, intensity_kw_m)
             cells[(row, col)] = {
                 "score": local_score,
                 "level": level,
                 "sector": sector,
                 "point": [x, y],
-                "components": component_rows[sector],
-                "fire_intensity_kw_m": sector_intensity_values[sector],
+                "components": {
+                    **component_rows[sector],
+                    "arrival_urgency": arrival_urgency,
+                    "relative_fire_intensity": relative_intensity_exposure,
+                    "absolute_fire_intensity": absolute_intensity,
+                },
+                "fire_intensity_kw_m": intensity_kw_m,
+                "estimated_arrival_minute": estimated_arrival,
                 "minimum_score": 0.0,
                 "inside_fire": inside_fire,
                 "active_front": boundary_distance <= active_front_width_km,
@@ -628,9 +691,10 @@ def _risk_areas(
         score = sum(cells[cell]["score"] for cell in component) / len(component)
         factor_totals = {
             key: sum(cells[cell]["components"].get(key, 0.0) for cell in component)
-            for key in component_rows[0]
+            for key in cells[component[0]]["components"]
         }
         component_intensities = [cells[cell]["fire_intensity_kw_m"] for cell in component]
+        component_arrivals = [cells[cell]["estimated_arrival_minute"] for cell in component]
         inside_cell_count = sum(bool(cells[cell]["inside_fire"]) for cell in component)
         active_front_cell_count = sum(bool(cells[cell]["active_front"]) for cell in component)
         # Components are assembled from cells of one class, so preserve that
@@ -665,6 +729,10 @@ def _risk_areas(
                     "risk_score": round(score, 1),
                     "mean_fire_intensity_kw_m": round(mean_intensity, 1),
                     "max_fire_intensity_kw_m": round(max_intensity, 1),
+                    "mean_estimated_arrival_minute": round(
+                        sum(component_arrivals) / max(1, len(component_arrivals)),
+                        1,
+                    ),
                     "fire_intensity_level": intensity_level,
                     "fire_intensity_method": "Byram_H_w_R_proxy_unvalidated",
                     "sector_count": len(component),
@@ -674,6 +742,7 @@ def _risk_areas(
                     "active_front_cell_count": active_front_cell_count,
                     "zone_relation": zone_relation,
                     "grid_resolution": round(cell_size, 3),
+                    "classification_method": "fire_intensity_arrival_growth_wind_terrain_fuel_exposure",
                     "threat_buffer_km": round(threat_buffer_km, 3),
                     "is_simulated": True,
                 },
@@ -982,7 +1051,7 @@ async def create_spatial_analysis(
             },
         },
         "remote_sensing": remote_sensing,
-        "risk_method": "fireline_clearance_plus_remote_evidence_plus_asset_exposure",
+        "risk_method": "fire_intensity_arrival_growth_wind_terrain_fuel_exposure_grid",
         "route_count": len(routes_data),
         "blocked_road_ids": sorted(blocked),
     }

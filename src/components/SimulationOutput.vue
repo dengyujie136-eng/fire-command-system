@@ -40,8 +40,8 @@ const extent=computed(()=>{
 })
 </script>
 <style scoped>
-.simulation-output{flex:0 0 auto;display:grid;gap:6px;margin:9px;padding:10px;border:1px solid #2c6470;border-radius:8px;background:linear-gradient(145deg,#0d3541,#0a1d2a);color:#e8f7fb}
-header{display:flex;justify-content:space-between;gap:8px;align-items:center}header strong{font-size:12px}header span{font-size:10px;color:#9bb4bf}header span.running{color:#fbbf24}header span.completed{color:#5eead4}header span.failed,header span.blocked{color:#fca5a5}
-p{margin:0;color:#b8d2da;font-size:10px;line-height:1.45}dl{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;margin:0;font-size:10px}dt{color:#8fafbc}dd{margin:0;text-align:right;overflow-wrap:anywhere}
-a{color:#67e8f9;font-size:10px;text-decoration:none}small{color:#789ba8;font-size:9px}
+.simulation-output{flex:0 0 auto;display:grid;gap:8px;margin:11px 12px;padding:12px;border:1px solid #2c6470;border-radius:8px;background:linear-gradient(145deg,#0d3541,#0a1d2a);color:#e8f7fb}
+header{display:flex;justify-content:space-between;gap:8px;align-items:center}header strong{font-size:14px}header span{font-size:12px;color:#9bb4bf}header span.running{color:#fbbf24}header span.completed{color:#5eead4}header span.failed,header span.blocked{color:#fca5a5}
+p{margin:0;color:#b8d2da;font-size:12px;line-height:1.5}dl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;margin:0;font-size:12px;line-height:1.4}dt{color:#8fafbc}dd{margin:0;text-align:right;overflow-wrap:anywhere}
+a{color:#67e8f9;font-size:12px;text-decoration:none}small{color:#789ba8;font-size:11px;line-height:1.45}
 </style>

@@ -6,7 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import desc, select, text
+from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.commander_agent import CommanderAgent
@@ -40,6 +40,7 @@ from app.schemas.workflow import (
     ScenarioGenerateRequest,
     WorkflowCreateRequest,
     WorkflowSpreadRerunRequest,
+    VerificationProgressRequest,
 )
 from app.services.resources import ResourceRequirement, ResourceTask
 from app.services.scenario_recommendation_service import (
@@ -444,23 +445,14 @@ async def prepare_workflow(workflow_run_id: str) -> None:
         run = await _run_or_404(db, workflow_run_id)
         try:
             readiness = await data_readiness(db, run.event_id)
-            # Optional catalog probes may rollback their transaction. Reload the
-            # run before reading ORM attributes so asyncpg never lazy-loads here.
             run = await _run_or_404(db, workflow_run_id)
-            event = await db.scalar(select(FireEvent).where(FireEvent.event_id == run.event_id))
-            case, confirmation = await _latest_case_and_confirmation(db, run)
-            auto_imported = False
-            if event is not None and (case is None or (event.source_mode == "historical" and case.is_simulated and not run.confirmation_id)):
-                imported = await _auto_import_candidate(db, event)
-                if imported is not None:
-                    case = imported
-                    confirmation = None
-                    auto_imported = True
-            if case:
-                run.candidate_id = case.source_candidate_id
-                run.visual_case_id = case.visual_case_id
-            if confirmation:
-                run.confirmation_id = confirmation.confirmation_id
+            imagery_count = await db.scalar(
+                select(func.count(ImageryAssetCatalogRecord.id)).where(
+                    ImageryAssetCatalogRecord.event_id == run.event_id,
+                    ImageryAssetCatalogRecord.quality_status == "available",
+                    ImageryAssetCatalogRecord.analysis_phase == "during",
+                )
+            )
             await _set_stage(
                 db,
                 run,
@@ -469,23 +461,26 @@ async def prepare_workflow(workflow_run_id: str) -> None:
                 progress=100,
                 message=f"数据目录已检查：{readiness['available']}/{readiness['total']} 类可用。",
                 result_id=run.event_id,
-                metadata={"readiness": readiness, "candidate_auto_imported": auto_imported},
+                metadata={"readiness": readiness, "during_fire_imagery_count": int(imagery_count or 0)},
             )
             run.status = "WAITING_FOR_INPUT"
             run.current_stage = "fire_verification"
+            run.metadata_json = {
+                **dict(run.metadata_json or {}),
+                "verification_substage": "imagery_selection",
+                "workflow_design": "imagery_first_v2",
+            }
             await _set_stage(
                 db,
                 run,
                 "fire_verification",
                 "WAITING_FOR_INPUT",
-                progress=70 if confirmation else 30,
-                message=("AI/演示核验结果已就绪，等待人工确认。" if confirmation else "候选点已接入，需在专业工作台准备影像并完成核验。"),
-                result_id=confirmation.confirmation_id if confirmation else (case.visual_case_id if case else None),
+                progress=10,
+                message="请选择火灾地点的同期影像，再按影像时间和范围查询 FIRMS 候选火点。",
                 metadata={
-                    "review_state": "AI_SUGGESTED" if confirmation else "UNCERTAIN",
-                    "visual_status": case.status if case else "missing",
-                    "imagery_status": case.imagery_status if case else "missing",
-                    "confidence": confirmation.confidence if confirmation else None,
+                    "verification_substage": "imagery_selection",
+                    "during_fire_imagery_count": int(imagery_count or 0),
+                    "human_confirmation_required": True,
                 },
             )
             await db.commit()
@@ -498,6 +493,63 @@ async def prepare_workflow(workflow_run_id: str) -> None:
             await db.commit()
 
 
+async def update_verification_progress(
+    db: AsyncSession,
+    workflow_run_id: str,
+    request: VerificationProgressRequest,
+) -> WorkflowRun:
+    run = await _run_or_404(db, workflow_run_id)
+    progress_by_substage = {
+        "imagery_selection": 20,
+        "firms_candidates": 40,
+        "target_detection": 62,
+        "qwen_review": 78,
+        "human_confirmation": 88,
+    }
+    if request.visual_case_id:
+        case = await db.scalar(
+            select(VisualVerificationCaseRecord).where(
+                VisualVerificationCaseRecord.visual_case_id == request.visual_case_id,
+                VisualVerificationCaseRecord.event_id == run.event_id,
+            )
+        )
+        if case is None:
+            raise HTTPException(status_code=409, detail="Visual case does not belong to the workflow event")
+        run.visual_case_id = case.visual_case_id
+        run.candidate_id = request.candidate_id or case.source_candidate_id
+    metadata = {
+        **dict(run.metadata_json or {}),
+        "verification_substage": request.substage,
+        "imagery_asset_id": request.imagery_asset_id,
+        "firms_candidate_count": request.candidate_count,
+        "target_detection_status": request.detection_status,
+        "qwen_review_status": request.qwen_review_status,
+        "verification_details": request.details,
+    }
+    run.metadata_json = metadata
+    run.status = "WAITING_FOR_INPUT"
+    message_by_substage = {
+        "imagery_selection": "已选择同期影像，可以按影像时间和范围查询 FIRMS 候选火点。",
+        "firms_candidates": "FIRMS 候选火点已加载，请选择候选点并运行目标检测。",
+        "target_detection": "目标检测已完成，可继续进行 Qwen-VL 综合复核。",
+        "qwen_review": "Qwen-VL 复核已完成，等待人工确认火点。",
+        "human_confirmation": "检测证据已准备完成，等待人工确认火点。",
+    }
+    await _set_stage(
+        db,
+        run,
+        "fire_verification",
+        "WAITING_FOR_INPUT",
+        progress=progress_by_substage[request.substage],
+        message=message_by_substage[request.substage],
+        result_id=request.confirmation_id or request.visual_case_id or request.imagery_asset_id,
+        metadata=metadata,
+    )
+    await db.commit()
+    await db.refresh(run)
+    return run
+
+
 async def human_verify(db: AsyncSession, workflow_run_id: str, request: HumanVerificationRequest) -> WorkflowRun:
     run = await _run_or_404(db, workflow_run_id)
     case, confirmation = await _latest_case_and_confirmation(db, run)
@@ -508,17 +560,52 @@ async def human_verify(db: AsyncSession, workflow_run_id: str, request: HumanVer
             )
         if confirmation is None or confirmation.status != "confirmed":
             raise HTTPException(status_code=409, detail="A confirmed visual result is required before human confirmation")
+        confirmation_changed = run.confirmation_id != confirmation.confirmation_id
+        previous_spread_run_id = run.spread_run_id
+        if confirmation_changed and previous_spread_run_id:
+            await _invalidate_downstream_results(
+                db,
+                run,
+                previous_spread_run_id=previous_spread_run_id,
+            )
+            run.spread_run_id = None
+            await _set_stage(
+                db,
+                run,
+                "spread",
+                "PENDING",
+                progress=0,
+                message="The confirmed fire point changed; run a new spread prediction from the new point.",
+                metadata={"invalidated": True, "reason": "confirmed_point_changed"},
+            )
         run.confirmation_id = confirmation.confirmation_id
         run.visual_case_id = confirmation.visual_case_id
         run.candidate_id = confirmation.source_candidate_id
         run.human_confirmation_state = "HUMAN_CONFIRMED"
-        run.status = "RUNNING"
+        run.status = "WAITING_FOR_INPUT"
+        await TrustedIgnitionAdapter().resolve(
+            db,
+            event_id=run.event_id,
+            confirmation_id=confirmation.confirmation_id,
+        )
         await _set_stage(
             db, run, "fire_verification", "COMPLETED", progress=100,
             message="人工已确认可信火点。", result_id=confirmation.confirmation_id,
             metadata={"review_state": "HUMAN_CONFIRMED", "note": request.note, "confidence": confirmation.confidence},
         )
-        await _set_stage(db, run, "situation", "READY", progress=0, message="可信火点已就绪，可开始态势评估。")
+        run.metadata_json = {
+            **dict(run.metadata_json or {}),
+            "verification_substage": "human_confirmation",
+            "next_action": "start_initial_spread",
+        }
+        await _set_stage(
+            db,
+            run,
+            "situation",
+            "READY",
+            progress=0,
+            message="可信火点已确认，请设置气象和推演时长后开始首次火势推演。",
+        )
     elif request.action == "reject":
         run.human_confirmation_state = "HUMAN_REJECTED"
         run.status = "WAITING_FOR_INPUT"
@@ -620,34 +707,40 @@ async def request_spread_rerun(
             status_code=409,
             detail="A human-confirmed fire point is required before a workflow spread rerun",
         )
-    if not run.spread_run_id:
-        raise HTTPException(
-            status_code=409,
-            detail="The initial workflow spread run must finish before it can be rerun",
-        )
     spread_stage = await _stage(db, workflow_run_id, "spread")
     if spread_stage.status == "RUNNING":
         raise HTTPException(status_code=409, detail="A workflow spread calculation is already running")
 
     previous_spread_run_id = run.spread_run_id
-    await _invalidate_downstream_results(
-        db,
-        run,
-        previous_spread_run_id=previous_spread_run_id,
-    )
+    if previous_spread_run_id:
+        await _invalidate_downstream_results(
+            db,
+            run,
+            previous_spread_run_id=previous_spread_run_id,
+        )
     run.spread_run_id = None
     run.horizon_minutes = request.horizon_minutes
     run.status = "RUNNING"
     run.error = None
+    run.metadata_json = {
+        **dict(run.metadata_json or {}),
+        "pending_spread_mode": "initial_weather_override" if previous_spread_run_id is None else "weather_rerun",
+        "pending_previous_spread_run_id": previous_spread_run_id,
+    }
     await _set_stage(
         db,
         run,
         "spread",
         "RUNNING",
         progress=10,
-        message="正在使用确认火点和指挥工作台环境参数重新执行真实火势推演。",
+        message=(
+            "正在使用确认火点和人工设置的气象参数执行首次火势推演。"
+            if previous_spread_run_id is None
+            else "正在使用最新确认火点和气象参数重新执行火势推演。"
+        ),
         metadata={
-            "rerun": True,
+            "rerun": previous_spread_run_id is not None,
+            "spread_mode": "initial_weather_override" if previous_spread_run_id is None else "weather_rerun",
             "previous_spread_run_id": previous_spread_run_id,
             "parameter_source": "command_center_manual_what_if",
             "parameter_overrides": request.model_dump(mode="json"),
@@ -680,8 +773,9 @@ async def execute_spread_rerun(
             environment_overrides = {
                 key: value
                 for key, value in parameter_overrides.items()
-                if key != "horizon_minutes"
+                if key not in {"horizon_minutes", "weather_update_interval_minutes"}
             }
+            initial_run = (run.metadata_json or {}).get("pending_spread_mode") == "initial_weather_override"
             environment_overrides["source"] = "command_center_parameter_adjustment"
             ignition = await TrustedIgnitionAdapter().resolve(
                 db,
@@ -693,16 +787,20 @@ async def execute_spread_rerun(
                 event_id=run.event_id,
                 ignition=ignition,
                 horizon_minutes=request.horizon_minutes,
+                weather_update_interval_minutes=request.weather_update_interval_minutes,
                 environment_overrides=environment_overrides,
-                input_source=f"workflow_parameter_rerun:{run.workflow_run_id}",
-                run_mode="what_if",
+                input_source=f"workflow_weather_control:{run.workflow_run_id}",
+                run_mode="initial_forecast" if initial_run else "what_if",
             )
             run.spread_run_id = spread.run.run_id
             run.metadata_json = {
                 **dict(run.metadata_json or {}),
+                "pending_spread_mode": None,
+                "pending_previous_spread_run_id": None,
                 "last_parameter_rerun": {
                     "spread_run_id": spread.run.run_id,
                     "parameters": parameter_overrides,
+                    "mode": "initial_weather_override" if initial_run else "weather_rerun",
                     "completed_at": _now().isoformat(),
                 },
             }

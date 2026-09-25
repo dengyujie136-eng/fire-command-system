@@ -101,6 +101,7 @@ class ImageryMatchStatus(str, Enum):
 class AnalysisPhase(str, Enum):
     PRE = "pre"
     DURING = "during"
+    PRIMARY = "primary"
     POST = "post"
     CONTEXT = "context"
 

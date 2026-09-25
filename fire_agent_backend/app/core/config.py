@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     visual_auto_confirm_screened_candidates: bool = True
     visual_auto_confirm_min_confidence: float = Field(default=0.70, ge=0, le=1)
     professional_detector_api_url: str = "http://visual-detector-api:8300"
-    professional_detector_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
+    professional_detector_timeout_seconds: float = Field(default=180.0, gt=0, le=300)
     professional_detector_default_confidence: float = Field(default=0.40, ge=0.05, le=0.95)
     forefire_api_url: str = "http://127.0.0.1:5000"
     forefire_timeout_seconds: float = 300.0
@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     firms_realtime_days: int = 2
     realtime_retention_count: int = 3
     realtime_http_timeout_seconds: float = 45.0
+    geocoder_base_url: str = "https://nominatim.openstreetmap.org"
+    geocoder_timeout_seconds: float = Field(default=20.0, gt=0, le=60)
 
     model_config = SettingsConfigDict(
         env_file=".env",

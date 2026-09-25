@@ -113,52 +113,10 @@
             <span>火险指数 FWI</span>
             <input v-model.number="environmentInput.fireWeatherIndex" type="number" min="0" max="100" step="1" />
           </label>
-          <label class="weather-update-input">
-            <span>气象检查提醒（分钟）</span>
-            <input v-model.number="environmentInput.nextWeatherUpdateMinutes" type="number" min="60" max="1440" step="1" />
+          <label class="single-inference-time">
+            <span>单次推理时间（小时）</span>
+            <input v-model.number="forecastHours" type="number" min="1" max="24" step="1" />
           </label>
-        </div>
-        <div class="forecast-horizon">
-          <strong>预测总时长</strong>
-          <div class="horizon-presets">
-            <button v-for="hours in [1,2,4,6,12,24]" :key="hours" type="button" :class="{active:forecastHours===hours}" @click="forecastHours=hours">{{ hours }} 小时</button>
-          </div>
-          <label>自定义小时数 <input v-model.number="forecastHours" type="number" min="1" max="24" step="1" /></label>
-          <small>本轮将推演至 T+{{ Math.round(Number(forecastHours || 1) * 60) }} 分钟；气象更新间隔与预测总时长分别设置。</small>
-        </div>
-        <div class="weather-interval">
-          <span>气象检查间隔</span>
-          <button type="button" :class="{active:environmentInput.nextWeatherUpdateMinutes===60}" @click="environmentInput.nextWeatherUpdateMinutes=60">每小时</button>
-          <button type="button" :class="{active:environmentInput.nextWeatherUpdateMinutes===120}" @click="environmentInput.nextWeatherUpdateMinutes=120">每两小时</button>
-          <small>也可在上方输入自定义分钟数</small>
-        </div>
-        <div class="forecast-timeline">
-          <div class="forecast-timeline-head">
-            <span>本轮有效气象</span>
-            <span>当前气象保持不变 · 预测 {{ forecastHours }} 小时</span>
-          </div>
-          <div v-for="frame in forecastFrames" :key="frame.id" class="forecast-frame current">
-            <div class="forecast-frame-label">
-              <strong>当前</strong>
-              <small>火场实况</small>
-            </div>
-            <label>
-              <span>风速</span>
-              <input v-model.number="frame.wind_speed_m_s" type="number" min="0" max="60" step="0.5" />
-            </label>
-            <label>
-              <span>风向</span>
-              <input v-model.number="frame.wind_direction_deg" type="number" min="0" max="359" step="5" />
-            </label>
-            <label>
-              <span>湿度</span>
-              <input v-model.number="frame.humidity_percent" type="number" min="0" max="100" step="1" />
-            </label>
-            <label>
-              <span>降水</span>
-              <input v-model.number="frame.precipitation_mm_h" type="number" min="0" max="200" step="0.1" />
-            </label>
-          </div>
         </div>
         <div class="model-contract">
           <span class="contract-check">✓</span>
@@ -168,18 +126,33 @@
           </div>
           <b>90 m</b>
         </div>
-        <button class="primary-command" :disabled="busy || incident.loading || (!canRerunConfirmed && incident.eventId !== 'dixie_fire_2021')" @click="runWorkflow()">
-          {{ busy ? '正在提交...' : canRerunConfirmed ? '按当前气象重新推演' : '重新运行历史气象推演' }}
+        <button v-if="!hasVisibleSpread" class="primary-command" :disabled="busy || incident.loading || !hasConfirmedPoint" @click="startSimulation">
+          {{ primaryActionLabel }}
         </button>
-        <p v-if="!canRerunConfirmed && incident.eventId === 'dixie_fire_2021'" class="operation-message">当前只有历史栅格推演结果。这里可按所选时长重新运行数据库逐时气象；自定义风速风向需要先完成影像火点核验与人工确认。</p>
-        <p v-if="hasConfirmedPoint && !incident.spreadRunId" class="operation-message">已确认火点的首次推演正在现有工作流中运行，完成后可调整气象重新推演。</p>
-        <div v-if="fireEvent.spreadRun" class="run-lineage">
+        <div v-else class="simulation-actions">
+          <button class="primary-command" :disabled="busy || incident.loading || !hasConfirmedPoint" @click="restartFromConfirmedPoint">
+            从确认火点重新推演
+          </button>
+          <button class="continue-command" :disabled="!canContinue" @click="continueWorkflow">
+            {{ continueButtonLabel }}
+          </button>
+          <button class="submit-fireline-command" :disabled="busy || !fireEvent.spreadRun" @click="submitCurrentFireline">
+            提交当前火线范围并进入规划
+          </button>
+          <button class="clear-fireline-command" :disabled="busy" @click="clearCurrentFireline">
+            清除现有火线
+          </button>
+          <small>两个操作均使用当前气象和右侧智能体保存的推理时长；重新推演从确认火点开始，继续推演从当前最终火线开始。</small>
+        </div>
+        <p v-if="!hasVisibleSpread && !canRerunConfirmed && incident.eventId === 'dixie_fire_2021'" class="operation-message">首次运行使用数据库历史小时气象。得到结果后，可重新输入气象并选择从确认火点重新推演，或从最终火线继续推演。</p>
+        <p v-if="!hasVisibleSpread && hasConfirmedPoint && !incident.spreadRunId" class="operation-message">已接收确认火点。点击开始推演后，页面才会生成并显示火线结果。</p>
+        <div v-if="hasVisibleSpread" class="run-lineage">
           <span>{{ runModeLabel }}</span>
           <strong>{{ currentRunWindow }}</strong>
           <small v-if="parentRunId">父运行 {{ shortRunId(parentRunId) }}</small>
           <small v-else>根运行 {{ shortRunId(fireEvent.spreadRun.run_id) }}</small>
         </div>
-        <div v-if="fireEvent.spreadRun && !historicalComparison" class="checkpoint-card">
+        <div v-if="hasVisibleSpread && !historicalComparison" class="checkpoint-card">
           <div>
             <span>续推检查点</span>
             <strong>T+{{ fireEvent.spreadRun.start_minute + fireEvent.spreadRun.horizon_minutes }} min</strong>
@@ -188,14 +161,14 @@
             <span>当前面积</span>
             <strong>{{ formatNumber(fireEvent.spreadRun.final_area_km2, 3) }} km²</strong>
           </div>
-          <small>{{ canContinue ? '最终火线已锁定，更新气象后可继续' : '等待动画到达最终火线后解锁续推' }}</small>
+          <small>{{ canContinue ? '最终火线已锁定，可修改气象和时长后继续' : '正在生成最终火线检查点' }}</small>
         </div>
         <p class="operation-message" :class="{ error: hasError }">
           {{ message }}
         </p>
       </section>
 
-      <section v-if="historicalComparison" class="historical-comparison">
+      <section v-if="hasVisibleSpread && historicalComparison" class="historical-comparison">
         <header>
           <div>
             <span>历史对比</span>
@@ -288,7 +261,7 @@
         <small>输入：{{ historicalWeatherFrameLabel }}。标定同时比较 6、12、24 小时 FIRMS 凸包；它是活跃火点范围代理，不等同于实测过火边界。</small>
       </section>
 
-      <section class="metric-grid">
+      <section v-if="hasVisibleSpread" class="metric-grid">
         <article>
           <span>推演引擎</span>
           <strong>{{ engineLabel }}</strong>
@@ -311,18 +284,18 @@
         </article>
       </section>
 
-      <section class="work-section timeline-section">
+      <section v-if="hasVisibleSpread" class="work-section timeline-section">
         <div class="section-title">
           <h2>火线时间序列</h2>
           <span>{{ fireEvent.spreadSteps.length }}</span>
         </div>
-        <div v-if="fireEvent.spreadSteps.length" class="timeline-list">
+        <div v-if="hasVisibleSpread && fireEvent.spreadSteps.length" class="timeline-list">
           <button v-for="(step, index) in fireEvent.spreadSteps" :key="step.step_id" :class="{ active: selectedStep === index }" @click="selectStep(index)">
             <span>T+{{ step.time_minute }} min</span>
             <strong>{{ formatNumber(step.area_km2, 3) }} km²</strong>
           </button>
         </div>
-        <div v-if="fireEvent.spreadSteps.length" class="playback-controls">
+        <div v-if="hasVisibleSpread && fireEvent.spreadSteps.length" class="playback-controls">
           <div class="playback-state">
             <span>动画</span>
             <strong>{{ playbackStatusLabel }}</strong>
@@ -405,6 +378,7 @@
       <CesiumMap ref="mapRef" class="map" :scene-id="scenarioId" />
       <div class="map-toolbar">
         <button :class="{ active: layerState.fire }" @click="toggleLayer('fire')">火线</button>
+        <button :class="{ active: layerState.impact }" :disabled="!fireEvent.spatialAnalysisRun" @click="toggleLayer('impact')">风险区</button>
         <button :class="{ active: windLayerVisible }" @click="toggleWindLayer">风场</button>
         <button class="wind-focus" @click="focusWindField">定位风场</button>
       </div>
@@ -423,7 +397,7 @@
           <strong>{{ formatNumber(displayedWeather.humidity_percent, 0) }}%</strong>
         </div>
       </div>
-      <div class="map-legend"><strong>推演图例</strong><span><i class="fireline"></i>当前火线</span><span><i class="fire"></i>火场范围</span><small>结果来自当前火势模型运行</small></div>
+      <div class="map-legend"><strong>推演图例</strong><span><i class="fireline"></i>当前火线</span><span><i class="fire"></i>火场范围</span><span><i class="risk-high"></i>高风险区</span><span><i class="risk-medium"></i>中风险区</span><span><i class="risk-low"></i>低风险区</span><small>风险分区来自火线、风场、燃料、地形与周边暴露对象的空间分析结果</small></div>
     </section>
 
     <Teleport defer to="#business-panel">
@@ -449,15 +423,15 @@ import CesiumMap from '../components/CesiumMap.vue'
 import { useFireEventStore } from '../stores/fireEventStore'
 import { useIncidentContextStore } from '../stores/incidentContextStore'
 import { useAssistantTaskStore } from '../stores/assistantTaskStore'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 type LayerName = 'fire' | 'impact' | 'route'
 
 const fireEvent = useFireEventStore()
 const incident = useIncidentContextStore()
 const task = useAssistantTaskStore()
-const contextLoaded = ref(false)
 const route = useRoute()
+const router = useRouter()
 const hasConfirmedPoint = computed(() => Boolean(incident.confirmationId && incident.workflow?.artifacts?.confirmed_point?.coordinates))
 const canRerunConfirmed = computed(() => hasConfirmedPoint.value && Boolean(incident.spreadRunId) && !incident.loading)
 function syncConfirmedPoint() { const coordinates=incident.workflow?.artifacts?.confirmed_point?.coordinates; if(Array.isArray(coordinates)&&coordinates.length===2){mockPoint.value={longitude:Number(coordinates[0]),latitude:Number(coordinates[1]),confidence:1}} }
@@ -471,7 +445,8 @@ const mockPoint = ref({
 })
 const busy = ref(false)
 const hasError = ref(false)
-const message = ref('等待运行成员丙模拟链路。')
+const resultsRequested = ref(false)
+const message = ref('请检查火点和气象，并在右侧智能体设置推理时长与气象更新间隔，然后点击开始推演。页面不会自动运行或展示历史火线。')
 const selectedStep = ref(-1)
 const roadBlocked = ref(false)
 const animationPlaying = ref(false)
@@ -484,7 +459,7 @@ const playbackSpeedOptions = [
   { value: 'slow' as const, label: '慢速', durationMs: 8000 },
 ]
 let renderedFireRunId = ''
-const layerState = ref({ fire: true, impact: false, route: false })
+const layerState = ref({ fire: false, impact: true, route: false })
 const windLayerVisible = ref(true)
 const forecastHours = ref(4)
 const environmentInput = ref({
@@ -525,7 +500,8 @@ const rasterGridLabel = computed(() => {
 })
 const selectedElapsedMinutes = computed(() => Number(selectedFireStep.value?.time_minute || 0))
 const parentRunId = computed(() => fireEvent.spreadRun?.result_summary?.parent_run_id || null)
-const historicalComparison = computed(() => fireEvent.spreadRun?.result_summary?.comparison || null)
+const hasVisibleSpread = computed(() => resultsRequested.value && hasConfirmedPoint.value && Boolean(fireEvent.spreadRun))
+const historicalComparison = computed(() => hasVisibleSpread.value ? fireEvent.spreadRun?.result_summary?.comparison || null : null)
 const displayedWeather = computed(() => {
   if (historicalComparison.value && selectedEnvironment.value) return selectedEnvironment.value
   return {
@@ -573,11 +549,15 @@ const playbackStatusLabel = computed(() => {
   if (animationPlaying.value) return `播放中 ${Math.round(playbackProgress.value)}%`
   return `已暂停 ${Math.round(playbackProgress.value)}%`
 })
-const canContinue = computed(() => Boolean(fireEvent.spreadRun) && !historicalComparison.value && !busy.value && animationCompleted.value && !animationPlaying.value)
+const canContinue = computed(() => hasVisibleSpread.value && Boolean(fireEvent.spreadRun) && !busy.value && !incident.loading)
+const primaryActionLabel = computed(() => {
+  if (busy.value) return '正在提交...'
+  if (task.status === 'queued' && task.requestedByAgent) return '确认并开始智能体推演'
+  return canRerunConfirmed.value ? '按当前气象开始推演' : '开始历史气象推演'
+})
 const continueButtonLabel = computed(() => {
   if (!fireEvent.spreadRun) return '等待首次推演'
-  if (historicalComparison.value) return '历史验证结果不可续推'
-  if (!animationCompleted.value) return '等待最终火线检查点'
+  if (busy.value || incident.loading) return '正在提交...'
   return '从最终火线继续推演'
 })
 const engineLabel = computed(() => {
@@ -675,7 +655,10 @@ function shortRunId(value: string) {
 function environmentTimeline(horizonMinutes: number, source: string) {
   const input = environmentInput.value
   const frame = forecastFrames.value[0]
-  return [0, horizonMinutes].map((elapsedMinutes) => ({
+  const interval = Math.max(1, Math.min(horizonMinutes, Math.round(Number(input.nextWeatherUpdateMinutes || 60))))
+  const updateTimes = Array.from({ length: Math.floor(horizonMinutes / interval) + 1 }, (_, index) => index * interval)
+  if (updateTimes[updateTimes.length - 1] !== horizonMinutes) updateTimes.push(horizonMinutes)
+  return updateTimes.map((elapsedMinutes) => ({
     elapsed_minutes: elapsedMinutes,
     temperature_c: input.temperatureC,
     humidity_percent: Number(frame.humidity_percent),
@@ -715,6 +698,14 @@ function riskRelationLabel(value: string) {
       } as Record<string, string>
     )[value] || '风险区域'
   )
+}
+
+function riskLevelLabel(value: string) {
+  return ({ high: '高风险区', medium: '中风险区', low: '低风险区' } as Record<string, string>)[value] || '风险区'
+}
+
+function riskLevelColor(value: string) {
+  return ({ high: '#ef4444', medium: '#f59e0b', low: '#38bdf8' } as Record<string, string>)[value] || '#38bdf8'
 }
 
 function impactTypeLabel(value: string) {
@@ -774,7 +765,7 @@ function renderMap(options: { replayFire?: boolean; autoPlay?: boolean } = {}) {
         geometry: { type: 'Point', coordinates: center },
       },
     ],
-  })
+  }, { showLabel: false })
 
   const currentRunId = String(fireEvent.spreadRun?.run_id || '')
   if (!layerState.value.fire) {
@@ -800,12 +791,30 @@ function renderMap(options: { replayFire?: boolean; autoPlay?: boolean } = {}) {
   }
 
   if (layerState.value.impact) {
+    riskAreas.value.forEach((feature: any, featureIndex: number) => {
+      const geometry = feature?.geometry
+      const properties = feature?.properties || {}
+      const riskLevel = String(properties.risk_level || 'low')
+      const polygons = geometry?.type === 'Polygon'
+        ? [geometry.coordinates]
+        : geometry?.type === 'MultiPolygon'
+          ? geometry.coordinates
+          : []
+      polygons.forEach((coordinates: any, polygonIndex: number) => {
+        map.addDemoArea?.({
+          name: String(properties.object_id || `risk-area-${featureIndex + 1}-${polygonIndex + 1}`),
+          coordinates,
+          color: riskLevelColor(riskLevel),
+          label: '',
+        })
+      })
+    })
     affectedImpacts.value.forEach((item: any) => {
       if (item.geometry?.type !== 'Point') return
       const color = item.severity === 'critical' ? '#ef4444' : item.severity === 'high' ? '#f59e0b' : '#38bdf8'
       map.addDemoPoint?.({
         name: item.name,
-        label: item.name,
+        label: '',
         position: item.geometry.coordinates,
         color,
         size: item.severity === 'critical' ? 15 : 11,
@@ -834,25 +843,41 @@ async function ensureEvent() {
 }
 
 async function runWorkflow(fromTask = false) {
+  if (!hasConfirmedPoint.value) {
+    hasError.value = true
+    message.value = '请先在影像核验页完成 Qwen-VL 复核并人工确认火点，再启动历史或实时推演。'
+    return
+  }
   if(fromTask){
     forecastHours.value=task.requestedHours
+    environmentInput.value.nextWeatherUpdateMinutes=task.weatherUpdateMinutes
     const overrides=task.weatherOverrides
     if(overrides.wind_speed_m_s!==undefined)forecastFrames.value[0].wind_speed_m_s=overrides.wind_speed_m_s
     if(overrides.wind_direction_deg!==undefined)forecastFrames.value[0].wind_direction_deg=overrides.wind_direction_deg
     if(overrides.temperature_c!==undefined)environmentInput.value.temperatureC=overrides.temperature_c
     if(overrides.humidity_percent!==undefined)forecastFrames.value[0].humidity_percent=overrides.humidity_percent
   }
+  resultsRequested.value = true
   if (!canRerunConfirmed.value) {
     if (incident.eventId === 'dixie_fire_2021') {
-      if (!fromTask) task.queue(forecastHours.value, fireEvent.spreadRun?.run_id || null, false)
+      if (!fromTask) task.queue(forecastHours.value, fireEvent.spreadRun?.run_id || null, false, {}, environmentInput.value.nextWeatherUpdateMinutes)
       task.start()
+      layerState.value.fire = true
+      layerState.value.impact = true
       historicalInput.value.horizonHours = forecastHours.value
       await runHistoricalWorkflow()
-    } else if(fromTask) task.fail('需要核验确认火点并完成首次推演。',true)
+    } else {
+      const unavailableMessage = '当前事件还没有可重新运行的推演，请等待确认火点后的首次推演完成。'
+      hasError.value = true
+      message.value = unavailableMessage
+      if (fromTask) task.fail(unavailableMessage, true)
+    }
     return
   }
-  else task.queue(forecastHours.value,incident.spreadRunId,false)
+  else task.queue(forecastHours.value,incident.spreadRunId,false,{},environmentInput.value.nextWeatherUpdateMinutes)
   task.start()
+  layerState.value.fire = true
+  layerState.value.impact = true
   busy.value = true
   hasError.value = false
   message.value = '已提交确认火点与当前气象参数，正在运行栅格推演…'
@@ -860,6 +885,7 @@ async function runWorkflow(fromTask = false) {
     const frame = forecastFrames.value[0]
     await incident.rerunSpread({
       horizon_minutes: Math.max(60, Math.min(1440, Math.round(Number(forecastHours.value || 4) * 60))),
+      weather_update_interval_minutes: Number(environmentInput.value.nextWeatherUpdateMinutes),
       wind_speed_m_s: Number(frame.wind_speed_m_s),
       wind_direction_deg: Number(frame.wind_direction_deg),
       temperature_c: Number(environmentInput.value.temperatureC),
@@ -878,7 +904,13 @@ async function runWorkflow(fromTask = false) {
   }
 }
 
+async function startSimulation() {
+  await runWorkflow(task.status === 'queued' && task.requestedByAgent)
+}
+
 async function runHistoricalWorkflow() {
+  resultsRequested.value = true
+  layerState.value.impact = true
   busy.value = true
   hasError.value = false
   message.value = '正在读取 Dixie Fire 小时气象与真实地形燃料栅格...'
@@ -886,6 +918,7 @@ async function runHistoricalWorkflow() {
     await fireEvent.createHistoricalSpreadRun(
       {
         horizon_hours: historicalInput.value.horizonHours,
+        weather_update_interval_minutes: environmentInput.value.nextWeatherUpdateMinutes,
         raster_resolution_m: 90,
         simulation_buffer_km: 25,
         initial_radius_m: 187.5,
@@ -944,40 +977,103 @@ async function runCalibrationWorkflow() {
   }
 }
 
-async function continueWorkflow() {
-  const previousRunId = fireEvent.spreadRun?.run_id
-  if (!previousRunId) return
+async function executeManualSpread(mode: 'restart' | 'continue') {
+  if (!hasConfirmedPoint.value || !incident.eventId) {
+    hasError.value = true
+    message.value = '缺少人工确认火点，无法启动推演。'
+    return
+  }
+  const previousRunId = mode === 'continue' ? fireEvent.spreadRun?.run_id : undefined
+  if (mode === 'continue' && !previousRunId) {
+    hasError.value = true
+    message.value = '当前没有可用的最终火线检查点。'
+    return
+  }
 
+  const horizonMinutes = Math.max(60, Math.min(1440, Math.round(Number(forecastHours.value || 1) * 60)))
+  resultsRequested.value = true
+  layerState.value.fire = true
+  layerState.value.impact = true
   busy.value = true
   hasError.value = false
-  message.value = '正在从当前最终火线应用新环境继续推演...'
+  animationPlaying.value = false
+  animationCompleted.value = false
+  playbackProgress.value = 0
+  selectedStep.value = -1
+  message.value = mode === 'continue'
+    ? '正在从当前最终火线应用新气象继续推演...'
+    : '正在从人工确认火点应用新气象重新推演...'
   try {
-    const weatherUpdateMinutes = Math.max(1, Number(environmentInput.value.nextWeatherUpdateMinutes || 1))
     await fireEvent.createSpreadRun({
+      horizon_minutes: horizonMinutes,
       continue_from_run_id: previousRunId,
-      run_mode: 'rolling_forecast',
-      input_source: 'manual_environment_update',
-      environment_timeline: environmentTimeline(weatherUpdateMinutes, 'manual_rolling_update'),
+      run_mode: mode === 'continue' ? 'rolling_forecast' : 'what_if',
+      input_source: mode === 'continue'
+        ? 'manual_weather_continue_from_fireline'
+        : 'manual_weather_restart_from_confirmed_point',
+      environment_timeline: environmentTimeline(
+        horizonMinutes,
+        mode === 'continue' ? 'manual_rolling_update' : 'manual_ignition_restart',
+      ),
       raster_resolution_m: 90,
       simulation_buffer_km: 25,
       wind_direction_convention: 'spread_toward',
-    })
+    }, incident.eventId)
     message.value = '新火线已生成，正在重算影响对象和 A* 路线...'
     await fireEvent.createSpatialAnalysis({
       include_routes: false,
       threat_buffer_km: 0.55,
       blocked_road_ids: roadBlocked.value ? ['road_forest_01'] : [],
-    })
+    }, incident.eventId)
     selectedStep.value = 0
-    message.value = `续推计算已完成，正在播放 ${shortRunId(previousRunId)} 之后的新火线。`
+    message.value = mode === 'continue'
+      ? `已从 ${shortRunId(previousRunId || '')} 的最终火线继续推演 ${forecastHours.value} 小时。`
+      : `已从人工确认火点按新气象重新推演 ${forecastHours.value} 小时。`
     await nextTick()
     renderMap({ autoPlay: true })
   } catch (error: any) {
     hasError.value = true
-    message.value = error?.message || '续推失败，请检查父运行和环境输入。'
+    message.value = error?.message || (mode === 'continue'
+      ? '续推失败，请检查父运行和环境输入。'
+      : '重新推演失败，请检查确认火点和环境输入。')
   } finally {
     busy.value = false
   }
+}
+
+async function restartFromConfirmedPoint() {
+  await executeManualSpread('restart')
+}
+
+async function continueWorkflow() {
+  await executeManualSpread('continue')
+}
+
+async function submitCurrentFireline() {
+  if (!fireEvent.submitFireline()) {
+    hasError.value = true
+    message.value = '当前没有可提交的最终火线，请先完成一次推演。'
+    return
+  }
+  hasError.value = false
+  message.value = '火线范围已提交，正在进入规划阶段。'
+  await router.push({
+    path: '/planning',
+    query: { spread_run_id: fireEvent.submittedSpreadRunId || '' },
+  })
+}
+
+function clearCurrentFireline() {
+  fireEvent.clearSpreadState()
+  resultsRequested.value = false
+  layerState.value.fire = false
+  selectedStep.value = -1
+  renderedFireRunId = ''
+  animationPlaying.value = false
+  animationCompleted.value = false
+  playbackProgress.value = 0
+  message.value = '现有火线已清除。确认火点和气象输入仍然保留。'
+  void nextTick(() => renderMap({ autoPlay: false }))
 }
 
 async function replanForBlockedRoad() {
@@ -1051,11 +1147,21 @@ function focusWindField() {
   })
 }
 
-function runPendingTask(){ if(contextLoaded.value && task.status==='queued' && task.requestedByAgent) void runWorkflow(true) }
+async function focusConfirmedPoint() {
+  if (!hasConfirmedPoint.value) return
+  await nextTick()
+  mapRef.value?.flyTo?.({
+    center: [mockPoint.value.longitude, mockPoint.value.latitude],
+    height: 30000,
+  })
+}
+
 onMounted(async () => {
+  const hadPersistedSpread = Boolean(fireEvent.spreadRun || fireEvent.submittedFireline)
+  resultsRequested.value = hadPersistedSpread
+  layerState.value.fire = hadPersistedSpread
   try { await incident.loadEvents(); await incident.loadLatestWorkflow(); syncConfirmedPoint() } catch { /* confirmed point remains unavailable */ }
-  contextLoaded.value=true
-  if (route.query.weather_interval === '60' || route.query.weather_interval === '120') environmentInput.value.nextWeatherUpdateMinutes=Number(route.query.weather_interval)
+  const requestedInterval=Number(route.query.weather_interval); if(Number.isInteger(requestedInterval)&&requestedInterval>=1&&requestedInterval<=1440) environmentInput.value.nextWeatherUpdateMinutes=requestedInterval
   const requestedHours=Number(route.query.forecast_hours); if(Number.isInteger(requestedHours)&&requestedHours>=1&&requestedHours<=24) forecastHours.value=requestedHours
   const routeWindSpeed=Number(route.query.wind_speed_m_s);if(Number.isFinite(routeWindSpeed)&&routeWindSpeed>=0&&routeWindSpeed<=60)forecastFrames.value[0].wind_speed_m_s=routeWindSpeed
   const routeWindDirection=Number(route.query.wind_direction_deg);if(Number.isFinite(routeWindDirection)&&routeWindDirection>=0&&routeWindDirection<360)forecastFrames.value[0].wind_direction_deg=routeWindDirection
@@ -1066,19 +1172,30 @@ onMounted(async () => {
   try {
     await fireEvent.loadScenarios()
     if (fireEvent.scenarios.some((item:any)=>item.scenario_id===incident.eventId)) scenarioId.value=incident.eventId
-    if (incident.eventId) {
-      await Promise.allSettled([fireEvent.loadLatestSpreadRun(incident.eventId), fireEvent.loadClockState()])
+    if (incident.eventId && hasConfirmedPoint.value) {
+      await fireEvent.loadClockState().catch(() => {})
       await nextTick()
       renderMap({ autoPlay: false })
+      await focusConfirmedPoint()
+    } else if (!hasConfirmedPoint.value && !hadPersistedSpread) {
+      fireEvent.clearSpreadState()
     }
   } catch (error) {
     console.warn('Backend scenario data is unavailable; keeping the local weather visualization active.', error)
   }
-  runPendingTask()
 })
 
-watch(() => incident.confirmationId, syncConfirmedPoint)
+watch(hasConfirmedPoint, async (confirmed) => {
+  if (!confirmed) {
+    if (!fireEvent.spreadRun && !fireEvent.submittedFireline) fireEvent.clearSpreadState()
+    return
+  }
+  syncConfirmedPoint()
+  renderMap({ autoPlay: false })
+  await focusConfirmedPoint()
+}, { immediate: true })
 watch(() => incident.spreadRunId, async (runId) => {
+  if (!resultsRequested.value) return
   if (!runId || runId === fireEvent.spreadRun?.run_id) return
   try {
     await fireEvent.loadLatestSpreadRun(incident.eventId)
@@ -1093,9 +1210,19 @@ watch(() => incident.spreadRunId, async (runId) => {
     if(task.status==='running') task.fail(message.value)
   }
 })
-watch(() => task.status, runPendingTask)
+watch(() => incident.spatialAnalysisId, async (analysisId) => {
+  if (!resultsRequested.value || !analysisId || analysisId === fireEvent.spatialAnalysisRun?.analysis_id) return
+  try {
+    await fireEvent.loadLatestSpatialAnalysis(incident.eventId)
+    await nextTick()
+    renderMap({ autoPlay: false })
+  } catch (cause: any) {
+    hasError.value = true
+    message.value = cause?.message || '危险区域结果加载失败。'
+  }
+})
 watch(() => incident.workflow?.status, (value)=>{if(value==='FAILED' && task.status==='running') task.fail(incident.workflow?.error || '模型计算失败。')})
-watch(() => route.query.weather_interval, (value) => { if(value==='60'||value==='120') environmentInput.value.nextWeatherUpdateMinutes=Number(value) })
+watch(() => route.query.weather_interval, (value) => { const interval=Number(value); if(Number.isInteger(interval)&&interval>=1&&interval<=1440) environmentInput.value.nextWeatherUpdateMinutes=interval })
 watch(() => route.query.forecast_hours, (value) => { const hours=Number(value); if(Number.isInteger(hours)&&hours>=1&&hours<=24) forecastHours.value=hours })
 watch(scenarioId, (value) => {
   if (hasConfirmedPoint.value) return
@@ -1116,7 +1243,7 @@ watch(
 watch(
   () => [fireEvent.forefireResult, fireEvent.spatialAnalysisRun, fireEvent.emergencyRoutes],
   () => {
-    if (busy.value) return
+    if (busy.value || !resultsRequested.value) return
     nextTick(() => renderMap())
   },
   { deep: true },
@@ -1305,12 +1432,12 @@ button:disabled {
   display: grid;
   gap: 5px;
 }
+.environment-input-grid .single-inference-time {
+  grid-column: 1 / -1;
+}
 .environment-input-grid span {
   color: #a8bacb;
   font-size: 11px;
-}
-.weather-update-input {
-  grid-column: 1 / -1;
 }
 .weather-window-head,
 .forecast-timeline-head {
@@ -1624,6 +1751,17 @@ button:disabled {
   background: #0f766e;
   border-color: #2dd4bf;
 }
+.simulation-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.simulation-actions small {
+  grid-column: 1 / -1;
+  color: #9fb7c7;
+  font-size: 10px;
+  line-height: 1.5;
+}
 .historical-command {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 82px;
@@ -1712,6 +1850,16 @@ button:disabled {
   color: #ecfeff;
   background: #9a3412;
   border-color: #fb923c;
+}
+.submit-fireline-command {
+  color: #ecfdf5;
+  background: #166534;
+  border-color: #4ade80;
+}
+.clear-fireline-command {
+  color: #fef2f2;
+  background: #7f1d1d;
+  border-color: #f87171;
 }
 .secondary-command {
   background: #164e63;
@@ -2207,15 +2355,6 @@ button:disabled {
 .analysis-panel .panel-heading h1::after {content:none}
 .verification-hint {padding:9px;border-left:3px solid #e6a93d;background:#2e2a20;color:#f1d79e;font-size:11px;line-height:1.5}
 .verification-hint a {display:block;color:#8dddf2}
-.weather-interval {display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:9px 0;color:#a9c5d1;font-size:11px}
-.weather-interval button {padding:5px 8px;border:1px solid #315b6d;border-radius:5px;background:#102b3b;color:#bddbe8;cursor:pointer}
-.weather-interval button.active {border-color:#2dd4bf;background:#145367;color:white}
-.forecast-horizon {display:grid;gap:7px;margin:10px 0;padding:10px;border:1px solid #2c6170;border-radius:7px;background:#0c2734}
-.forecast-horizon strong {font-size:12px}.forecast-horizon small,.forecast-horizon label {color:#9fc4d0;font-size:10px}
-.horizon-presets {display:flex;flex-wrap:wrap;gap:5px}.horizon-presets button {padding:5px 7px;border:1px solid #315b6d;border-radius:5px;background:#102b3b;color:#bddbe8;cursor:pointer;font-size:10px}
-.horizon-presets button.active {border-color:#2dd4bf;background:#145367;color:white}.forecast-horizon input {width:55px;margin-left:5px;padding:4px;border:1px solid #315b6d;border-radius:4px;background:#081d2b;color:white}
-
-.weather-interval small {color:#7e9ba9}
 .simulation-facts {display:grid;gap:7px;margin:12px 0}
 .simulation-facts div {display:grid;gap:3px;padding:9px;border:1px solid #29465a;border-radius:5px;background:#102638}
 .simulation-facts span {color:#8ea9b8;font-size:10px}

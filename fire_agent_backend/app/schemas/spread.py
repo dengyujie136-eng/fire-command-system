@@ -94,6 +94,7 @@ class SpreadRunRequest(BaseModel):
 class HistoricalSpreadRunRequest(BaseModel):
     start_at: datetime | None = None
     horizon_hours: int = Field(default=24, ge=1, le=168)
+    weather_update_interval_minutes: int = Field(default=60, ge=1, le=1440)
     raster_resolution_m: int = Field(default=90, ge=30, le=300)
     simulation_buffer_km: float = Field(default=25, ge=5, le=80)
     initial_radius_m: float = Field(default=187.5, ge=15, le=500)

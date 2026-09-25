@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.db.base import Base
 from app.visual_verification.candidate_service import (
     CandidateConflictError,
+    create_reverification_version,
     ingest_candidate,
     ingest_candidate_envelope,
     list_candidate_history,
@@ -132,6 +133,37 @@ class CandidateServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([item.version for item in latest], [2])
             self.assertEqual(sorted(item.version for item in versions), [1, 2])
             self.assertEqual([item.version for item in history], [1, 2])
+
+    async def test_reverification_creates_new_case_and_copies_assets(self) -> None:
+        envelope = HotspotCandidateEnvelope.model_validate(load_json("candidate_input.json"))
+        async with self.sessions() as session:
+            ingested = await ingest_candidate_envelope(session, envelope)
+            original = await session.scalar(
+                select(VisualVerificationCaseRecord).where(
+                    VisualVerificationCaseRecord.visual_case_id == ingested.items[0].case.visual_case_id
+                )
+            )
+            self.assertIsNotNone(original)
+            original.status = "confirmed"
+            await session.flush()
+
+            versioned = await create_reverification_version(session, original)
+            await session.commit()
+
+            self.assertEqual(versioned.version, 2)
+            self.assertEqual(versioned.status, "imagery_ready")
+            self.assertEqual(versioned.upstream_status, "candidate")
+            self.assertEqual(
+                versioned.product_fields["reverification_parent_case_id"],
+                original.visual_case_id,
+            )
+            original_assets = await list_case_assets(session, original.visual_case_id)
+            versioned_assets = await list_case_assets(session, versioned.visual_case_id)
+            self.assertEqual(len(versioned_assets), len(original_assets))
+            self.assertEqual(
+                [item.source_asset_id for item in versioned_assets],
+                [item.source_asset_id for item in original_assets],
+            )
 
     async def test_immutable_identity_conflict_is_rejected(self) -> None:
         payload = load_json("member_a_historical_candidate.json")

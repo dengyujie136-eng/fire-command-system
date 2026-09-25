@@ -1,8 +1,11 @@
+from uuid import uuid4
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.integrations.schemas import TrustedIgnition
+from app.models.observation import TrustedFirePoint
 from app.visual_verification.models import (
     FireConfirmationRecord,
     VisualVerificationCaseRecord,
@@ -11,6 +14,50 @@ from app.visual_verification.models import (
 
 class TrustedIgnitionAdapter:
     """Resolve a current visual confirmation into the spread ignition contract."""
+
+    @staticmethod
+    def _level(confidence: float) -> str:
+        if confidence >= 0.85:
+            return "high"
+        if confidence >= 0.65:
+            return "medium"
+        return "low"
+
+    async def sync_trusted_fire_point(
+        self,
+        db: AsyncSession,
+        ignition: TrustedIgnition,
+    ) -> TrustedFirePoint:
+        fusion_id = f"visual_confirmation:{ignition.confirmation_id}"
+        trusted = await db.scalar(
+            select(TrustedFirePoint).where(
+                TrustedFirePoint.event_id == ignition.event_id,
+                TrustedFirePoint.fusion_id == fusion_id,
+            )
+        )
+        if trusted is None:
+            trusted = TrustedFirePoint(
+                trusted_point_id=f"tfp_{uuid4().hex}",
+                event_id=ignition.event_id,
+                fusion_id=fusion_id,
+                longitude=ignition.longitude,
+                latitude=ignition.latitude,
+                confidence=ignition.confidence,
+                level=self._level(ignition.confidence),
+                description="Human-confirmed visual fire point synchronized from the verification workflow.",
+                is_simulated=ignition.is_simulated,
+                data_source_mode="visual_confirmation",
+            )
+            db.add(trusted)
+        else:
+            trusted.longitude = ignition.longitude
+            trusted.latitude = ignition.latitude
+            trusted.confidence = ignition.confidence
+            trusted.level = self._level(ignition.confidence)
+            trusted.is_simulated = ignition.is_simulated
+            trusted.data_source_mode = "visual_confirmation"
+        await db.flush()
+        return trusted
 
     async def resolve(
         self,
@@ -59,7 +106,7 @@ class TrustedIgnitionAdapter:
                 code="confirmed_fire_point_location_missing",
                 status_code=409,
             )
-        return TrustedIgnition(
+        ignition = TrustedIgnition(
             event_id=event_id,
             confirmation_id=confirmation.confirmation_id,
             visual_case_id=case.visual_case_id,
@@ -73,3 +120,5 @@ class TrustedIgnitionAdapter:
             confirmation_method=confirmation.confirmation_method,
             is_simulated=confirmation.is_simulated,
         )
+        await self.sync_trusted_fire_point(db, ignition)
+        return ignition

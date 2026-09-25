@@ -111,6 +111,7 @@ class SpreadAdapter:
         event_id: str,
         ignition: TrustedIgnition,
         horizon_minutes: int,
+        weather_update_interval_minutes: int = 60,
         environment_overrides: Mapping[str, Any] | None = None,
         input_source: str | None = None,
         run_mode: str = "initial_forecast",
@@ -141,6 +142,18 @@ class SpreadAdapter:
                 )
                 for frame in weather
             ]
+        interval = max(1, min(horizon_minutes, int(weather_update_interval_minutes)))
+        update_times = list(range(0, horizon_minutes + 1, interval))
+        if update_times[-1] != horizon_minutes:
+            update_times.append(horizon_minutes)
+        weather = [
+            max(
+                (frame for frame in weather if frame.elapsed_minutes <= elapsed_minutes),
+                key=lambda frame: frame.elapsed_minutes,
+                default=weather[0],
+            ).model_copy(update={"elapsed_minutes": elapsed_minutes})
+            for elapsed_minutes in update_times
+        ]
         request = SpreadRunRequest(
             horizon_minutes=horizon_minutes,
             ignition_point=SpreadIgnitionPoint(

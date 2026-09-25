@@ -204,6 +204,84 @@ async def ingest_candidate_envelope(
     )
 
 
+async def create_reverification_version(
+    db: AsyncSession,
+    case: VisualVerificationCaseRecord,
+    *,
+    reason: str = "operator_requested_reverification",
+) -> VisualVerificationCaseRecord:
+    """Create a fresh review version while preserving the prior audit trail."""
+    latest = await db.scalar(
+        select(VisualVerificationCaseRecord)
+        .where(
+            VisualVerificationCaseRecord.event_id == case.event_id,
+            VisualVerificationCaseRecord.source_candidate_id == case.source_candidate_id,
+        )
+        .order_by(desc(VisualVerificationCaseRecord.version))
+        .limit(1)
+        .with_for_update()
+    )
+    source = latest or case
+    if (
+        source.visual_case_id != case.visual_case_id
+        and source.status not in {"confirmed", "rejected"}
+    ):
+        return source
+    version = source.version + 1
+    record = VisualVerificationCaseRecord(
+        visual_case_id=build_visual_case_id(source.source_candidate_id, version),
+        source_candidate_id=source.source_candidate_id,
+        upstream_schema_version=source.upstream_schema_version,
+        upstream_status="candidate",
+        event_id=source.event_id,
+        event_name=source.event_name,
+        observation_id=source.observation_id,
+        observed_at=source.observed_at,
+        longitude=source.longitude,
+        latitude=source.latitude,
+        source_cluster_id=source.source_cluster_id,
+        cluster_point_count=source.cluster_point_count,
+        cluster_mean_confidence=source.cluster_mean_confidence,
+        cluster_max_frp_mw=source.cluster_max_frp_mw,
+        imagery_status=source.imagery_status,
+        data_owner=dict(source.data_owner or {}),
+        replay_metadata=dict(source.replay_metadata or {}),
+        product_fields={
+            **dict(source.product_fields or {}),
+            "reverification_parent_case_id": source.visual_case_id,
+            "reverification_reason": reason,
+            "reverification_started_at": datetime.now(UTC).isoformat(),
+        },
+        upstream_payload_hash=source.upstream_payload_hash,
+        status=_initial_visual_status(UpstreamImageryStatus(source.imagery_status)),
+        version=version,
+        is_simulated=source.is_simulated,
+    )
+    db.add(record)
+    await db.flush()
+
+    source_assets = await list_case_assets(db, source.visual_case_id)
+    db.add_all([
+        VisualCaseAssetRecord(
+            visual_case_id=record.visual_case_id,
+            source_asset_id=asset.source_asset_id,
+            asset_role=asset.asset_role,
+            source_type=asset.source_type,
+            source_name=asset.source_name,
+            mime_type=asset.mime_type,
+            acquired_at=asset.acquired_at,
+            content_uri=asset.content_uri,
+            preview_uri=asset.preview_uri,
+            quality_status=asset.quality_status,
+            checksum_sha256=asset.checksum_sha256,
+            is_simulated=asset.is_simulated,
+        )
+        for asset in source_assets
+    ])
+    await db.flush()
+    return record
+
+
 async def list_visual_cases(
     db: AsyncSession,
     *,

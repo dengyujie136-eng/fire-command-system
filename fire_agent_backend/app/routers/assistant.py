@@ -1,14 +1,24 @@
 import re
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_db
+from app.services.assistant_guidance_service import build_next_steps
+from app.services.assistant_tool_service import extract_location_hint, run_general_wildfire_agent
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
+    page: str = ""
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class NextStepsRequest(BaseModel):
     page: str = ""
     context: dict[str, Any] = Field(default_factory=dict)
 
@@ -20,6 +30,57 @@ PAGES = {
     "规划": "/planning",
     "评估": "/disaster-assess",
 }
+
+
+@router.post("/next-steps")
+async def next_steps(request: NextStepsRequest) -> dict[str, Any]:
+    return {"ok": True, "data": build_next_steps(request.page, request.context)}
+
+async def _open_question_answer(message: str, context: dict[str, Any]) -> dict[str, Any]:
+    fallback = (
+        "我可以把这个问题拆成可执行步骤，但当前没有足够数据直接给出结论。"
+        "请先明确地点和时间范围；随后检查 FIRMS 候选火点、同期遥感影像、逐时气象、DEM/燃料、道路与应急资源。"
+        "数据就绪后再依次进行火点核验、火势推演、风险分析和救援规划。"
+    )
+    try:
+        from app.llm.providers import get_llm_provider
+
+        provider = get_llm_provider()
+        result = await provider.generate(
+            (
+                "你是森林山火应急系统中的中文任务分析助手。回答应直接、有判断力并给出下一步。"
+                "只能使用用户问题和提供的系统上下文，不得声称已经获得未提供的实时火点、影像、气象、地形、道路或资源数据，"
+                "不得编造面积、坐标、风险等级或模型结果。涉及具体地区时，明确区分当前已知、仍缺数据和建议执行。"
+                "回答控制在180个汉字以内，不使用空泛的页面切换模板。"
+            ),
+            {
+                "question": message,
+                "system_context": context,
+                "available_capabilities": [
+                    "FIRMS近实时候选火点同步",
+                    "遥感影像目录与Qwen-VL核验",
+                    "基于真实输入的火势推演",
+                    "空间风险、资源和演练路径规划",
+                ],
+                "constraints": [
+                    "当前完整历史案例是Dixie Fire",
+                    "新地区需要先准备事件、地形、燃料、气象和影像数据",
+                    "模拟结果必须标记为simulated",
+                ],
+            },
+        )
+        content = result.content.strip()
+        if result.used_remote and content:
+            return {
+                "message": content,
+                "source_mode": "llm",
+                "provider": result.provider,
+                "model": result.model,
+                "used_remote": True,
+            }
+    except Exception:
+        pass
+    return {"message": fallback, "source_mode": "structured_analysis", "used_remote": False}
 
 
 
@@ -71,13 +132,31 @@ def _weather_overrides(message: str) -> dict[str, float]:
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest) -> dict[str, Any]:
+async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     message = request.message.strip()
     weather = _weather_overrides(message)
     context = {key: request.context.get(key) for key in (
         "event_id", "event_name", "mode", "workflow_status", "current_stage",
         "confirmed", "spread_run_id", "route_plan_id", "resource_plan_id"
     )}
+    location_hint = extract_location_hint(message)
+    showcase_location = any(
+        word.lower() in message.lower()
+        for word in (
+            "加州", "California", "美国", "全美", "USA", "United States",
+            "全球", "全世界", "世界范围", "Dixie", "迪克西",
+        )
+    )
+    general_location_analysis = bool(location_hint) or (
+        any(word in message for word in ("山火", "森林火灾", "火灾", "火情"))
+        and any(word in message for word in ("分析", "研判", "评估", "调查", "了解"))
+        and "当前事件" not in message
+    )
+    if general_location_analysis and not showcase_location:
+        return {
+            "ok": True,
+            "data": await run_general_wildfire_agent(message, context, db, location_hint),
+        }
     # Return explicit commands. The browser executes them against the existing
     # workflow/data endpoints and reports the persisted result, including human gates.
     needs_imagery = any(word in message for word in ("影像", "遥感", "卫星", "数据获取", "下载"))
@@ -111,11 +190,24 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
             "source_mode": "structured",
         }}
     # Local UI actions only. No external model or data service is called here.
-    if any(word in message for word in ("实时火点", "全球火点", "全局影像", "全球影像")):
+    realtime_hotspot_request = any(word in message for word in ("实时火点", "近实时火点", "当前火点", "全球火点", "全局影像", "全球影像"))
+    if realtime_hotspot_request:
+        if any(word in message for word in ("全球", "全世界", "世界范围")):
+            focus = "global"
+            reply = "已打开全球总览。当前已接入的热异常仍以所选支持区域为准；全球底图不代表全球火点均已下载。"
+        elif "加州" in message or "California" in message:
+            focus = "california"
+            reply = "已打开加州实时火点视角，并保留当前支持区域内的 FIRMS 近实时观测。"
+        elif any(word in message for word in ("美国", "全美", "美利坚", "USA", "United States")):
+            focus = "usa"
+            reply = "已打开美国本土实时火点视角。当前数据源覆盖范围以页面所选 FIRMS 支持区域为准。"
+        else:
+            focus = "region"
+            reply = "已打开当前支持区域的实时火点视角，并按所选区域范围显示 FIRMS 近实时观测。"
         return {"ok": True, "data": {
-            "message": "已打开实时监测并缩小到全球视角。当前已接入的热异常仍以所选支持区域为准；全局底图不代表全球火点均已下载。",
+            "message": reply,
             "navigate_to": "/realtime-monitor",
-            "navigate_query": {"mode": "realtime", "focus": "global"},
+            "navigate_query": {"mode": "realtime", "focus": focus},
             "source_mode": "structured",
         }}
     if "加州" in message and any(word in message for word in ("火", "聚焦", "数据")):
@@ -134,7 +226,12 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
             "message": (f"已准备推演 {horizon // 60} 小时后的火势。将使用当前推演页气象输入提交模型，结果显示在右侧推演输出卡片和地图时间轴。" if horizon else "已打开火情推演。可设置预测总时长与气象条件，再运行模型。"),
             "navigate_to": "/command-center",
             "navigate_query": {**({"weather_interval": interval} if interval else {}), **({"forecast_hours": str(horizon // 60)} if horizon else {}), **{key: str(value) for key, value in weather.items()}},
-            "action": {"type": "run_spread", "horizon_minutes": horizon, **weather} if horizon else None,
+            "action": {
+                "type": "run_spread",
+                "horizon_minutes": horizon,
+                **({"weather_update_interval_minutes": int(interval)} if interval else {}),
+                **weather,
+            } if horizon else None,
             "source_mode": "structured",
         }}
     if any(word in message for word in ("路线", "路径", "资源调度", "消防队伍", "受灾点", "救火人员", "水资源", "食物")):
@@ -157,6 +254,15 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
             "navigate_to": "/disaster-assess",
             "navigate_query": {"auto_assess": "1"},
             "action": {"type": "acquire_assessment_imagery", "event_id": context.get("event_id") or "dixie_fire_2021"},
+            "source_mode": "structured",
+        }}
+    if any(word in message for word in ("美国", "全美", "美利坚", "USA", "United States")) and any(
+        word in message for word in ("火", "聚焦", "数据", "分析", "监测")
+    ):
+        return {"ok": True, "data": {
+            "message": "已切换到美国本土火情展示视角。该入口保留为系统演示兜底；真实候选点仍以当前已启用的 FIRMS 区域和观测时间为准。",
+            "navigate_to": "/realtime-monitor",
+            "navigate_query": {"mode": "realtime", "focus": "usa"},
             "source_mode": "structured",
         }}
     destination = next(
@@ -191,5 +297,5 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
             "请到推演页查看计算输入和结果。"
         )
     else:
-        answer = "本地对话可报告当前事件状态，或按“打开监测/核验/推演/规划/评估”切换页面。复杂分析请在对应工作页运行。"
+        return {"ok": True, "data": await _open_question_answer(message, context)}
     return {"ok": True, "data": {"message": answer, "source_mode": "structured"}}

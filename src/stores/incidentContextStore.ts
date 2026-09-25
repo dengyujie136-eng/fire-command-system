@@ -172,11 +172,23 @@ export const useIncidentContextStore = defineStore('incident-context', () => {
     }
   }
 
-  async function verify(action: 'confirm' | 'reject' | 'uncertain', note = '') {
+  async function verify(action: 'confirm' | 'reject' | 'uncertain', note = '', confirmationId?: string) {
     if (!workflowRunId.value) return
-    const response = await workflowRuntimeAPI.verify(workflowRunId.value, { action, note })
+    const response = await workflowRuntimeAPI.verify(workflowRunId.value, { action, note, confirmation_id: confirmationId })
     applyWorkflow(response.data)
-    if (action === 'confirm') startPolling()
+  }
+
+  async function updateVerificationProgress(payload: any) {
+    if (!workflowRunId.value) return
+    const response = await workflowRuntimeAPI.updateVerificationProgress(workflowRunId.value, payload)
+    applyWorkflow(response.data)
+  }
+
+  async function resumeWorkflow() {
+    if (!workflowRunId.value) return
+    const response = await workflowRuntimeAPI.resume(workflowRunId.value)
+    applyWorkflow(response.data)
+    startPolling()
   }
 
   async function generateScenario(payload: any) {
@@ -216,7 +228,7 @@ export const useIncidentContextStore = defineStore('incident-context', () => {
     spreadRunId, spatialAnalysisId, scenarioId, resourcePlanId, routePlanId, decisionRunId,
     recommendationId, currentStage, currentTime, readiness, workflow, loading, error,
     selectedEvent, stages, waitingForInput, loadEvents, selectEvent, loadReadiness, loadLatestWorkflow,
-    refreshWorkflow, startWorkflow, rerunSpread, verify, generateScenario, confirmScenario, reviewCommander,
+    refreshWorkflow, startWorkflow, rerunSpread, verify, updateVerificationProgress, resumeWorkflow, generateScenario, confirmScenario, reviewCommander,
     startPolling, stopPolling,
   }
 })

@@ -6,8 +6,8 @@
         <div class="mode-control">
           <label for="monitor-mode">监测模式</label>
           <select id="monitor-mode" v-model="monitorMode" @change="handleModeChange">
-            <option value="history">历史火灾复盘</option>
             <option value="realtime">实时火情监测</option>
+            <option value="history">历史火灾复盘</option>
           </select>
         </div>
         <h1>{{ monitorMode === 'history' ? '历史火灾复盘' : '实时火情监测' }}</h1>
@@ -53,7 +53,7 @@
           <option value="firms">FIRMS 近实时火点</option>
           <option value="firms_archive">FIRMS 三个月演示</option>
         </select></label>
-        <div class="focus-actions"><button type="button" @click="setFocus('global')">全球总览</button><button type="button" @click="setFocus('california')">聚焦加州</button></div>
+        <div class="focus-actions"><button type="button" @click="setFocus('global')">全球总览</button><button type="button" @click="setFocus('usa')">美国本土</button><button type="button" @click="setFocus('california')">聚焦加州</button></div>
         <div v-if="realtimeView === 'firms_archive'" class="demo-panel">
           <div class="section-heading"><h2>FIRMS 火点回放</h2><span>约 3 个月</span></div>
           <p class="demo-label">真实 FIRMS VIIRS 历史产品 · 模拟近实时接收 · 加州北部及内华达西部</p>
@@ -86,9 +86,16 @@
       </section>
 
       <section v-if="monitorMode === 'history'" class="data-section">
-        <div class="section-heading"><h2>数据目录</h2><span>{{ datasetCount }} 个数据集</span></div>
+        <div class="section-heading"><h2>数据目录</h2><span>{{ datasetItems.length }} 类数据</span></div>
         <ul class="dataset-list">
-          <li v-for="item in datasetItems" :key="item.id"><span class="dataset-state"></span><div><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></div></li>
+          <li v-for="item in datasetItems" :key="item.id">
+            <span class="dataset-state"></span>
+            <div class="dataset-copy"><strong>{{ item.label }}</strong><small>{{ item.detail }}</small><small v-if="datasetUploadStatus[item.id]" class="dataset-upload-status" :class="{ error: datasetUploadStatus[item.id]?.error }">{{ datasetUploadStatus[item.id]?.message }}</small></div>
+            <label class="dataset-upload-button" :class="{ disabled: uploadingDatasetId === item.id }">
+              {{ uploadingDatasetId === item.id ? '上传中' : '上传' }}
+              <input type="file" :accept="item.accept" :disabled="Boolean(uploadingDatasetId)" @change="uploadDatasetFile($event, item)">
+            </label>
+          </li>
         </ul>
       </section>
 
@@ -102,7 +109,7 @@
       <div v-if="monitorMode === 'history'" class="map-overlay map-title"><span>历史事件回放 · {{ currentReplayDate }}</span><strong>Dixie Fire · California · 2021</strong></div>
       <div v-else class="map-overlay map-title"><span>{{ realtimeView === 'imagery' ? '卫星影像检测演示 · GOES-18 ABI' : realtimeView === 'firms_archive' ? 'FIRMS 三个月火点演示' : `实时卫星监测 · ${selectedRealtimeRegion?.satellite || '--'}` }}</span><strong>{{ realtimeView === 'imagery' ? 'Park Fire 2024 · 美国加州' : realtimeView === 'firms_archive' ? '加州北部及内华达西部 · 按日回放' : (selectedRealtimeRegion?.label || '实时监测区域') }}</strong></div>
       <div class="map-legend">
-        <template v-if="monitorMode === 'history'"><span><i class="hotspot-key"></i> FIRMS 日聚合火点</span><span><i class="burned-key"></i> MTBS 过火边界</span></template>
+        <template v-if="monitorMode === 'history'"><span><i class="hotspot-key"></i> FIRMS 当日火点</span><span><i class="burned-key"></i> MTBS 过火边界</span></template>
         <template v-else><span><i class="hotspot-key"></i> {{ realtimeView === 'imagery' ? '影像算法候选火点' : realtimeView === 'firms_archive' ? 'FIRMS 日火点' : '实时热异常候选点' }}</span><span><i class="source-key"></i> {{ realtimeView === 'imagery' ? 'GOES-18 ABI' : realtimeView === 'firms_archive' ? 'VIIRS_SNPP_SP' : (selectedRealtimeRegion?.satellite || '实时卫星') }}</span></template>
       </div>
       <section
@@ -203,10 +210,24 @@ import { useRoute, useRouter } from 'vue-router'
 const incident = useIncidentContextStore()
 const route = useRoute(), router = useRouter()
 const workflowError = ref('')
-const focus = ref<'global'|'california'|'region'>('region')
+type RealtimeFocus = 'global'|'usa'|'california'|'region'|'location'
+const focus = ref<RealtimeFocus>('region')
+const locationFocus = ref<{ center:[number,number],height:number }|null>(null)
 async function startIncidentWorkflow(){workflowError.value='';try{await incident.startWorkflow(360)}catch(cause:any){workflowError.value=cause?.message||'工作流启动失败'}}
-function setFocus(value:'global'|'california'){focus.value=value;void router.replace({path:'/realtime-monitor',query:{mode:'realtime',focus:value}});renderRealtimeMap()}
-function applyNavigation(){const next=route.query.focus;focus.value=next==='global'||next==='california'?next:'region';if(route.query.mode==='realtime'&&monitorMode.value!=='realtime'){monitorMode.value='realtime';handleModeChange()}if(monitorMode.value==='realtime')void nextTick(renderRealtimeMap)}
+function setFocus(value:Exclude<RealtimeFocus,'region'>){focus.value=value;void router.replace({path:'/realtime-monitor',query:{mode:'realtime',focus:value}});renderRealtimeMap()}
+function applyNavigation(){
+  const requestedRegion=String(route.query.region||'')
+  const regionChanged=realtimeRegions.some(region=>region.id===requestedRegion)&&selectedRegionId.value!==requestedRegion
+  if(regionChanged)selectedRegionId.value=requestedRegion
+  const lng=Number(route.query.lng),lat=Number(route.query.lat),height=Number(route.query.height)
+  locationFocus.value=Number.isFinite(lng)&&Number.isFinite(lat)?{center:[lng,lat],height:Number.isFinite(height)?Math.max(30000,height):850000}:null
+  const next=route.query.focus
+  focus.value=next==='global'||next==='usa'||next==='california'||(next==='location'&&locationFocus.value)?next:'region'
+  if(route.query.mode==='history'&&monitorMode.value!=='history'){monitorMode.value='history';handleModeChange()}
+  else if(route.query.mode==='realtime'&&monitorMode.value!=='realtime'){monitorMode.value='realtime';handleModeChange()}
+  else if(monitorMode.value==='realtime'&&regionChanged)handleRegionChange()
+  else if(monitorMode.value==='realtime')void nextTick(renderRealtimeMap)
+}
 const apiBase = String(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const eventId = 'dixie_fire_2021'
 const mapRef = ref<InstanceType<typeof CesiumMap> | null>(null)
@@ -223,6 +244,7 @@ const clusterTotal = ref(0)
 const catalog = ref<any>(null)
 const rasterReady = ref(false)
 const mapCenter = ref<[number, number]>([-120.8, 40.3])
+const historyMapCenter = ref<[number, number]>([-120.8, 40.3])
 const burnedGeometry = ref<any>(null)
 const hotspotGeoJson = ref<any>(null)
 const realtimeGeoJson = ref<any>({ type: 'FeatureCollection', features: [] })
@@ -236,7 +258,7 @@ const showCloud = ref(false)
 const showRain = ref(false)
 type MonitorMode = 'history' | 'realtime'
 type RealtimeRegion = { id: string, label: string, satellite: string, coverage: string, refresh: string, supported: boolean, bbox: [number, number, number, number] }
-const monitorMode = ref<MonitorMode>('history')
+const monitorMode = ref<MonitorMode>(route.query.mode === 'history' ? 'history' : 'realtime')
 const realtimeLoading = ref(false)
 const realtimeReady = ref(false)
 const realtimeError = ref('')
@@ -295,16 +317,39 @@ const realtimeLatencyText = computed(() => {
   return `${minutes} 分钟`
 })
 const activeError = computed(() => monitorMode.value === 'history' ? error.value : realtimeError.value)
-const datasetCount = ref(0)
 const eventPeriod = ref('--')
 const ignitionText = ref('--')
+const uploadingDatasetId = ref('')
+const datasetUploadStatus = ref<Record<string, { message: string, error: boolean }>>({})
 const datasetItems = [
-  { id: 'firms', label: 'FIRMS VIIRS 火点', detail: '候选火点与时空聚合' },
-  { id: 'mtbs', label: 'MTBS 过火边界', detail: '最终真实过火面积' },
-  { id: 'weather', label: 'NASA POWER 气象', detail: '温度、湿度、风速、风向' },
-  { id: 'dem', label: 'Copernicus DEM', detail: 'DEM、坡度、坡向' },
-  { id: 'fuel', label: 'ESA WorldCover', detail: '土地覆盖与简化燃料' },
+  { id: 'firms', label: 'FIRMS VIIRS 火点', detail: '候选火点与时空聚合', accept: '.csv,.json,text/csv,application/json' },
+  { id: 'mtbs', label: 'MTBS 过火边界', detail: '最终真实过火面积', accept: '.geojson,.json,.zip,application/geo+json,application/json,application/zip' },
+  { id: 'weather', label: 'NASA POWER 气象', detail: '温度、湿度、风速、风向', accept: '.csv,.json,text/csv,application/json' },
+  { id: 'dem', label: 'Copernicus DEM', detail: 'DEM、坡度、坡向', accept: '.tif,.tiff,image/tiff' },
+  { id: 'fuel', label: 'ESA WorldCover', detail: '土地覆盖与简化燃料', accept: '.tif,.tiff,image/tiff' },
 ]
+
+async function uploadDatasetFile(event: Event, item: (typeof datasetItems)[number]) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || uploadingDatasetId.value) return
+  uploadingDatasetId.value = item.id
+  datasetUploadStatus.value = { ...datasetUploadStatus.value, [item.id]: { message: `正在上传 ${file.name}…`, error: false } }
+  try {
+    const query = new URLSearchParams({ filename: file.name })
+    const response = await fetch(`${apiBase}/api/data-agent/events/${encodeURIComponent(eventId)}/datasets/${encodeURIComponent(item.id)}/upload?${query}`, {
+      method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file,
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : `上传失败（HTTP ${response.status}）`)
+    datasetUploadStatus.value = { ...datasetUploadStatus.value, [item.id]: { message: `${file.name} 已上传，等待数据校验`, error: false } }
+  } catch (cause: any) {
+    datasetUploadStatus.value = { ...datasetUploadStatus.value, [item.id]: { message: cause?.message || '上传失败', error: true } }
+  } finally {
+    uploadingDatasetId.value = ''
+    input.value = ''
+  }
+}
 
 async function getJson(path: string) {
   const response = await fetch(`${apiBase}${path}`)
@@ -446,17 +491,30 @@ function syncReplayWind() {
   if (!map || monitorMode.value !== 'history') return
   const speed = Number(currentWeather.value?.wind_speed_m_s)
   const direction = Number(currentWeather.value?.wind_direction_deg)
-  if (showWind.value && Number.isFinite(speed) && Number.isFinite(direction)) {
-    map.setManualWindField({ longitude: mapCenter.value[0], latitude: mapCenter.value[1], speed, directionDeg: direction, radiusKm: 38 })
+  if (showWind.value && Number.isFinite(speed)) {
+    map.setManualWindField({
+      longitude: mapCenter.value[0],
+      latitude: mapCenter.value[1],
+      speed,
+      directionDeg: Number.isFinite(direction) ? direction : undefined,
+      radiusKm: 110,
+      sparseDirectionFallback: true,
+      directionVariationDeg: 70,
+      seed: `${eventId}:${currentWeather.value?.observed_on || currentReplayDate.value}`,
+      visualScale: 0.72,
+      radialCoverage: true,
+    })
   }
-  map.setWindFieldVisible(showWind.value && Number.isFinite(speed) && Number.isFinite(direction))
+  map.setWindFieldVisible(showWind.value && Number.isFinite(speed))
 }
 
 function renderReplayHotspots() {
   updateReplayGeoJson()
   if (!mapReady.value || !mapRef.value) return
   mapRef.value.clearHotspots()
-  if (hotspotGeoJson.value) mapRef.value.addHotspotGeoJson(hotspotGeoJson.value)
+  if (hotspotGeoJson.value?.features?.length) {
+    mapRef.value.addHotspotGeoJson(hotspotGeoJson.value, { showLabel: false })
+  }
   syncReplayWind()
 }
 
@@ -506,7 +564,9 @@ function renderMap() {
   map.setImageryOverlayVisible(true)
   map.clearHotspots()
   map.clearDemoEntities()
-  if (hotspotGeoJson.value) map.addHotspotGeoJson(hotspotGeoJson.value)
+  if (hotspotGeoJson.value?.features?.length) {
+    map.addHotspotGeoJson(hotspotGeoJson.value, { showLabel: false })
+  }
   for (const [index, ring] of geometryRings(burnedGeometry.value).entries()) {
     if (ring.length >= 3) map.addDemoArea({ name: `MTBS 过火边界 ${index + 1}`, coordinates: ring, color: '#f97316', label: index === 0 ? 'MTBS 过火边界' : '' })
   }
@@ -595,7 +655,7 @@ function renderRealtimeMap() {
   mapRef.value.clearHotspots()
   mapRef.value.clearDemoEntities()
   updateRealtimeGeoJson()
-  if (realtimeGeoJson.value.features.length) mapRef.value.addHotspotGeoJson(realtimeGeoJson.value)
+  if (realtimeGeoJson.value.features.length) mapRef.value.addHotspotGeoJson(realtimeGeoJson.value, { showLabel: false })
   const positions = realtimeHotspots.value.map((item: any) => [Number(item.longitude), Number(item.latitude)] as [number, number]).filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
   if (realtimeView.value === 'firms_archive' && positions.length) {
     const lngs = positions.map(([lng]) => lng)
@@ -604,7 +664,16 @@ function renderRealtimeMap() {
     mapRef.value.flyTo({ center: [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2], height: Math.max(50000, Math.min(500000, span * 60000)) })
     return
   }
-  mapRef.value.flyTo({ center: focus.value === 'global' ? [-105, 30] : focus.value === 'california' ? [-119, 37] : regionCenter(selectedRealtimeRegion.value), height: focus.value === 'global' ? 18000000 : focus.value === 'california' ? 1300000 : 120000 })
+  const view = focus.value === 'location' && locationFocus.value
+    ? locationFocus.value
+    : focus.value === 'global'
+      ? { center: [-105, 30] as [number, number], height: 18000000 }
+    : focus.value === 'usa'
+      ? { center: [-98.5, 38.5] as [number, number], height: 4000000 }
+      : focus.value === 'california'
+        ? { center: [-119, 37] as [number, number], height: 1300000 }
+        : { center: regionCenter(selectedRealtimeRegion.value), height: 5200000 }
+  mapRef.value.flyTo(view)
 }
 
 async function syncRealtimeData() {
@@ -687,6 +756,7 @@ function handleModeChange() {
   stopRealtimePolling()
   realtimeError.value = ''
   if (monitorMode.value === 'history') {
+    mapCenter.value = [...historyMapCenter.value]
     void nextTick().then(() => mapRef.value?.on('load', renderMap))
     return
   }
@@ -747,10 +817,12 @@ async function loadData() {
     replayIndex.value = 0
     clusterTotal.value = replayFrames.value.reduce((total, frame) => total + frame.rows.length, 0)
     catalog.value = catalogResult
-    datasetCount.value = catalogResult.manifests?.length || 0
     rasterReady.value = Boolean(resolvedResult.selected_datasets?.length && resolvedResult.selected_datasets.every((item: any) => item.available))
     const ignition = eventResult.data?.ignition_point
-    if (Number.isFinite(Number(ignition?.longitude)) && Number.isFinite(Number(ignition?.latitude))) mapCenter.value = [Number(ignition.longitude), Number(ignition.latitude)]
+    if (Number.isFinite(Number(ignition?.longitude)) && Number.isFinite(Number(ignition?.latitude))) {
+      historyMapCenter.value = [Number(ignition.longitude), Number(ignition.latitude)]
+      mapCenter.value = [...historyMapCenter.value]
+    }
     eventPeriod.value = `${String(eventResult.data?.started_at || '').slice(0, 10)} 至 ${String(eventResult.data?.closed_at || '').slice(0, 10)}`
     ignitionText.value = ignition ? `${Number(ignition.longitude).toFixed(4)}, ${Number(ignition.latitude).toFixed(4)}` : '--'
     updateReplayGeoJson()
@@ -765,8 +837,11 @@ async function loadData() {
   }
 }
 
-onMounted(async()=>{await loadData();try{await incident.loadEvents();await incident.loadReadiness();await incident.loadLatestWorkflow()}catch{/* keep monitoring available */}applyNavigation()})
-watch(() => [route.query.mode,route.query.focus],applyNavigation)
+onMounted(async()=>{await loadData();try{await incident.loadEvents();await incident.loadReadiness();await incident.loadLatestWorkflow()}catch{/* keep monitoring available */}applyNavigation();if(monitorMode.value==='realtime'&&!realtimeReady.value&&!realtimeLoading.value)handleModeChange()})
+watch(
+  () => [route.query.mode,route.query.focus,route.query.region,route.query.lng,route.query.lat,route.query.height],
+  applyNavigation,
+)
 watch(replayIndex, renderReplayHotspots)
 watch(showWind, () => nextTick(syncReplayWind))
 watch(realtimeView, (view) => {
@@ -808,7 +883,10 @@ onUnmounted(() => {
 .realtime-note { color: #8ea3bb; font-size: 10px; line-height: 1.5; } .region-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; } .region-card div { display: grid; gap: 3px; padding: 8px; border-radius: 6px; background: rgba(13, 28, 44, .78); } .region-card span { color: #9fb0c7; font-size: 10px; } .region-card b { color: #f8fafc; font-size: 12px; overflow-wrap: anywhere; } .realtime-refresh { background: #155e75; }
 .submode-field { display: grid; gap: 6px; color: #9fb0c7; font-size: 11px; } .demo-panel { display: grid; gap: 9px; padding-top: 4px; } .demo-label { color: #67e8f9; font-size: 11px; line-height: 1.45; } .demo-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; } .demo-actions .refresh-button { margin-top: 0; } .demo-score { color: #5eead4; font-size: 12px; font-weight: 800; white-space: nowrap; } .demo-preview { display: block; width: 100%; max-height: 180px; object-fit: contain; border: 1px solid rgba(125, 211, 252, .25); border-radius: 5px; background: #020712; image-rendering: pixelated; } .error-note { color: #fca5a5; }
 .realtime-source-list { display: grid; gap: 7px; } .realtime-source-list div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(148, 163, 184, .12); } .realtime-source-list strong { color: #dbeafe; font-size: 11px; } .realtime-source-list span { color: #8ea3bb; font-size: 10px; text-align: right; }
-.dataset-list { display: grid; gap: 9px; padding: 0; margin: 0; list-style: none; } .dataset-list li { display: flex; gap: 8px; align-items: start; } .dataset-state { flex: 0 0 auto; width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: #2dd4bf; box-shadow: 0 0 8px rgba(45, 212, 191, .8); } .dataset-list div { display: grid; gap: 2px; min-width: 0; } .dataset-list strong { font-size: 12px; }
+.dataset-list { display: grid; gap: 9px; padding: 0; margin: 0; list-style: none; } .dataset-list li { display: flex; gap: 8px; align-items: start; } .dataset-state { flex: 0 0 auto; width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: #2dd4bf; box-shadow: 0 0 8px rgba(45, 212, 191, .8); } .dataset-list .dataset-copy { display: grid; flex: 1; gap: 2px; min-width: 0; } .dataset-list strong { font-size: 12px; }
+.dataset-upload-button { flex: 0 0 auto; min-width: 42px; padding: 4px 8px; border: 1px solid rgba(45, 212, 191, .42); border-radius: 5px; color: #ccfbf1; background: rgba(15, 118, 110, .35); font-size: 10px; text-align: center; cursor: pointer; }
+.dataset-upload-button input { display: none; } .dataset-upload-button.disabled { opacity: .5; cursor: wait; }
+.dataset-upload-status { color: #5eead4 !important; overflow-wrap: anywhere; } .dataset-upload-status.error { color: #fca5a5 !important; }
 .refresh-button { width: 100%; min-height: 36px; margin-top: 12px; border: 1px solid rgba(45, 212, 191, .45); border-radius: 6px; color: #ecfeff; background: #0f766e; cursor: pointer; font: inherit; font-weight: 700; } .refresh-button:disabled { opacity: .5; cursor: not-allowed; }
 .map-panel { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #020712; } .map { position: absolute; inset: 0; } .map-loading { display: grid; place-items: center; height: 100%; color: #bfdbfe; font-size: 14px; }
 .map-overlay { position: absolute; z-index: 5; pointer-events: none; padding: 10px 12px; border: 1px solid rgba(191, 219, 254, .2); border-radius: 7px; background: rgba(2, 8, 23, .7); backdrop-filter: blur(6px); } .map-title { top: 16px; left: 16px; display: grid; gap: 4px; } .map-title span { color: #93c5fd; font-size: 11px; } .map-title strong { font-size: 15px; }
